@@ -56,7 +56,8 @@ export function useThreeScene(
 
   /**
    * 3D 点击原理就是计算可视化窗口宽高加鼠标当前坐标换算出来的 X、Y、Z 坐标
-   * @param event 传入函数触发
+   * @description 可返回点击当前模型的信息
+   * @param event 传入回调函数触发带出信息
    * @returns
    */
   const handleClick = (event: MouseEvent) => {

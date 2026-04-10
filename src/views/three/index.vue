@@ -5,6 +5,10 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 有很多导入模型的 API 这里不展示可以在官网查看
+ * 主要了解基础原理 控制模型的动作 位置 光线 阴影
+ */
 import { ref } from 'vue';
 import * as THREE from 'three';
 import { useThreeScene } from '@/composables/useThree';
