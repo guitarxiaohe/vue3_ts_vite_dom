@@ -1,33 +1,18 @@
 <script setup lang="ts">
 import { ref, computed, getCurrentInstance } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useQuery } from '@tanstack/vue-query';
 import { Search } from '@element-plus/icons-vue';
 import DialogList from '@/components/dialog-list/index.vue';
 import type { DialogListColumn } from '@/components/dialog-list/index.vue';
+import type {
+  AsyncSelectColumn,
+  AsyncSelectFetchParams,
+  AsyncSelectFetchResult,
+  SelectVal,
+} from './async-select.type';
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
-export interface AsyncSelectColumn {
-  prop: string;
-  label: string;
-  width?: number | string;
-  minWidth?: number | string;
-}
-
-export interface AsyncSelectFetchParams {
-  keyword?: string;
-  page: number;
-  pageSize: number;
-}
-
-export interface AsyncSelectFetchResult {
-  items: Record<string, any>[];
-  total: number;
-}
-
-type SelectVal = string | number | null | (string | number)[];
-
-// ── Props / Emits ──────────────────────────────────────────────────────────
+const { t } = useI18n();
 
 const props = withDefaults(
   defineProps<{
@@ -50,9 +35,9 @@ const props = withDefaults(
     multiple: false,
     valueKey: 'value',
     labelKey: 'label',
-    placeholder: '请选择',
+    placeholder: '',
     disabled: false,
-    dialogTitle: '请选择',
+    dialogTitle: '',
     columns: () => [],
     dialogPageSize: 20,
     staleTime: 5 * 60 * 1000,
@@ -126,7 +111,6 @@ function onDropdownVisible(visible: boolean) {
   if (visible) queryEnabled.value = true;
 }
 
-
 // ── Dialog ─────────────────────────────────────────────────────────────────
 
 const dialogVisible = ref(false);
@@ -170,6 +154,13 @@ function onDialogConfirm(rows: Record<string, any>[]) {
   emit('update:modelValue', newVal);
   emit('change', newVal, rows);
 }
+
+const computedPlaceholder = computed(
+  () => props.placeholder || t('common.pleaseSelect')
+);
+const computedDialogTitle = computed(
+  () => props.dialogTitle || t('common.pleaseSelect')
+);
 </script>
 
 <template>
@@ -182,7 +173,7 @@ function onDialogConfirm(rows: Record<string, any>[]) {
       :loading="selectLoading"
       :multiple="multiple"
       filterable
-      :placeholder="placeholder"
+      :placeholder="computedPlaceholder"
       :disabled="disabled"
       v-bind="$attrs"
       @visible-change="onDropdownVisible"
@@ -191,7 +182,7 @@ function onDialogConfirm(rows: Record<string, any>[]) {
       :icon="Search"
       :disabled="disabled"
       class="async-select__trigger"
-      title="弹窗选择"
+      :title="t('common.dialogSelect')"
       @click="openDialog"
     />
   </div>
@@ -204,7 +195,7 @@ function onDialogConfirm(rows: Record<string, any>[]) {
     :fetcher="fetcher"
     :columns="dialogColumns"
     :row-key="valueKey"
-    :dialog-title="dialogTitle"
+    :dialog-title="computedDialogTitle"
     :page-size="dialogPageSize"
     @confirm="onDialogConfirm"
   />

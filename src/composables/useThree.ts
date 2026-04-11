@@ -6,7 +6,7 @@ import type {
   ThreeSceneOptions,
   ThreeSceneReturn,
   ClickInfo,
-} from '@/types/three.type';
+} from '@/types/three/index.type';
 
 /**
  * Three.js 场景管理 Hook

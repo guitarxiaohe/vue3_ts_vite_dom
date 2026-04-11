@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { AsyncSelect } from '@/components/async-select'
-import DialogList from '@/components/dialog-list/index.vue'
-import type { AsyncSelectFetchParams } from '@/components/async-select'
-import type { DialogListFetchParams } from '@/components/dialog-list/index.vue'
+import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { AsyncSelect } from '@/components/async-select';
+import DialogList from '@/components/dialog-list/index.vue';
+import type { AsyncSelectFetchParams } from '@/components/async-select';
+import type { DialogListFetchParams } from '@/components/dialog-list/index.vue';
 
+const { t } = useI18n();
 // ── Mock 数据 ─────────────────────────────────────────────────────────────
 
 interface User {
-  id: number
-  name: string
-  dept: string
-  email: string
+  id: number;
+  name: string;
+  dept: string;
+  email: string;
 }
 
 const MOCK_USERS: User[] = Array.from({ length: 80 }, (_, i) => ({
@@ -19,111 +21,125 @@ const MOCK_USERS: User[] = Array.from({ length: 80 }, (_, i) => ({
   name: `用户 ${i + 1}`,
   dept: ['研发部', '产品部', '设计部', '运营部', '测试部'][i % 5],
   email: `user${i + 1}@example.com`,
-}))
+}));
 
 /** 模拟网络延迟 */
 function sleep(ms = 300) {
-  return new Promise((r) => setTimeout(r, ms))
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 /** AsyncSelect 的 fetcher：返回 { items, total } */
 async function fetchUsers(params: AsyncSelectFetchParams) {
-  await sleep()
+  await sleep();
   const filtered = MOCK_USERS.filter(
-    (u) => !params.keyword || u.name.includes(params.keyword) || u.dept.includes(params.keyword),
-  )
-  const start = (params.page - 1) * params.pageSize
+    (u) =>
+      !params.keyword ||
+      u.name.includes(params.keyword) ||
+      u.dept.includes(params.keyword)
+  );
+  const start = (params.page - 1) * params.pageSize;
   return {
     items: filtered.slice(start, start + params.pageSize),
     total: filtered.length,
-  }
+  };
 }
 
 /** DialogList 的 fetcher（同一份数据，接口一致） */
 async function fetchUsersForDialog(params: DialogListFetchParams) {
-  return fetchUsers(params)
+  return fetchUsers(params);
 }
 
 // ── AsyncSelect 示例状态 ──────────────────────────────────────────────────
 
-const singleUser = ref<number | null>(null)
-const multiUsers = ref<number[]>([])
+const singleUser = ref<number | null>(null);
+const multiUsers = ref<number[]>([]);
 
 // ── DialogList 示例状态 ───────────────────────────────────────────────────
 
-const dialogVisible = ref(false)
-const dialogMultiVisible = ref(false)
+const dialogVisible = ref(false);
+const dialogMultiVisible = ref(false);
 
-const singleDialogValue = ref<number | null>(null)
-const multiDialogValue = ref<number[]>([])
+const singleDialogValue = ref<number | null>(null);
+const multiDialogValue = ref<number[]>([]);
 
-const singleConfirmed = ref<User[]>([])
-const multiConfirmed = ref<User[]>([])
+const singleConfirmed = ref<User[]>([]);
+const multiConfirmed = ref<User[]>([]);
 </script>
 
 <template>
   <div class="demo-page">
-    <h2 class="demo-title">组件示例</h2>
-
+    <h2 class="demo-title">{{ t('demo.title') }}</h2>
+    <section></section>
     <!-- ════════════ AsyncSelect ════════════ -->
     <section class="demo-section">
-      <h3 class="demo-section__title">AsyncSelect — 异步下拉（懒加载 + 弹窗选择）</h3>
+      <h3 class="demo-section__title">
+        {{ t('demo.asyncSelect.title') }}
+      </h3>
 
       <!-- 单选 -->
       <div class="demo-block">
-        <p class="demo-block__label">单选</p>
+        <p class="demo-block__label">{{ t('demo.asyncSelect.single') }}</p>
         <AsyncSelect
           v-model="singleUser"
           :fetcher="fetchUsers"
           value-key="id"
           label-key="name"
-          placeholder="请选择用户"
-          dialog-title="选择用户"
+          :placeholder="t('demo.asyncSelect.selectUser')"
+          :dialog-title="t('demo.asyncSelect.selectUser')"
           :columns="[
-            { prop: 'name', label: '姓名', width: 120 },
-            { prop: 'dept', label: '部门', minWidth: 120 },
-            { prop: 'email', label: '邮箱' },
+            { prop: 'name', label: t('demo.table.name'), width: 120 },
+            { prop: 'dept', label: t('demo.table.dept'), minWidth: 120 },
+            { prop: 'email', label: t('demo.table.email') },
           ]"
           style="width: 320px"
         />
-        <span class="demo-block__value">当前值：{{ singleUser ?? '—' }}</span>
+        <span class="demo-block__value"
+          >{{ t('demo.asyncSelect.currentValue') }}{{ singleUser ?? '—' }}</span
+        >
       </div>
 
       <!-- 多选 -->
       <div class="demo-block">
-        <p class="demo-block__label">多选</p>
+        <p class="demo-block__label">{{ t('demo.asyncSelect.multi') }}</p>
         <AsyncSelect
           v-model="multiUsers"
           :multiple="true"
           :fetcher="fetchUsers"
           value-key="id"
           label-key="name"
-          placeholder="请选择用户（可多选）"
-          dialog-title="选择用户"
+          :placeholder="t('demo.asyncSelect.selectUserMulti')"
+          :dialog-title="t('demo.asyncSelect.selectUser')"
           :dialog-page-size="10"
           :columns="[
-            { prop: 'name', label: '姓名', width: 120 },
-            { prop: 'dept', label: '部门', minWidth: 120 },
-            { prop: 'email', label: '邮箱' },
+            { prop: 'name', label: t('demo.table.name'), width: 120 },
+            { prop: 'dept', label: t('demo.table.dept'), minWidth: 120 },
+            { prop: 'email', label: t('demo.table.email') },
           ]"
           style="width: 420px"
         />
         <span class="demo-block__value">
-          已选 {{ multiUsers.length }} 项：{{ multiUsers.join(', ') || '—' }}
+          {{ t('demo.asyncSelect.selectedCount', { count: multiUsers.length })
+          }}{{ multiUsers.join(', ') || '—' }}
         </span>
       </div>
     </section>
 
     <!-- ════════════ DialogList ════════════ -->
     <section class="demo-section">
-      <h3 class="demo-section__title">DialogList — 弹窗列表（el-table-v2 + 序号/复选框）</h3>
+      <h3 class="demo-section__title">
+        {{ t('demo.dialogList.title') }}
+      </h3>
 
       <!-- 单选 -->
       <div class="demo-block">
-        <p class="demo-block__label">单选弹窗</p>
-        <el-button type="primary" plain @click="dialogVisible = true">打开单选弹窗</el-button>
+        <p class="demo-block__label">{{ t('demo.dialogList.singleDialog') }}</p>
+        <el-button type="primary" plain @click="dialogVisible = true">{{
+          t('demo.dialogList.openSingleDialog')
+        }}</el-button>
         <span v-if="singleConfirmed.length" class="demo-block__value">
-          已选：{{ singleConfirmed[0].name }}（{{ singleConfirmed[0].dept }}）
+          {{ t('demo.dialogList.selected') }}{{ singleConfirmed[0].name }}（{{
+            singleConfirmed[0].dept
+          }}）
         </span>
 
         <DialogList
@@ -132,14 +148,14 @@ const multiConfirmed = ref<User[]>([])
           :multiple="false"
           :fetcher="fetchUsersForDialog"
           row-key="id"
-          dialog-title="选择用户（单选）"
+          :dialog-title="t('demo.dialogList.selectUserSingle')"
           dialog-width="720px"
           :table-height="380"
           :page-size="15"
           :columns="[
-            { key: 'name',  title: '姓名',  width: 120 },
-            { key: 'dept',  title: '部门',  width: 120 },
-            { key: 'email', title: '邮箱',  flexGrow: 1 },
+            { key: 'name', title: t('demo.table.name'), width: 120 },
+            { key: 'dept', title: t('demo.table.dept'), width: 120 },
+            { key: 'email', title: t('demo.table.email'), flexGrow: 1 },
           ]"
           @confirm="(rows) => (singleConfirmed = rows as User[])"
         />
@@ -147,10 +163,14 @@ const multiConfirmed = ref<User[]>([])
 
       <!-- 多选 -->
       <div class="demo-block">
-        <p class="demo-block__label">多选弹窗</p>
-        <el-button type="primary" plain @click="dialogMultiVisible = true">打开多选弹窗</el-button>
+        <p class="demo-block__label">{{ t('demo.dialogList.multiDialog') }}</p>
+        <el-button type="primary" plain @click="dialogMultiVisible = true">{{
+          t('demo.dialogList.openMultiDialog')
+        }}</el-button>
         <span v-if="multiConfirmed.length" class="demo-block__value">
-          已选 {{ multiConfirmed.length }} 项：
+          {{
+            t('demo.dialogList.selectedCount', { count: multiConfirmed.length })
+          }}
           {{ multiConfirmed.map((u) => u.name).join('、') }}
         </span>
 
@@ -160,14 +180,14 @@ const multiConfirmed = ref<User[]>([])
           :multiple="true"
           :fetcher="fetchUsersForDialog"
           row-key="id"
-          dialog-title="选择用户（多选）"
+          :dialog-title="t('demo.dialogList.selectUserMulti')"
           dialog-width="820px"
           :table-height="420"
           :page-size="15"
           :columns="[
-            { key: 'name',  title: '姓名',  width: 120 },
-            { key: 'dept',  title: '部门',  width: 120 },
-            { key: 'email', title: '邮箱',  flexGrow: 1 },
+            { key: 'name', title: t('demo.table.name'), width: 120 },
+            { key: 'dept', title: t('demo.table.dept'), width: 120 },
+            { key: 'email', title: t('demo.table.email'), flexGrow: 1 },
           ]"
           @confirm="(rows) => (multiConfirmed = rows as User[])"
         />

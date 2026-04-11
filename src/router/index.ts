@@ -4,6 +4,11 @@ import type { RouteRecordRaw } from 'vue-router';
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
+    component: () => import('@/views/login/index.vue'),
+    // meta: { requiresAuth: true },
+  },
+  {
+    path: '/three',
     component: () => import('@/views/three/index'),
     // meta: { requiresAuth: true },
   },

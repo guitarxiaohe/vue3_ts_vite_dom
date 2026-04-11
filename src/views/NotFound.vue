@@ -1,10 +1,13 @@
 <template>
 <div class='app-container'>
-  <h1>404 - 页面未找到</h1>
-  <p>抱歉，您访问的页面不存在。</p>
+  <h1>{{ t('notFound.title') }}</h1>
+  <p>{{ t('notFound.description') }}</p>
 </div>
 </template>
-<script setup>
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 </script>
 <style scoped lang='scss'>
 </style>

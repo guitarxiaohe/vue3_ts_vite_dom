@@ -1,2 +1,1 @@
-export { useUserStore } from './modules/user'
-export { useProductStore } from './modules/product'
+export { useUserStore } from './modules/user';
