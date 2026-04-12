@@ -1,11 +1,22 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
-
+import Layout from '@/layout/index.vue';
 const routes: RouteRecordRaw[] = [
   {
-    path: '/',
+    path: '/login',
     component: () => import('@/views/login/index.vue'),
     // meta: { requiresAuth: true },
+  },
+  {
+    path: '/',
+    component: () => Layout,
+    redirect: '/entity',
+    children: [
+      {
+        path: '/entity',
+        component: () => import('@/views/entity/index.vue'),
+      },
+    ],
   },
   {
     path: '/three',

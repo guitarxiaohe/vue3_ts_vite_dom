@@ -1,4 +1,10 @@
 <!--
+TODO: 菜单组件 UI 优化
+搜索框、
+轮盘均分展示 每一块是一个三角形  外边打圈 中心小圈 大圆与小圆中间是菜单
+-->
+
+<!--
   WheelMenu - 半轮盘菜单组件
   ─────────────────────────────
   固定在页面最右侧，只展示半个轮盘。
@@ -51,7 +57,7 @@ const route = useRoute();
 const { t } = useI18n();
 
 // ── State ─────────────────────────────────────────────────────────────────
-const isVisible = ref(false);
+const isVisible = ref(true);
 const currentRotation = ref(0);
 const targetRotation = ref(0);
 let rafId: number | null = null;
@@ -214,7 +220,7 @@ onBeforeUnmount(() => {
 .wheel-menu {
   position: fixed;
   right: 0;
-  top: 50%;
+  top: 20%;
   transform: translateY(-50%);
   z-index: 9999;
 }
@@ -262,7 +268,7 @@ onBeforeUnmount(() => {
 /* ── Wheel Body ────────────────────────────────────────────────── */
 .wheel-menu__body {
   position: absolute;
-  right: 30px;
+  right: 0px;
   top: 50%;
   transform: translateY(-50%);
   overflow: hidden;

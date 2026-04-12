@@ -77,6 +77,18 @@ export default {
     zhTW: '繁體中文',
     switchLanguage: '切換語言',
   },
+  interfaceMode: {
+    simple: '簡潔模式',
+    conventional: '常規模式',
+    switchMode: '切換界面模式',
+    simpleDesc: '輪盤選單，主題和語言跟隨系統',
+    conventionalDesc: '常規選單，可自訂設定',
+  },
+  breadcrumb: {
+    show: '顯示麵包屑',
+    hide: '隱藏麵包屑',
+    setting: '麵包屑設定',
+  },
   layout: {
     header: '頭部',
   },

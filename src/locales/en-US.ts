@@ -77,6 +77,18 @@ export default {
     zhTW: '繁體中文',
     switchLanguage: 'Switch Language',
   },
+  interfaceMode: {
+    simple: 'Simple Mode',
+    conventional: 'Conventional Mode',
+    switchMode: 'Switch Interface Mode',
+    simpleDesc: 'Wheel menu, theme and language follow system',
+    conventionalDesc: 'Regular menu, customizable settings',
+  },
+  breadcrumb: {
+    show: 'Show Breadcrumb',
+    hide: 'Hide Breadcrumb',
+    setting: 'Breadcrumb Settings',
+  },
   layout: {
     header: 'Header',
   },

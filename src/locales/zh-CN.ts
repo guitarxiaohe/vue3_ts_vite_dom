@@ -77,6 +77,18 @@ export default {
     zhTW: '繁體中文',
     switchLanguage: '切换语言',
   },
+  interfaceMode: {
+    simple: '简洁模式',
+    conventional: '常规模式',
+    switchMode: '切换界面模式',
+    simpleDesc: '轮盘菜单，主题和语言跟随系统',
+    conventionalDesc: '常规菜单，可自定义设置',
+  },
+  breadcrumb: {
+    show: '显示面包屑',
+    hide: '隐藏面包屑',
+    setting: '面包屑设置',
+  },
   layout: {
     header: '头部',
   },

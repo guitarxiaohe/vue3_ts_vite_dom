@@ -15,6 +15,7 @@
 - HTTP: **axios**
 - 国际化: **vue-i18n**
 - 工具库: **VueUse**
+- 图标: **lucide-vue-next**
 
 ### **目录约定**
 
@@ -25,9 +26,13 @@ src/
       user.ts
     client.ts         # axios 实例封装
   components/         # 全局复用组件
+    conventional-menu/  # 常规模式菜单
+    plate-menu/         # 简洁模式菜单（轮盘）
+    settings-panel/     # 设置面板组件
   composables/        # 全局组合式函数
     useLocale.ts      # 国际化切换
     useTheme.ts       # 主题切换
+    useMenu.ts        # 菜单数据处理
     useQuery.ts       # TanStack Query 封装
     useThree.ts       # Three.js 场景管理
   constants/          # 常量定义
@@ -40,6 +45,8 @@ src/
   router/             # 路由配置
   stores/             # Pinia 状态管理
     modules/          # 按模块划分的 store
+      system.ts       # 系统设置（主题、国际化、界面模式）
+      user.ts         # 用户状态
   styles/             # 全局样式
     base.scss         # 基础样式
     variables.scss    # CSS 变量定义
@@ -131,52 +138,6 @@ export interface PaginationParams {
 | `en-US`  | 英文             |
 | `zh-TW`  | 繁体中文         |
 
-### **语言切换 (useLocale)**
-
-使用 VueUse 的 `useStorage` 实现语言持久化：
-
-```typescript
-// src/composables/useLocale.ts
-import { useStorage } from '@vueuse/core';
-import { useI18n } from 'vue-i18n';
-
-export function useLocale() {
-  const i18n = useI18n();
-
-  const currentLocale = useStorage<AppLocale>(
-    'app_locale',
-    'zh-CN',
-    localStorage
-  );
-
-  const changeLocale = (locale: AppLocale) => {
-    currentLocale.value = locale;
-    i18n.locale.value = locale;
-    document.documentElement.setAttribute('lang', locale);
-  };
-
-  return { currentLocale, changeLocale };
-}
-```
-
-### **使用方式**
-
-```vue
-<template>
-  <el-select v-model="currentLocale" @change="changeLocale">
-    <el-option label="简体中文" value="zh-CN" />
-    <el-option label="English" value="en-US" />
-    <el-option label="繁體中文" value="zh-TW" />
-  </el-select>
-</template>
-
-<script setup lang="ts">
-import { useLocale } from '@/composables/useLocale';
-
-const { currentLocale, changeLocale } = useLocale();
-</script>
-```
-
 ### **语言包结构**
 
 ```typescript
@@ -185,31 +146,36 @@ export default {
   common: {
     confirm: '确认',
     cancel: '取消',
-    save: '保存',
-    delete: '删除',
-    edit: '编辑',
-    add: '新增',
-    search: '搜索',
-    reset: '重置',
-    loading: '加载中...',
-    success: '操作成功',
-    failed: '操作失败',
-    required: '此项为必填项',
+    // ...
   },
-  user: {
-    login: '登录',
-    logout: '退出登录',
-    username: '用户名',
-    password: '密码',
-    loginSuccess: '登录成功',
-    loginFailed: '登录失败',
+  menu: {
+    home: '首页',
+    threeScene: '3D 场景',
+    // ...
   },
-  validation: {
-    required: '{field}不能为空',
-    minLength: '{field}长度不能少于{min}个字符',
-    maxLength: '{field}长度不能超过{max}个字符',
-    email: '请输入有效的邮箱地址',
-    phone: '请输入有效的手机号码',
+  theme: {
+    light: '浅色',
+    dark: '深色',
+    auto: '跟随系统',
+    switchTheme: '切换主题',
+  },
+  locale: {
+    zhCN: '简体中文',
+    enUS: 'English',
+    zhTW: '繁體中文',
+    switchLanguage: '切换语言',
+  },
+  interfaceMode: {
+    simple: '简洁模式',
+    conventional: '常规模式',
+    switchMode: '切换界面模式',
+    simpleDesc: '轮盘菜单，主题和语言跟随系统',
+    conventionalDesc: '常规菜单，可自定义设置',
+  },
+  breadcrumb: {
+    show: '显示面包屑',
+    hide: '隐藏面包屑',
+    setting: '面包屑设置',
   },
 };
 ```
@@ -218,63 +184,11 @@ export default {
 
 ## 🎨 4. 主题切换规范
 
-### **主题切换 (useTheme)**
+### **主题切换**
 
 ## 所有可见的背景颜色和文字颜色都需要支持主题切换
 
-使用 VueUse 的 `useDark` 和 `useToggle` 实现主题切换：
-
-```typescript
-// src/composables/useTheme.ts
-import { useDark, useToggle, useStorage } from '@vueuse/core';
-
-export type ThemeMode = 'light' | 'dark' | 'auto';
-
-export function useTheme() {
-  const isDark = useDark({
-    selector: 'html',
-    attribute: 'data-theme',
-    valueDark: 'dark',
-    valueLight: 'light',
-  });
-
-  const themeMode = useStorage<ThemeMode>('app_theme', 'auto', localStorage);
-
-  const toggleDark = useToggle(isDark);
-
-  const changeTheme = (mode: ThemeMode) => {
-    themeMode.value = mode;
-    if (mode === 'auto') {
-      isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    } else {
-      isDark.value = mode === 'dark';
-    }
-  };
-
-  return { isDark, toggleDark, themeMode, changeTheme };
-}
-```
-
-### **使用方式**
-
-```vue
-<template>
-  <el-switch
-    v-model="isDark"
-    @change="toggleDark"
-    active-text="深色"
-    inactive-text="浅色"
-  />
-</template>
-
-<script setup lang="ts">
-import { useTheme } from '@/composables/useTheme';
-
-const { isDark, toggleDark } = useTheme();
-</script>
-```
-
-### **CSS 变量**
+使用 CSS 变量实现主题切换：
 
 ```scss
 // src/styles/variables.scss
@@ -284,47 +198,152 @@ const { isDark, toggleDark } = useTheme();
   --color-bg-page: #f9fafb;
   --color-bg-card: #ffffff;
   --color-text-primary: #1f2937;
-  // ...
 }
 
 [data-theme='dark'] {
   --color-bg-page: #111827;
   --color-bg-card: #1f2937;
-  --color-text-primary: #f9fafb;
-  // ...
+  --color-text-primary: #f9fafab;
 }
 ```
 
 ---
 
-## 🔧 5. VueUse 常用工具
+## 🏪 5. Store 规范
+
+### **System Store**
+
+系统设置统一管理，包含主题、国际化、界面模式、面包屑设置：
+
+```typescript
+// src/stores/modules/system.ts
+import { defineStore } from 'pinia';
+import { useStorage } from '@vueuse/core';
+
+export type ThemeMode = 'light' | 'dark' | 'auto';
+export type InterfaceMode = 'simple' | 'conventional';
+
+export const useSystemStore = defineStore('system', () => {
+  // 界面模式
+  const interfaceMode = useStorage<InterfaceMode>(
+    'app_interface_mode',
+    'conventional',
+    localStorage
+  );
+  const isSimpleMode = computed(() => interfaceMode.value === 'simple');
+  const isConventionalMode = computed(
+    () => interfaceMode.value === 'conventional'
+  );
+
+  // 国际化
+  const currentLocale = useStorage<AppLocale>(
+    'app_locale',
+    'zh-CN',
+    localStorage
+  );
+
+  // 主题
+  const currentTheme = useStorage<ThemeMode>('app_theme', 'auto', localStorage);
+  const isDark = computed(() => {
+    if (currentTheme.value === 'auto') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return currentTheme.value === 'dark';
+  });
+
+  // 面包屑
+  const showBreadcrumb = useStorage('app_show_breadcrumb', true, localStorage);
+
+  return {
+    interfaceMode,
+    isSimpleMode,
+    isConventionalMode,
+    currentLocale,
+    currentTheme,
+    isDark,
+    showBreadcrumb,
+  };
+});
+```
+
+---
+
+## 🧩 6. 界面模式
+
+### **简洁模式 (Simple Mode)**
+
+- 菜单: `plate-menu` 轮盘菜单
+- 主题: 自动跟随系统
+- 语言: 自动跟随浏览器
+- 设置: 悬浮设置图标，点击打开抽屉
+
+### **常规模式 (Conventional Mode)**
+
+- 菜单: `conventional-menu` 侧边栏菜单（el-menu）
+- 主题: 用户手动选择
+- 语言: 用户手动选择
+- 设置: 菜单底部设置面板
+
+### **切换逻辑**
+
+```typescript
+// 切换到简洁模式时自动设置
+const applySimpleModeSettings = () => {
+  setThemeBySystem();
+  setLocaleByBrowser();
+};
+
+watch(interfaceMode, (mode) => {
+  if (mode === 'simple') {
+    applySimpleModeSettings();
+  }
+});
+```
+
+---
+
+## 📦 7. 菜单数据处理 (useMenu)
+
+### **功能**
+
+- 扁平化菜单列表（带 fullPath、level、allParentIds）
+- 树形菜单结构
+- 面包屑路径获取
+- 可见菜单过滤
+
+### **使用示例**
+
+```typescript
+import { useMenu } from '@/composables/useMenu';
+
+const menuData = ref([
+  {
+    menuId: 1,
+    menuName: '系统管理',
+    parentId: null,
+    path: 'system',
+    orderNum: 1,
+  },
+  { menuId: 2, menuName: '用户管理', parentId: 1, path: 'user', orderNum: 1 },
+]);
+
+const { flatList, treeList, getBreadcrumb, getVisibleTree } = useMenu(menuData);
+
+// flatList[1].fullPath => '/system/user'
+// flatList[1].level => 2
+// getBreadcrumb(2) => [系统管理, 用户管理]
+```
+
+---
+
+## 🔧 8. VueUse 常用工具
 
 ### **状态持久化**
 
 ```typescript
 import { useStorage } from '@vueuse/core';
 
-// 自动同步 localStorage
 const token = useStorage('token', '', localStorage);
-
-// 自动同步 sessionStorage
-const tempData = useStorage('temp', {}, sessionStorage);
-```
-
-### **响应式监听**
-
-```typescript
-import { useMutationObserver, useResizeObserver } from '@vueuse/core';
-
-// 监听 DOM 变化
-useMutationObserver(element, (mutations) => {
-  console.log('DOM changed:', mutations);
-});
-
-// 监听元素尺寸变化
-useResizeObserver(element, (entries) => {
-  console.log('Size changed:', entries);
-});
 ```
 
 ### **浏览器 API**
@@ -332,142 +351,7 @@ useResizeObserver(element, (entries) => {
 ```typescript
 import { useDark, useToggle, usePreferredDark } from '@vueuse/core';
 
-// 系统偏好
 const prefersDark = usePreferredDark();
-
-// 剪贴板
-import { useClipboard } from '@vueuse/core';
-const { text, copy, copied } = useClipboard();
-
-// 全屏
-import { useFullscreen } from '@vueuse/core';
-const { isFullscreen, toggle } = useFullscreen();
-```
-
----
-
-## 📦 6. API 模块规范
-
-### **目录结构**
-
-```
-src/api/
-  client.ts           # axios 实例，请求/响应拦截器
-  modules/
-    user.ts           # 用户相关 API
-    product.ts        # 产品相关 API
-```
-
-### **API 函数定义**
-
-```typescript
-// src/api/modules/user.ts
-import { httpClient } from '../client';
-import type { LoginParams, LoginResponse, User } from '@/types/user';
-
-export const login = (data: LoginParams) => {
-  return httpClient.post<LoginResponse>('/login', data);
-};
-
-export const getUserInfo = () => {
-  return httpClient.get<User>('/user/info');
-};
-
-export const logout = () => {
-  return httpClient.post('/logout');
-};
-```
-
----
-
-## 🏪 7. Store 规范
-
-### **使用 Composition API 风格**
-
-```typescript
-// src/stores/modules/user.ts
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import { useStorage } from '@vueuse/core';
-import { login, logout, getUserInfo } from '@/api/modules/user';
-import type { User, LoginParams } from '@/types/user';
-
-export const useUserStore = defineStore('user', () => {
-  const token = useStorage<string | null>('token', null, localStorage);
-  const userInfo = ref<User | null>(null);
-
-  const isLoggedIn = computed(() => !!token.value);
-
-  const loginAction = async (params: LoginParams) => {
-    const response = await login(params);
-    if (response.code === 200) {
-      token.value = response.data.token;
-      return true;
-    }
-    return false;
-  };
-
-  const logoutAction = async () => {
-    await logout();
-    token.value = null;
-    userInfo.value = null;
-  };
-
-  return {
-    token,
-    userInfo,
-    isLoggedIn,
-    loginAction,
-    logoutAction,
-  };
-});
-```
-
----
-
-## 🧩 8. 组件规范
-
-### **组件结构**
-
-```vue
-<template>
-  <div class="my-component">
-    <!-- 模板内容 -->
-  </div>
-</template>
-
-<script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { useDark, useToggle } from '@vueuse/core';
-import type { PropsType } from '@/types/module';
-
-const props = defineProps<PropsType>();
-
-const emit = defineEmits<{
-  (e: 'update', value: string): void;
-}>();
-
-const { t } = useI18n();
-const isDark = useDark();
-
-const loading = ref(false);
-
-const handleClick = () => {
-  emit('update', 'new value');
-};
-
-onMounted(() => {
-  // 初始化逻辑
-});
-</script>
-
-<style lang="scss" scoped>
-.my-component {
-  background-color: var(--color-bg-card);
-  border-radius: var(--radius-md);
-}
-</style>
 ```
 
 ---

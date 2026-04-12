@@ -9,8 +9,7 @@ import './styles/base.scss';
 import router from './router';
 import App from './App.vue';
 import { i18n } from './i18n';
-import { initLocale } from './composables/useLocale';
-import { initTheme } from './composables/useTheme';
+import { initSystem } from './stores';
 
 const app = createApp(App);
 
@@ -44,6 +43,5 @@ app.use(ElementPlus);
 
 app.mount('#app');
 
-// 初始化语言和主题
-initLocale();
-initTheme();
+// 初始化系统设置（语言、主题、界面模式）
+initSystem();
