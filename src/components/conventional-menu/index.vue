@@ -2,7 +2,6 @@
 import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useSystemStore } from '@/stores';
 import SettingsPanel from '@/components/settings-panel/index.vue';
 import {
   House,

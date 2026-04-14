@@ -48,3 +48,20 @@ export interface TreeNode extends MenuItem {
   level: number;
   children?: TreeNode[];
 }
+
+// 字段配置（完整版）
+export interface FieldConfig {
+  id: number;
+  entityKey: string;
+  fieldKey: string;
+  fieldName: string;
+  dictCode: string | null;
+  selectEntityKey: string | null;
+  sort: number;
+  isFuzzySearch: boolean; // 转为布尔值
+  isVisible: boolean; // 转为布尔值
+  createdBy: number | null;
+  createdTime: number | null;
+  updatedBy: number | null;
+  updatedTime: number | null;
+}

@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import type { ApiResponse } from '@/types/api';
-
+import { useUserStore } from '@/stores';
 class HttpClient {
   private instance: AxiosInstance;
 
@@ -36,14 +36,22 @@ class HttpClient {
     // 响应拦截器
     this.instance.interceptors.response.use(
       (response) => {
-        console.log(`[Response] ${response.config.url}`, response.data);
+        console.log(`[Response] ${response.config.url}`, response);
+        // 统一错误处理
+        if (response.data?.code === 401) {
+          const { logout } = useUserStore();
+
+          logout();
+          // 未授权，跳转登录
+          window.location.href = '/login';
+        }
         return response.data;
       },
       (error) => {
         console.error(`[Error] ${error.config?.url}`, error);
 
         // 统一错误处理
-        if (error.response?.status === 401) {
+        if (error.response?.code === 401) {
           // 未授权，跳转登录
           window.location.href = '/login';
         }

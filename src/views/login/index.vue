@@ -220,7 +220,7 @@
             <input
               v-model="formData.username"
               type="text"
-              :placeholder="t('login.emailPlaceholder')"
+              :placeholder="t('login.username')"
               autocomplete="off"
               @focus="isTyping = true"
               @blur="isTyping = false"

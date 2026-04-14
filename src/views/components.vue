@@ -5,8 +5,11 @@ import { AsyncSelect } from '@/components/async-select';
 import DialogList from '@/components/dialog-list/index.vue';
 import type { AsyncSelectFetchParams } from '@/components/async-select';
 import type { DialogListFetchParams } from '@/components/dialog-list/index.vue';
-
+import TableEntlty from '@/components/table-entlty/index.vue';
+import { getByEntityKeyAndFieldKeyApi } from '@/api/modules/user';
+import type { ColumnsItem } from '@/components/table-entlty/index.type';
 const { t } = useI18n();
+
 // ── Mock 数据 ─────────────────────────────────────────────────────────────
 
 interface User {
@@ -64,12 +67,68 @@ const multiDialogValue = ref<number[]>([]);
 
 const singleConfirmed = ref<User[]>([]);
 const multiConfirmed = ref<User[]>([]);
+
+const columns = ref<ColumnsItem[]>([]);
+const init = async () => {
+  try {
+    const list = await getByEntityKeyAndFieldKeyApi('user');
+    const responseData = list?.data || [];
+
+    if (Array.isArray(responseData)) {
+      columns.value = responseData.map((t, ind) => ({
+        title: t.fieldName,
+        key: t.id,
+        dataKey: t.fieldKey,
+        width: 150,
+        fixed: ind < 3 ? 'left' : '',
+      }));
+    }
+    console.log(' columns.value ==>', columns.value);
+  } catch (error) {
+    console.error('Failed to load field config:', error);
+  }
+};
+init();
+
+const data = [
+  {
+    user_id: '1',
+  },
+  {
+    user_id: '2',
+  },
+  {
+    user_id: '3',
+  },
+  {
+    user_id: '4',
+  },
+];
+const page = ref(0);
+for (let index = 0; index < 10; index++) {
+  data.push({ user_id: String(index + 4) });
+}
+
+const pageChange = (num) => {
+  console.log('num ==>', num);
+  page.value = num;
+};
 </script>
 
 <template>
   <div class="demo-page">
     <h2 class="demo-title">{{ t('demo.title') }}</h2>
-    <section></section>
+
+    <TableEntlty
+      row-key="user_id"
+      :columns="columns"
+      :data="data"
+      @page-change="pageChange"
+      :current-page="page"
+      :page-size="10"
+      showPagination
+      :total="200"
+    />
     <!-- ════════════ AsyncSelect ════════════ -->
     <section class="demo-section">
       <h3 class="demo-section__title">
