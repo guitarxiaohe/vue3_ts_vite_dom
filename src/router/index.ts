@@ -22,25 +22,26 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/entity/index.vue'),
         meta: { requiresAuth: true },
       },
+      {
+        path: '/components',
+        name: 'Components',
+        component: () => import('@/views/components.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: '/three',
+        name: 'ThreeScene',
+        component: () => import('@/views/three/index'),
+        meta: { requiresAuth: true },
+      },
+
+      {
+        path: '/:pathMatch(.*)*',
+        name: 'NotFound',
+        component: () => import('@/views/NotFound.vue'),
+        meta: { requiresAuth: false },
+      },
     ],
-  },
-  {
-    path: '/three',
-    name: 'ThreeScene',
-    component: () => import('@/views/three/index'),
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/components',
-    name: 'Components',
-    component: () => import('@/views/components.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/:pathMatch(.*)*',
-    name: 'NotFound',
-    component: () => import('@/views/NotFound.vue'),
-    meta: { requiresAuth: false },
   },
 ];
 

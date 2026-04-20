@@ -6,7 +6,6 @@ import DialogList from '@/components/dialog-list/index.vue';
 import type { AsyncSelectFetchParams } from '@/components/async-select';
 import type { DialogListFetchParams } from '@/components/dialog-list/index.vue';
 import TableEntlty from '@/components/table-entlty/index.vue';
-import { getByEntityKeyAndFieldKeyApi } from '@/api/modules/user';
 import type { ColumnsItem } from '@/components/table-entlty/index.type';
 const { t } = useI18n();
 
@@ -69,44 +68,24 @@ const singleConfirmed = ref<User[]>([]);
 const multiConfirmed = ref<User[]>([]);
 
 const columns = ref<ColumnsItem[]>([]);
-const init = async () => {
-  try {
-    const list = await getByEntityKeyAndFieldKeyApi('user');
-    const responseData = list?.data || [];
-
-    if (Array.isArray(responseData)) {
-      columns.value = responseData.map((t, ind) => ({
-        title: t.fieldName,
-        key: t.id,
-        dataKey: t.fieldKey,
-        width: 150,
-        fixed: ind < 3 ? 'left' : '',
-      }));
-    }
-    console.log(' columns.value ==>', columns.value);
-  } catch (error) {
-    console.error('Failed to load field config:', error);
-  }
-};
-init();
 
 const data = [
   {
-    user_id: '1',
+    userId: '1',
   },
   {
-    user_id: '2',
+    userId: '2',
   },
   {
-    user_id: '3',
+    userId: '3',
   },
   {
-    user_id: '4',
+    userId: '4',
   },
 ];
 const page = ref(0);
 for (let index = 0; index < 10; index++) {
-  data.push({ user_id: String(index + 4) });
+  data.push({ userId: String(index + 4) });
 }
 
 const pageChange = (num) => {
@@ -120,7 +99,9 @@ const pageChange = (num) => {
     <h2 class="demo-title">{{ t('demo.title') }}</h2>
 
     <TableEntlty
-      row-key="user_id"
+      data-url="/system/user/list"
+      entity-key="user"
+      row-key="userId"
       :columns="columns"
       :data="data"
       @page-change="pageChange"

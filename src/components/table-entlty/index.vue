@@ -1,6 +1,7 @@
 <template>
   <div class="table-entlty">
     <ElTableV2
+      :loading="tableLoading"
       :columns="tableColumns"
       :data="dataList"
       :width="props.width ?? 700"
@@ -23,9 +24,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, watch } from 'vue';
-import { ElTableV2, ElCheckbox } from 'element-plus';
+import { ref, computed, h, watch, reactive } from 'vue';
+import { ElTableV2, ElCheckbox, TableV2FixedDir } from 'element-plus';
 import type { ColumnsItem, TableEntlty } from './index.type';
+import { getByEntityKeyAndFieldKeyApi } from '@/api/modules/user';
+import { isEmptyValue, snakeToCamel } from '@/utils/value';
+import { httpClient } from '@/api/client';
 
 const props = withDefaults(defineProps<TableEntlty>(), {
   height: 400,
@@ -46,12 +50,13 @@ const emit = defineEmits<{
   'selection-change': [rows: Record<string, any>[]];
   'page-change': [page: number];
 }>();
+const dataList = ref<Record<string, any>[]>([]);
 
-// ── Data ──────────────────────────────────────────────────────────────────
-
-const dataList = computed(() => {
-  if (!Array.isArray(props.data)) return [];
-  return props.data;
+const tableLoading = ref(false);
+const pagination = reactive({
+  total: 0,
+  pageNum: 1,
+  pageSize: 10,
 });
 
 // ── Selection ─────────────────────────────────────────────────────────────
@@ -196,80 +201,144 @@ const rowEventHandlers = {
 function onPageChange(page: number) {
   emit('update:currentPage', page);
   emit('page-change', page);
+  console.log('onPageChange ==>', page);
+  pagination.pageNum = page;
+  initData();
 }
 
 // ── Selection Column ──────────────────────────────────────────────────────
 
 const SEL_WIDTH = 55;
 
-const selectionColumn = computed(() => ({
-  key: '__sel__',
-  width: SEL_WIDTH,
-  align: 'center' as const,
-  fixed: 'left',
-  cellRenderer: ({
-    rowData,
-    rowIndex,
-  }: {
-    rowData: Record<string, any>;
-    rowIndex: number;
-  }) => {
-    const selected = isSelected(rowData);
-    const hovered = hoveredIndex.value === rowIndex;
+const selectionColumn = computed(
+  (): ColumnsItem => ({
+    key: '__sel__',
+    width: SEL_WIDTH,
+    align: 'center' as const,
+    fixed: TableV2FixedDir.LEFT,
+    cellRenderer: ({
+      rowData,
+      rowIndex,
+    }: {
+      rowData: Record<string, any>;
+      rowIndex: number;
+    }) => {
+      const selected = isSelected(rowData);
+      const hovered = hoveredIndex.value === rowIndex;
 
-    // 默认显示序号，hover 或已选中时显示选择控件
-    if (!selected && !hovered) {
-      return h('span', { class: 'sel-index' }, rowIndex + 1);
-    }
+      // 默认显示序号，hover 或已选中时显示选择控件
+      if (!selected && !hovered) {
+        return h('span', { class: 'sel-index' }, rowIndex + 1);
+      }
 
-    if (props.multiple) {
+      if (props.multiple) {
+        return h(ElCheckbox, {
+          modelValue: selected,
+          onClick: (e: MouseEvent) => {
+            e.stopPropagation();
+            toggleRow(rowData);
+          },
+        });
+      } else {
+        return h('span', {
+          class: ['sel-radio', selected && 'sel-radio--checked'],
+          onClick: (e: MouseEvent) => {
+            e.stopPropagation();
+            toggleRow(rowData);
+          },
+        });
+      }
+    },
+    headerCellRenderer: () => {
+      if (!props.multiple) {
+        return h('span', { class: 'sel-header' }, '');
+      }
       return h(ElCheckbox, {
-        modelValue: selected,
+        modelValue: allCurrentSelected.value,
+        indeterminate: someCurrentSelected.value && !allCurrentSelected.value,
+        disabled: dataList.value.length === 0,
         onClick: (e: MouseEvent) => {
           e.stopPropagation();
-          toggleRow(rowData);
+          toggleAll();
         },
       });
-    } else {
-      return h('span', {
-        class: ['sel-radio', selected && 'sel-radio--checked'],
-        onClick: (e: MouseEvent) => {
-          e.stopPropagation();
-          toggleRow(rowData);
-        },
-      });
-    }
-  },
-  headerCellRenderer: () => {
-    if (!props.multiple) {
-      return h('span', { class: 'sel-header' }, '');
-    }
-    return h(ElCheckbox, {
-      modelValue: allCurrentSelected.value,
-      indeterminate: someCurrentSelected.value && !allCurrentSelected.value,
-      disabled: dataList.value.length === 0,
-      onClick: (e: MouseEvent) => {
-        e.stopPropagation();
-        toggleAll();
-      },
-    });
-  },
-}));
+    },
+  })
+);
 
 // ── Columns 组装 ──────────────────────────────────────────────────────────
 
-const tableColumns = computed(() => {
-  const userColumns = props.columns.map((col) => ({
-    ...col,
-    dataKey: col.dataKey ?? col.key,
-    width: col.width ?? 150,
-  }));
+// 宽度辅助函数
+const fontWidth = (fint: string | undefined): number => {
+  if (!fint) return 150;
+  return fint.length * 30;
+};
 
-  if (props.selectable) {
-    return [selectionColumn.value, ...userColumns];
+/** 接口可能返回字符串，映射为 TableV2 的 FixedDir 枚举 */
+function normalizeColumnFixed(v: unknown): true | TableV2FixedDir | undefined {
+  if (v === true) return true;
+  if (v === TableV2FixedDir.LEFT || v === 'left') return TableV2FixedDir.LEFT;
+  if (v === TableV2FixedDir.RIGHT || v === 'right')
+    return TableV2FixedDir.RIGHT;
+  return undefined;
+}
+
+const tableColumns = ref<ColumnsItem[]>([]);
+
+// ------------ 实体请求 --------------------
+const init = async () => {
+  try {
+    if (!props?.entityKey) return console.warn('请提供entityKey');
+    tableLoading.value = true;
+    const list = await getByEntityKeyAndFieldKeyApi(props?.entityKey || '');
+    const responseData = list?.data || [];
+
+    if (!isEmptyValue(responseData)) {
+      const columns = responseData.map(
+        (col): ColumnsItem => ({
+          // ...col,
+          width: col.width ? col.width : (fontWidth(col.fieldName) ?? 150),
+          title: col.fieldName ?? '--',
+          key: col.id ?? '--',
+          // 转义
+          dataKey: snakeToCamel(col.fieldKey ?? '--'),
+          fixed: normalizeColumnFixed(col.fixed),
+        })
+      );
+      tableColumns.value = props.selectable
+        ? [selectionColumn.value, ...columns]
+        : columns;
+    }
+  } catch (error) {
+    console.error('Failed to load field config:', error);
+  } finally {
+    tableLoading.value = false;
   }
-  return userColumns;
-});
+};
+// ── Data ──────────────────────────────────────────────────────────────────
+
+// ------------- 数据组装 --------------------
+
+/** 分页列表：拦截器返回的 body 即为 { total, rows }，与 httpClient 声明的 ApiResponse 不一致处用断言 */
+type PaginatedListPayload = {
+  total: number;
+  rows: Record<string, any>[];
+};
+
+const initData = async () => {
+  try {
+    if (!props?.dataUrl) return [];
+    const result = (await httpClient.get<PaginatedListPayload>(
+      props.dataUrl,
+      pagination
+    )) as unknown as PaginatedListPayload;
+    const payload = result;
+    pagination.total = Number(payload.total) || 0;
+    dataList.value = payload.rows ?? [];
+  } catch {}
+};
+init();
+initData();
 </script>
 
 <style scoped>

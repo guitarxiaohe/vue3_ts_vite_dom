@@ -25,6 +25,8 @@ export interface ColumnsItem extends Column {
 // ── 组件 Props 类型 ──────────────────────────────────────────────────────
 
 export type TableEntlty = {
+  dataUrl?: string;
+  entityKey?: string;
   /** 表格数据 */
   data: Record<string, any>[];
   /** 列配置 */
