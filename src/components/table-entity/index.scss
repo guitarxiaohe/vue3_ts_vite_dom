@@ -1,0 +1,48 @@
+/******************************** table-entity 样式 ********************************/
+
+.table-entity {
+  width: 100%;
+}
+
+.table-entity__row-ops {
+  justify-content: flex-end;
+}
+
+.table-entlty__pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+:deep(.sel-index) {
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  pointer-events: none;
+  user-select: none;
+}
+
+:deep(.sel-radio) {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--el-border-color);
+  box-sizing: border-box;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    border-width 0.15s;
+}
+
+:deep(.sel-radio:hover),
+:deep(.sel-radio--checked) {
+  border-color: var(--el-color-primary);
+}
+
+:deep(.sel-radio--checked) {
+  border-width: 4px;
+  background-color: #fff;
+}

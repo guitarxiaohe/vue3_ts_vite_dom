@@ -22,6 +22,10 @@
   --color-info-light: #60a5fa;
   --color-info-bg: rgba(59, 130, 246, 0.1);
 
+  // 用户信息性别着色（头像旁文案）
+  --color-gender-male-text: #2563eb;
+  --color-gender-female-text: #db2777;
+
   // ========== 文字颜色 ==========
   --color-text-primary: #1f2937;
   --color-text-secondary: #6b7280;
@@ -98,4 +102,7 @@ html.dark,
   --color-border: #374151;
   --color-border-light: #4b5563;
   --color-border-dark: #1f2937;
+
+  --color-gender-male-text: #60a5fa;
+  --color-gender-female-text: #f472b6;
 }

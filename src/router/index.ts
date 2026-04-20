@@ -34,7 +34,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/three/index'),
         meta: { requiresAuth: true },
       },
-
+      {
+        path: '/fileInfo',
+        name: 'FileInfo',
+        component: () => import('@/views/fileInfo/index.vue'),
+        meta: { requiresAuth: true },
+      },
       {
         path: '/:pathMatch(.*)*',
         name: 'NotFound',

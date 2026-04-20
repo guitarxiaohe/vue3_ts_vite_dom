@@ -5,8 +5,10 @@ import { AsyncSelect } from '@/components/async-select';
 import DialogList from '@/components/dialog-list/index.vue';
 import type { AsyncSelectFetchParams } from '@/components/async-select';
 import type { DialogListFetchParams } from '@/components/dialog-list/index.vue';
-import TableEntlty from '@/components/table-entlty/index.vue';
-import type { ColumnsItem } from '@/components/table-entlty/index.type';
+import TableEntlty from '@/components/table-entity/index.vue';
+import type { ColumnsItem, TableListQuery } from '@/components/table-entity/index.type';
+import { httpClient } from '@/api/client';
+import UserAvatarInfo from '@/components/user-avatar-info/index.vue';
 const { t } = useI18n();
 
 // ── Mock 数据 ─────────────────────────────────────────────────────────────
@@ -69,46 +71,94 @@ const multiConfirmed = ref<User[]>([]);
 
 const columns = ref<ColumnsItem[]>([]);
 
-const data = [
-  {
-    userId: '1',
-  },
-  {
-    userId: '2',
-  },
-  {
-    userId: '3',
-  },
-  {
-    userId: '4',
-  },
-];
-const page = ref(0);
-for (let index = 0; index < 10; index++) {
-  data.push({ userId: String(index + 4) });
-}
+const page = ref(1);
 
-const pageChange = (num) => {
-  console.log('num ==>', num);
-  page.value = num;
-};
+/** TableEntity 异步 data：若依分页 { total, rows } */
+async function fetchSystemUserList(query: TableListQuery) {
+  const res = (await httpClient.get('/system/user/list', {
+    pageNum: query.pageNum,
+    pageSize: query.pageSize,
+  })) as unknown as { total?: number; rows?: Record<string, unknown>[] };
+  return {
+    total: Number(res.total ?? 0),
+    rows: (res.rows ?? []) as Record<string, any>[],
+  };
+}
 </script>
 
 <template>
   <div class="demo-page">
     <h2 class="demo-title">{{ t('demo.title') }}</h2>
 
+    <!-- ════════════ UserAvatarInfo ════════════ -->
+    <section class="demo-section">
+      <h3 class="demo-section__title">{{ t('demo.userAvatar.title') }}</h3>
+      <div class="demo-block demo-block--row">
+        <div class="demo-block__label">{{ t('demo.userAvatar.male') }}</div>
+        <UserAvatarInfo
+          user-id="1"
+          :size="44"
+        />
+      </div>
+      <div class="demo-block demo-block--row">
+        <div class="demo-block__label">{{ t('demo.userAvatar.female') }}</div>
+        <UserAvatarInfo
+          user-id="2"
+          :size="44"
+        />
+      </div>
+      <div class="demo-block demo-block--row">
+        <div class="demo-block__label">{{ t('demo.userAvatar.unknown') }}</div>
+        <UserAvatarInfo :user-id="1" :size="44" />
+      </div>
+      <div class="demo-block demo-block--row">
+        <div class="demo-block__label">{{ t('demo.userAvatar.userIdRemote') }}</div>
+        <UserAvatarInfo :user-id="1" :size="44" />
+      </div>
+      <div class="demo-block demo-block--row">
+        <div class="demo-block__label">
+          {{ t('demo.userAvatar.drawerDemo') }}
+        </div>
+        <UserAvatarInfo
+          name="周七"
+          subtitle="研发部 / 前端组"
+          gender="male"
+          :age="28"
+          :work-years="5"
+          email="zhouqi@example.com"
+          phone="13900001111"
+          department="研发部 · 前端组"
+          job-level="P6"
+          :size="44"
+        />
+      </div>
+      <div class="demo-block demo-block--row">
+        <div class="demo-block__label">
+          {{ t('demo.userAvatar.drawerSlotDemo') }}
+        </div>
+        <UserAvatarInfo
+          name="赵八"
+          subtitle="运营部"
+          gender="female"
+          :size="44"
+        >
+          <el-alert
+            type="success"
+            :title="t('common.success')"
+            :closable="false"
+          />
+        </UserAvatarInfo>
+      </div>
+    </section>
+
     <TableEntlty
-      data-url="/system/user/list"
+      :data="fetchSystemUserList"
       entity-key="user"
       row-key="userId"
       :columns="columns"
-      :data="data"
-      @page-change="pageChange"
-      :current-page="page"
+      v-model:current-page="page"
       :page-size="10"
       showPagination
-      :total="200"
     />
     <!-- ════════════ AsyncSelect ════════════ -->
     <section class="demo-section">
@@ -281,6 +331,11 @@ const pageChange = (num) => {
   width: 40px;
   flex-shrink: 0;
   margin: 0;
+}
+
+.demo-block--row .demo-block__label {
+  width: auto;
+  min-width: 200px;
 }
 
 .demo-block__value {

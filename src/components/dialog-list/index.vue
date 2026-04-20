@@ -2,8 +2,8 @@
 import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Search } from '@element-plus/icons-vue';
-import TableEntlty from '@/components/table-entlty/index.vue';
-import type { ColumnsItem } from '@/components/table-entlty/index.type';
+import TableEntlty from '@/components/table-entity/index.vue';
+import type { ColumnsItem } from '@/components/table-entity/index.type';
 
 const { t } = useI18n();
 
@@ -130,9 +130,10 @@ function cancel() {
 }
 
 function confirm() {
-  const rows = lastSelectedRows.length > 0
-    ? lastSelectedRows
-    : tableRef.value?.getSelectedRows() ?? [];
+  const rows =
+    lastSelectedRows.length > 0
+      ? lastSelectedRows
+      : (tableRef.value?.getSelectedRows() ?? []);
   const keys = props.multiple
     ? [...selectedKeys.value]
     : (selectedKeys.value[0] ?? null);
