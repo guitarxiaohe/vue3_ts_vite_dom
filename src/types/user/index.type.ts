@@ -205,3 +205,18 @@ export type SysUserDetailApiResponse = ApiResponse<SysUser> & {
   roles?: SysRole[];
   posts?: SysPost[];
 };
+
+// types/data.ts
+export interface DataItem {
+  /** 项目唯一标识 */
+  id: number;
+  /** 排序序号 */
+  sort: number;
+}
+
+export interface DataStructure {
+  /** 实体类型标识 */
+  entityKey: string;
+  /** 数据项列表 */
+  items: DataItem[];
+}

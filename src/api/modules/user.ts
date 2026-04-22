@@ -1,6 +1,7 @@
 import type { ColumnsItem } from '@/components/table-entity/index.type';
 import { httpClient } from '../client';
 import type {
+  DataStructure,
   LoginParams,
   LoginResponse,
   MenuItem,
@@ -20,7 +21,12 @@ const mockEntityColumns: Record<string, ColumnsItem[]> = {
   ] as ColumnsItem[],
   fileInfo: [
     { key: 'fileId', dataKey: 'fileId', title: '文件ID', width: 90 },
-    { key: 'fileOriginName', dataKey: 'fileOriginName', title: '文件名称', width: 180 },
+    {
+      key: 'fileOriginName',
+      dataKey: 'fileOriginName',
+      title: '文件名称',
+      width: 180,
+    },
     { key: 'fileSuffix', dataKey: 'fileSuffix', title: '后缀', width: 100 },
     { key: 'fileSizeInfo', dataKey: 'fileSizeInfo', title: '大小', width: 110 },
   ] as ColumnsItem[],
@@ -127,7 +133,8 @@ export const getSysUserById = (
 ): Promise<SysUserDetailApiResponse> => {
   if (isMockEnabled()) {
     const uid = Number(userId);
-    const user = mockUserRows.find((u) => Number(u.userId) === uid) ?? mockUserRows[0];
+    const user =
+      mockUserRows.find((u) => Number(u.userId) === uid) ?? mockUserRows[0];
     return Promise.resolve({
       code: 200,
       message: 'mock',
@@ -143,3 +150,25 @@ export const getSysUserById = (
     `/system/user/${userId}`
   ) as Promise<SysUserDetailApiResponse>;
 };
+
+// ('/system/fieldConfig/orst');
+
+export const fieldConfigSort = (data: DataStructure) => {
+  return httpClient.put(
+    '/system/fieldConfig/sort',
+    data
+  ) as Promise<SysUserDetailApiResponse>;
+};
+
+/**
+ *
+ *
+ * {
+  "entityKey": "user",
+  "items": [
+    { "id": 101, "sort": 1 },
+    { "id": 102, "sort": 2 },
+    { "id": 103, "sort": 3 }
+  ]
+}
+ */

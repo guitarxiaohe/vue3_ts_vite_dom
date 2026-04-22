@@ -1,6 +1,7 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import type { ApiResponse } from '@/types/api';
 import { useUserStore } from '@/stores';
+import { ElMessage, ElMessageBox } from 'element-plus';
 class HttpClient {
   private instance: AxiosInstance;
 
@@ -36,16 +37,23 @@ class HttpClient {
     // 响应拦截器
     this.instance.interceptors.response.use(
       (response) => {
-        console.log(`[Response] ${response.config.url}`, response);
-        // 统一错误处理
+        console.log(`[Response]------------> ${response.config.url}`, response);
+
         if (response.data?.code === 401) {
+          // 统一错误处理
           const { logout } = useUserStore();
 
           logout();
           // 未授权，跳转登录
           window.location.href = '/login';
         }
-        return response.data;
+
+        if (response.data?.code == 500) {
+          console.log('variable ==>', 'Response');
+          ElMessage.error(response?.data?.msg || '后端问题');
+          return Promise.reject(response.data.msg);
+        }
+        return Promise.resolve(response?.data);
       },
       (error) => {
         console.error(`[Error] ${error.config?.url}`, error);
