@@ -3,4 +3,6 @@ export type {
   AsyncSelectColumn,
   AsyncSelectFetchParams,
   AsyncSelectFetchResult,
-} from './async-select.vue'
+  AsyncSelectEntityConfig,
+  AsyncSelectEntityFetchResult,
+} from './async-select.type'
