@@ -40,6 +40,16 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/fileInfo/index.vue'),
         meta: { requiresAuth: true },
       },
+
+      {
+        path: 'multiview/:entityKey',
+        name: 'Multiview',
+        component: () => import('@/views/multiview/multiview-page.vue'),
+        meta: {
+          titleKey: 'routes.multiview',
+          requiresAuth: true,
+        },
+      },
       {
         path: '/:pathMatch(.*)*',
         name: 'NotFound',

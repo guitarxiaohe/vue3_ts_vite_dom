@@ -80,6 +80,16 @@ src/types/
   ...
 ```
 
+组件目录下的组件类型统一放在组件同级 `index.type.ts` 中，例如：
+
+```text
+src/components/
+  async-select/
+    async-select.vue
+    index.ts
+    index.type.ts
+```
+
 ### **命名规范**
 
 - 文件名: `index.type.ts`

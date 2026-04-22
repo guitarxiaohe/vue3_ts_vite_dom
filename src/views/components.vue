@@ -6,7 +6,10 @@ import DialogList from '@/components/dialog-list/index.vue';
 import type { AsyncSelectFetchParams } from '@/components/async-select';
 import type { DialogListFetchParams } from '@/components/dialog-list/index.vue';
 import TableEntlty from '@/components/table-entity/index.vue';
-import type { ColumnsItem, TableListQuery } from '@/components/table-entity/index.type';
+import type {
+  ColumnsItem,
+  TableListQuery,
+} from '@/components/table-entity/index.type';
 import { httpClient } from '@/api/client';
 import UserAvatarInfo from '@/components/user-avatar-info/index.vue';
 const { t } = useI18n();
@@ -42,6 +45,10 @@ async function fetchUsers(params: AsyncSelectFetchParams) {
       u.dept.includes(params.keyword)
   );
   const start = (params.page - 1) * params.pageSize;
+  console.log('variable ==>', {
+    items: filtered.slice(start, start + params.pageSize),
+    total: filtered.length,
+  });
   return {
     items: filtered.slice(start, start + params.pageSize),
     total: filtered.length,
@@ -95,24 +102,20 @@ async function fetchSystemUserList(query: TableListQuery) {
       <h3 class="demo-section__title">{{ t('demo.userAvatar.title') }}</h3>
       <div class="demo-block demo-block--row">
         <div class="demo-block__label">{{ t('demo.userAvatar.male') }}</div>
-        <UserAvatarInfo
-          user-id="1"
-          :size="44"
-        />
+        <UserAvatarInfo user-id="1" :size="44" />
       </div>
       <div class="demo-block demo-block--row">
         <div class="demo-block__label">{{ t('demo.userAvatar.female') }}</div>
-        <UserAvatarInfo
-          user-id="2"
-          :size="44"
-        />
+        <UserAvatarInfo user-id="2" :size="44" />
       </div>
       <div class="demo-block demo-block--row">
         <div class="demo-block__label">{{ t('demo.userAvatar.unknown') }}</div>
         <UserAvatarInfo :user-id="1" :size="44" />
       </div>
       <div class="demo-block demo-block--row">
-        <div class="demo-block__label">{{ t('demo.userAvatar.userIdRemote') }}</div>
+        <div class="demo-block__label">
+          {{ t('demo.userAvatar.userIdRemote') }}
+        </div>
         <UserAvatarInfo :user-id="1" :size="44" />
       </div>
       <div class="demo-block demo-block--row">
@@ -177,9 +180,9 @@ async function fetchSystemUserList(query: TableListQuery) {
           :placeholder="t('demo.asyncSelect.selectUser')"
           :dialog-title="t('demo.asyncSelect.selectUser')"
           :columns="[
-            { prop: 'name', label: t('demo.table.name'), width: 120 },
-            { prop: 'dept', label: t('demo.table.dept'), minWidth: 120 },
-            { prop: 'email', label: t('demo.table.email') },
+            { title: 'name', label: t('demo.table.name'), width: 120 },
+            { title: 'dept', label: t('demo.table.dept'), width: 120 },
+            { title: 'email', label: t('demo.table.email'), width: 120 },
           ]"
           style="width: 320px"
         />
@@ -195,16 +198,13 @@ async function fetchSystemUserList(query: TableListQuery) {
           v-model="multiUsers"
           :multiple="true"
           :fetcher="fetchUsers"
-          value-key="id"
-          label-key="name"
+          value-key="deptId"
+          label-key="deptName"
+          :entityConfig="{
+            entityKey: 'dept',
+          }"
           :placeholder="t('demo.asyncSelect.selectUserMulti')"
           :dialog-title="t('demo.asyncSelect.selectUser')"
-          :dialog-page-size="10"
-          :columns="[
-            { prop: 'name', label: t('demo.table.name'), width: 120 },
-            { prop: 'dept', label: t('demo.table.dept'), minWidth: 120 },
-            { prop: 'email', label: t('demo.table.email') },
-          ]"
           style="width: 420px"
         />
         <span class="demo-block__value">
@@ -245,7 +245,7 @@ async function fetchSystemUserList(query: TableListQuery) {
           :columns="[
             { key: 'name', title: t('demo.table.name'), width: 120 },
             { key: 'dept', title: t('demo.table.dept'), width: 120 },
-            { key: 'email', title: t('demo.table.email'), flexGrow: 1 },
+            { key: 'email', title: t('demo.table.email'), width: 1 },
           ]"
           @confirm="(rows) => (singleConfirmed = rows as User[])"
         />
@@ -267,18 +267,15 @@ async function fetchSystemUserList(query: TableListQuery) {
         <DialogList
           v-model:visible="dialogMultiVisible"
           v-model="multiDialogValue"
-          :multiple="true"
+          :entityConfig="{
+            entityKey: 'dept',
+          }"
           :fetcher="fetchUsersForDialog"
           row-key="id"
           :dialog-title="t('demo.dialogList.selectUserMulti')"
           dialog-width="820px"
           :table-height="420"
           :page-size="15"
-          :columns="[
-            { key: 'name', title: t('demo.table.name'), width: 120 },
-            { key: 'dept', title: t('demo.table.dept'), width: 120 },
-            { key: 'email', title: t('demo.table.email'), flexGrow: 1 },
-          ]"
           @confirm="(rows) => (multiConfirmed = rows as User[])"
         />
       </div>
