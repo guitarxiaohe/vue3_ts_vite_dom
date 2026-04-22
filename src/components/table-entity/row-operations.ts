@@ -1,6 +1,10 @@
 import { h } from 'vue';
 import { ElButton, ElSpace, TableV2FixedDir } from 'element-plus';
-import type { ColumnsItem, TableEntlty, TableRowActionItem } from './index.type';
+import type {
+  ColumnsItem,
+  TableEntlty,
+  TableRowActionItem,
+} from './index.type';
 
 /******************************** 行尾操作列 ********************************/
 
