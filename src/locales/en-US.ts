@@ -19,6 +19,7 @@ export default {
     back: 'Back',
     submit: 'Submit',
     confirmDelete: 'Are you sure you want to delete?',
+    confirmDeleteData: 'Do you want to delete this data?',
     noData: 'No data',
     total: 'Total {count} items',
     pleaseSelect: 'Please select',

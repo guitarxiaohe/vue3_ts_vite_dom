@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
 import { ref, watch, reactive, computed } from 'vue';
-import { ElMessage, ElTableV2 } from 'element-plus';
+import { ElMessage, ElMessageBox, ElTableV2 } from 'element-plus';
 import { useSlots } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { fieldConfigSort } from '@/api/modules/user';
@@ -374,24 +374,36 @@ function onPageChange(page: number) {
 
 // 行内删除后：若正在看该行，刷新后校正下标
 async function handleRowDelete(row: Record<string, any>) {
-  const rk = props.rowKey ?? 'id';
-  const viewing =
-    detailDrawerVisible.value &&
-    detailRow.value &&
-    String(detailRow.value[rk]) === String(row[rk]);
-
-  const ok = await deleteRowByEntityKey(row);
-  if (!ok) return;
-
-  if (viewing) {
-    if (!dataList.value.length) {
-      detailDrawerVisible.value = false;
-      return;
-    }
-    detailRowIndex.value = Math.min(
-      detailRowIndex.value,
-      dataList.value.length - 1
+  try {
+    const rk = props.rowKey ?? 'id';
+    const viewing =
+      detailDrawerVisible.value &&
+      detailRow.value &&
+      String(detailRow.value[rk]) === String(row[rk]);
+    await ElMessageBox.confirm(
+      t('common.confirmDeleteData'),
+      t('common.delete'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning',
+      }
     );
+    const ok = await deleteRowByEntityKey(row);
+    if (!ok) return;
+
+    if (viewing) {
+      if (!dataList.value.length) {
+        detailDrawerVisible.value = false;
+        return;
+      }
+      detailRowIndex.value = Math.min(
+        detailRowIndex.value,
+        dataList.value.length - 1
+      );
+    }
+  } catch (e) {
+    // throw new Error(e);
   }
 }
 

@@ -19,6 +19,7 @@ export default {
     back: '返回',
     submit: '提交',
     confirmDelete: '確定要刪除嗎？',
+    confirmDeleteData: '是否刪除該資料？',
     noData: '暫無資料',
     total: '共 {count} 條',
     pleaseSelect: '請選擇',
