@@ -16,18 +16,28 @@ export function useTableColumns(
   selectionColumn: ComputedRef<ColumnsItem>
 ) {
   const tableColumns = ref<ColumnsItem[]>([]);
+  const businessColumns = ref<ColumnsItem[]>([]);
+  const fieldConfigRows = ref<Record<string, any>[]>([]);
+
+  // 组装业务列并合并插槽
+  function buildBusinessColumns(columns: ColumnsItem[]) {
+    return applyColumnSlots(columns.map((c) => ({ ...c })), slots);
+  }
 
   // 组装 tableColumns（含可选选择列）
+  function setTableColumns(columns: ColumnsItem[]) {
+    businessColumns.value = columns;
+    tableColumns.value = props.selectable
+      ? [selectionColumn.value, ...columns]
+      : columns;
+  }
+
+  // 初始化列配置
   async function initColumns() {
     try {
       if (props.columns?.length) {
-        const wrapped = applyColumnSlots(
-          props.columns.map((c) => ({ ...c })),
-          slots
-        );
-        tableColumns.value = props.selectable
-          ? [selectionColumn.value, ...wrapped]
-          : wrapped;
+        fieldConfigRows.value = [];
+        setTableColumns(buildBusinessColumns(props.columns));
         return;
       }
       if (!props?.entityKey) {
@@ -36,7 +46,10 @@ export function useTableColumns(
       }
       tableLoading.value = true;
       const list = await getByEntityKeyAndFieldKeyApi(props.entityKey || '');
-      const responseData = list?.data || [];
+      const responseData: Record<string, any>[] = Array.isArray(list?.data)
+        ? list.data
+        : [];
+      fieldConfigRows.value = Array.isArray(responseData) ? responseData : [];
 
       if (!isEmptyValue(responseData)) {
         const columns = responseData.map(
@@ -48,16 +61,21 @@ export function useTableColumns(
             fixed: normalizeColumnFixed(col.fixed),
           })
         );
-        const wrapped = applyColumnSlots(columns, slots);
-        tableColumns.value = props.selectable
-          ? [selectionColumn.value, ...wrapped]
-          : wrapped;
+        setTableColumns(buildBusinessColumns(columns));
+        return;
       }
+
+      setTableColumns([]);
     } catch (error) {
       console.error('Failed to load field config:', error);
     } finally {
       tableLoading.value = false;
     }
+  }
+
+  // 重新拉取列配置
+  async function reloadColumns() {
+    await initColumns();
   }
 
   watch(
@@ -75,5 +93,11 @@ export function useTableColumns(
     }
   );
 
-  return { tableColumns, initColumns };
+  return {
+    tableColumns,
+    businessColumns,
+    fieldConfigRows,
+    initColumns,
+    reloadColumns,
+  };
 }

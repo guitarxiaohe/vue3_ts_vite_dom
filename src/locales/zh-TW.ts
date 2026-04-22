@@ -25,6 +25,7 @@ export default {
     dialogSelect: '彈窗選擇',
     enterKeyword: '請輸入關鍵字搜尋',
     selectedCount: '已選 {count} 項',
+    columnSettings: '欄位設定',
   },
   user: {
     login: '登入',

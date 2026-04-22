@@ -1,3 +1,4 @@
+import type { Component, VNode } from 'vue';
 import type { Column } from 'element-plus';
 
 /******************************** 列扩展配置 ********************************/
@@ -20,6 +21,18 @@ export interface ColumnsItem extends Column {
   select?: SelectColumns;
   isSearch?: boolean;
 }
+
+export type DetailRenderContext = {
+  row: Record<string, any>;
+  column: ColumnsItem;
+};
+
+export type DetailRenderResult = VNode | Component;
+
+export type DetailRenderMap = Record<
+  string,
+  (context: DetailRenderContext) => DetailRenderResult
+>;
 
 /******************************** 列表与数据 ********************************/
 
@@ -82,6 +95,22 @@ export type TableEntlty = {
   rowActions?: TableRowActionItem[];
   rowActionColumnTitle?: string;
   rowActionColumnWidth?: number;
+  // 列设置入口与前端显隐态
+  showColumnSettings?: boolean;
+  hiddenColumnKeys?: string[];
   detailDrawerTitle?: string;
   detailDrawerWidth?: string | number;
+  detailRenderMap?: DetailRenderMap;
+  detailVisibleCount?: number;
+  detailHiddenKeys?: string[];
 };
+
+/******************************** 顶部工具区 ********************************/
+
+// 顶部工具区列设置项
+export type TableColumnSettingItem = {
+  key: string;
+  dataKey: string;
+  title: string;
+};
+

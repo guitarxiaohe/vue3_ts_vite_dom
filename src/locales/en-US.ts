@@ -25,6 +25,7 @@ export default {
     dialogSelect: 'Dialog select',
     enterKeyword: 'Enter keyword to search',
     selectedCount: '{count} selected',
+    columnSettings: 'Column settings',
   },
   user: {
     login: 'Login',

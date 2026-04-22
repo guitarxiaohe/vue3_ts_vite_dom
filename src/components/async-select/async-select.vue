@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, getCurrentInstance } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQuery } from '@tanstack/vue-query';
 import { Search } from '@element-plus/icons-vue';
 import DialogList from '@/components/dialog-list/index.vue';
-import type { DialogListColumn } from '@/components/dialog-list/index.vue';
+import { getListByEntityKeyApi } from '@/api/modules/user';
 import type {
-  AsyncSelectColumn,
+  ColumnsItem,
+  TableListQuery,
+} from '@/components/table-entity/index.type';
+import type {
+  AsyncSelectEntityConfig,
   AsyncSelectFetchParams,
   AsyncSelectFetchResult,
   SelectVal,
@@ -14,27 +18,33 @@ import type {
 
 const { t } = useI18n();
 
+type Opt = { value: string | number; label: string };
+
+type AsyncSelectListResult = {
+  items: Record<string, any>[];
+  total: number;
+};
+
 const props = withDefaults(
   defineProps<{
     modelValue: SelectVal;
     multiple?: boolean;
-    fetcher: (p: AsyncSelectFetchParams) => Promise<AsyncSelectFetchResult>;
+    fetcher?: (p: AsyncSelectFetchParams) => Promise<AsyncSelectFetchResult>;
+    entityConfig?: AsyncSelectEntityConfig;
     valueKey?: string;
     labelKey?: string;
     placeholder?: string;
     disabled?: boolean;
     dialogTitle?: string;
-    columns?: AsyncSelectColumn[];
+    columns?: ColumnsItem[];
     dialogPageSize?: number;
-    /** TanStack Query 缓存 key，相同 key 的实例共享缓存 */
     queryKey?: string | string[];
-    /** 数据保鲜时间（ms），默认 5 分钟 */
     staleTime?: number;
   }>(),
   {
     multiple: false,
     valueKey: 'value',
-    labelKey: 'label',
+    labelKey: 'deptName',
     placeholder: '',
     disabled: false,
     dialogTitle: '',
@@ -49,96 +59,166 @@ const emit = defineEmits<{
   change: [v: SelectVal, rows: Record<string, any>[]];
 }>();
 
-// ── Dropdown ───────────────────────────────────────────────────────────────
-
-type Opt = { value: any; label: string };
-
-/** 当 queryKey 未传时，用组件实例 uid 隔离缓存 */
-const uid = getCurrentInstance()!.uid;
-
-const resolvedQueryKey = computed(() =>
-  props.queryKey
-    ? Array.isArray(props.queryKey)
-      ? props.queryKey
-      : [props.queryKey]
-    : ['__async-select__', uid]
-);
-
-/** 控制懒加载：首次展开才启用 query */
 const queryEnabled = ref(false);
-
-function toOpt(item: Record<string, any>): Opt {
-  return {
-    value: item[props.valueKey],
-    label: String(item[props.labelKey] ?? ''),
-  };
-}
-
-const { data: queryData, isFetching: selectLoading } = useQuery({
-  queryKey: resolvedQueryKey,
-  queryFn: () => props.fetcher({ page: 1, pageSize: 50 }),
-  enabled: queryEnabled,
-  staleTime: computed(() => props.staleTime),
-  select: (res) => res.items.map(toOpt),
-});
-
-/**
- * 已选项的 opt 缓存（确保弹窗确认或已有值时 label 能正确显示，
- * 即便这些项不在当前 query 结果里）
- */
 const selectedOpts = ref<Opt[]>([]);
-
-const selectOptions = computed<Opt[]>(() => {
-  const fromQuery = queryData.value ?? [];
-  const vals = Array.isArray(props.modelValue)
-    ? props.modelValue
-    : props.modelValue != null
-      ? [props.modelValue]
-      : [];
-  const extra = selectedOpts.value.filter(
-    (o) => vals.includes(o.value) && !fromQuery.find((n) => n.value === o.value)
-  );
-  return [...fromQuery, ...extra];
-});
 
 const innerValue = computed<SelectVal>({
   get: () => props.modelValue,
   set: (v) => emit('update:modelValue', v),
 });
 
-/** 下拉展开时启用 query（仅触发一次，后续由 staleTime 控制是否重新请求） */
+const resolvedDialogPageSize = computed(
+  () => props.entityConfig?.pageSize ?? props.dialogPageSize
+);
+
+const resolvedQueryKey = computed(() => {
+  if (props.entityConfig?.queryKey) {
+    return Array.isArray(props.entityConfig.queryKey)
+      ? props.entityConfig.queryKey
+      : [props.entityConfig.queryKey];
+  }
+  if (props.queryKey) {
+    return Array.isArray(props.queryKey) ? props.queryKey : [props.queryKey];
+  }
+  if (props.entityConfig?.entityKey) {
+    return [
+      '__async-select-entity__',
+      props.entityConfig.entityKey,
+      JSON.stringify(props.entityConfig.dataParams ?? {}),
+      props.valueKey,
+      props.labelKey,
+    ];
+  }
+  return ['__async-select__', props.valueKey, props.labelKey];
+});
+
+const activeValues = computed<Array<string | number>>(() => {
+  if (Array.isArray(props.modelValue)) {
+    return props.modelValue.filter(
+      (item): item is string | number => item != null
+    );
+  }
+  return props.modelValue != null ? [props.modelValue] : [];
+});
+
+function toOpt(item: Record<string, any>): Opt {
+  return {
+    value: item[props.valueKey] as string | number,
+    label: String(item[props.labelKey] ?? ''),
+  };
+}
+
+async function fetchEntityList(
+  params: AsyncSelectFetchParams
+): Promise<AsyncSelectListResult> {
+  const config = props.entityConfig;
+  if (!config?.entityKey) {
+    throw new Error('AsyncSelect entityConfig.entityKey is required');
+  }
+  const query: TableListQuery & { keyword?: string } = {
+    pageNum: params.page,
+    pageSize: params.pageSize,
+    ...(config.dataParams ?? {}),
+  };
+  if (params.keyword) {
+    query.keyword = params.keyword;
+  }
+  if (config.fetcher) {
+    const result = await config.fetcher(query);
+    return {
+      items: result.rows ?? [],
+      total: Number(result.total) || 0,
+    };
+  }
+  const result = (await getListByEntityKeyApi(
+    config.entityKey,
+    query
+  )) as unknown as {
+    rows?: Record<string, any>[];
+    total?: number;
+  };
+  return {
+    items:
+      result.rows?.map((t) => ({
+        ...t,
+        label: t[props.labelKey],
+        value: t[props.valueKey],
+      })) ?? [],
+    total: Number(result.total) || 0,
+  };
+}
+
+async function fetchList(params: AsyncSelectFetchParams) {
+  if (props.entityConfig?.entityKey) {
+    return fetchEntityList(params);
+  }
+  if (!props.fetcher) {
+    throw new Error('AsyncSelect requires fetcher or entityConfig');
+  }
+  return props.fetcher(params);
+}
+
+const dropdownQueryKey = computed(() => [
+  ...resolvedQueryKey.value,
+  1,
+  resolvedDialogPageSize.value,
+  '',
+]);
+
+const { data: queryData, isFetching: selectLoading } = useQuery({
+  queryKey: dropdownQueryKey,
+  queryFn: () => fetchList({ page: 1, pageSize: resolvedDialogPageSize.value }),
+  enabled: queryEnabled,
+  staleTime: computed(() => props.staleTime),
+  select: (res) => res.items.map(toOpt),
+});
+
+const selectOptions = computed<Opt[]>(() => {
+  const fromQuery = queryData.value ?? [];
+  const extra = selectedOpts.value.filter(
+    (o) =>
+      activeValues.value.includes(o.value) &&
+      !fromQuery.find((n) => n.value === o.value)
+  );
+  return [...fromQuery, ...extra];
+});
+
+watch(
+  activeValues,
+  async (values) => {
+    if (!values.length) {
+      selectedOpts.value = [];
+      return;
+    }
+    const missedValues = values.filter(
+      (value) => !selectedOpts.value.find((item) => item.value === value)
+    );
+    if (!missedValues.length) return;
+
+    if (props.entityConfig?.loadByValues) {
+      const rows = await props.entityConfig.loadByValues(missedValues);
+      for (const row of rows) {
+        const opt = toOpt(row);
+        if (!selectedOpts.value.find((item) => item.value === opt.value)) {
+          selectedOpts.value.push(opt);
+        }
+      }
+    }
+  },
+  { immediate: true }
+);
+
 function onDropdownVisible(visible: boolean) {
   if (visible) queryEnabled.value = true;
 }
 
-// ── Dialog ─────────────────────────────────────────────────────────────────
-
 const dialogVisible = ref(false);
-
-/** AsyncSelectColumn → DialogListColumn 格式转换 */
-const dialogColumns = computed<DialogListColumn[]>(() =>
-  props.columns.map((col) => ({
-    key: col.prop,
-    title: col.label,
-    dataKey: col.prop,
-    ...(col.width
-      ? {
-          width:
-            typeof col.width === 'number'
-              ? col.width
-              : parseInt(String(col.width)),
-        }
-      : { flexGrow: 1 }),
-  }))
-);
 
 function openDialog() {
   dialogVisible.value = true;
 }
 
-/** DialogList 确认后同步到下拉框 */
 function onDialogConfirm(rows: Record<string, any>[]) {
-  // 缓存选中项的 label，保证下拉框能正常显示
   for (const row of rows) {
     const opt = toOpt(row);
     if (!selectedOpts.value.find((o) => o.value === opt.value)) {
@@ -147,8 +227,8 @@ function onDialogConfirm(rows: Record<string, any>[]) {
   }
 
   const newVal: SelectVal = props.multiple
-    ? rows.map((r) => r[props.valueKey])
-    : (rows[0]?.[props.valueKey] ?? null);
+    ? rows.map((r) => r[props.valueKey] as string | number)
+    : ((rows[0]?.[props.valueKey] as string | number | undefined) ?? null);
 
   queryEnabled.value = true;
   emit('update:modelValue', newVal);
@@ -164,7 +244,6 @@ const computedDialogTitle = computed(
 </script>
 
 <template>
-  <!-- ── 下拉框 + 搜索按钮 ── -->
   <div class="async-select">
     <el-select-v2
       v-model="innerValue"
@@ -187,16 +266,18 @@ const computedDialogTitle = computed(
     />
   </div>
 
-  <!-- ── 弹窗（DialogList）── -->
   <DialogList
     v-model:visible="dialogVisible"
+    :entity-key="props.entityConfig?.entityKey"
     :model-value="modelValue"
     :multiple="multiple"
-    :fetcher="fetcher"
-    :columns="dialogColumns"
+    :fetcher="fetchList"
+    :columns="props.entityConfig?.columns?.length ? props.entityConfig.columns : props.columns"
     :row-key="valueKey"
     :dialog-title="computedDialogTitle"
-    :page-size="dialogPageSize"
+    :page-size="resolvedDialogPageSize"
+    :query-key="resolvedQueryKey"
+    :stale-time="props.staleTime"
     @confirm="onDialogConfirm"
   />
 </template>

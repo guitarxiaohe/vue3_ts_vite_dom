@@ -25,6 +25,7 @@ export default {
     dialogSelect: '弹窗选择',
     enterKeyword: '请输入关键词搜索',
     selectedCount: '已选 {count} 项',
+    columnSettings: '列设置',
   },
   user: {
     login: '登录',

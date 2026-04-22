@@ -1,5 +1,16 @@
 <template>
   <div class="table-entity">
+    <!-------------------------- 顶部工具区 -------------------------->
+    <TableToolbar
+      :show-column-settings="props.showColumnSettings"
+      :settings-columns="columnSettingItems"
+      :hidden-column-keys="hiddenColumnKeysState"
+      :visible-column-count="visibleBusinessColumns.length"
+      :column-sort-loading="columnSortLoading"
+      @column-visible-change="onToolbarColumnVisibleChange"
+      @column-move="onToolbarColumnMove"
+    />
+
     <!-------------------------- 虚拟表格 -------------------------->
     <ElTableV2
       :loading="tableLoading"
@@ -26,10 +37,13 @@
       v-model="detailDrawerVisible"
       :title="props.detailDrawerTitle"
       :width="props.detailDrawerWidth"
-      :columns="tableColumns"
+      :columns="visibleBusinessColumns"
       :row="detailRow"
       :row-index="detailRowIndex"
       :total-rows="dataList.length"
+      :render-map="props.detailRenderMap"
+      :visible-count="props.detailVisibleCount"
+      :hidden-keys="props.detailHiddenKeys"
       @prev="onDetailPrev"
       @next="onDetailNext"
     />
@@ -37,9 +51,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, reactive, useSlots, computed } from 'vue';
-import { ElTableV2 } from 'element-plus';
-import type { TableEntlty } from './index.type';
+import { ref, watch, reactive, computed } from 'vue';
+import { ElMessage, ElTableV2 } from 'element-plus';
+import { useSlots } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { fieldConfigSort } from '@/api/modules/user';
+import type { DataItem } from '@/types/user';
+import type { ColumnsItem, TableEntlty } from './index.type';
 import { isDataFetcher } from './utils';
 import { useTableSelection } from './use-table-selection';
 import { useTableColumns } from './use-table-columns';
@@ -47,6 +65,7 @@ import { useTableData } from './use-table-data';
 import { useEntityDelete } from './use-entity-delete';
 import { buildOperationsColumn } from './row-operations';
 import RowDetailDrawer from './row-detail-drawer.vue';
+import TableToolbar from './table-toolbar.vue';
 
 /******************************** 组件入参 ********************************/
 
@@ -64,24 +83,31 @@ const props = withDefaults(defineProps<TableEntlty>(), {
   dataParams: () => ({}),
   showRowActions: true,
   showDefaultRowActions: true,
+  hiddenColumnKeys: () => [],
+  showColumnSettings: true,
 });
 
 const slots = useSlots();
+const { t } = useI18n();
 
 const emit = defineEmits<{
   'update:selectedKeys': [keys: any[]];
   'update:currentPage': [page: number];
+  'update:hiddenColumnKeys': [keys: string[]];
   'selection-change': [rows: Record<string, any>[]];
   'page-change': [page: number];
   'delete-success': [];
   'delete-error': [payload: { message: string }];
   'row-action': [payload: { event: string; row: Record<string, any> }];
+  'column-visibility-change': [payload: { hiddenKeys: string[] }];
 }>();
 
 /******************************** 表格状态 ********************************/
 
 const dataList = ref<Record<string, any>[]>([]);
 const tableLoading = ref(false);
+const columnSortLoading = ref(false);
+const hiddenColumnKeysState = ref<string[]>([]);
 const pagination = reactive({
   total: 0,
   pageNum: props.currentPage ?? 1,
@@ -91,9 +117,7 @@ const pagination = reactive({
 const detailDrawerVisible = ref(false);
 const detailRowIndex = ref(0);
 
-const detailRow = computed(
-  () => dataList.value[detailRowIndex.value] ?? null
-);
+const detailRow = computed(() => dataList.value[detailRowIndex.value] ?? null);
 
 // 与父级分页 props 同步内部页码、每页条数
 watch(
@@ -107,6 +131,15 @@ watch(
   (s) => {
     pagination.pageSize = s ?? 10;
   }
+);
+
+// 同步受控隐藏列
+watch(
+  () => props.hiddenColumnKeys,
+  (keys) => {
+    hiddenColumnKeysState.value = Array.isArray(keys) ? keys.map(String) : [];
+  },
+  { immediate: true }
 );
 
 // 静态数组数据源：父级驱动行与 total（非函数 data 时）
@@ -150,12 +183,8 @@ const {
   setSelectedKeys,
 } = useTableSelection(props, emit, dataList);
 
-const { tableColumns, initColumns } = useTableColumns(
-  props,
-  slots,
-  tableLoading,
-  selectionColumn
-);
+const { businessColumns, fieldConfigRows, initColumns, reloadColumns } =
+  useTableColumns(props, slots, tableLoading, selectionColumn);
 
 const { initData } = useTableData(props, dataList, tableLoading, pagination);
 
@@ -168,9 +197,42 @@ const { deleteSelectedByEntityKey, deleteRowByEntityKey } = useEntityDelete(
   emit
 );
 
+// 当前隐藏列集合
+const hiddenColumnKeySet = computed(
+  () => new Set(hiddenColumnKeysState.value.map(String))
+);
+
+// 可排序业务列
+const sortableColumns = computed(() =>
+  businessColumns.value.filter(
+    (column) =>
+      column.key != null && column.dataKey != null && column.dataKey !== ''
+  )
+);
+
+// 顶部工具区列设置项
+const columnSettingItems = computed(() =>
+  sortableColumns.value.map((column) => ({
+    key: String(column.key),
+    dataKey: String(column.dataKey),
+    title: String(column.title ?? column.dataKey ?? ''),
+  }))
+);
+
+// 可见业务列
+const visibleBusinessColumns = computed(() =>
+  businessColumns.value.filter(
+    (column) => !hiddenColumnKeySet.value.has(String(column.dataKey))
+  )
+);
+
 // 数据列 + 可选右侧操作列
 const displayColumns = computed(() => {
-  const base = [...tableColumns.value];
+  const base: ColumnsItem[] = [];
+  if (props.selectable) {
+    base.push(selectionColumn.value);
+  }
+  base.push(...visibleBusinessColumns.value);
   if (props.showRowActions !== false) {
     base.push(
       buildOperationsColumn(props, {
@@ -189,6 +251,118 @@ const displayColumns = computed(() => {
   }
   return base;
 });
+
+/******************************** 列设置 ********************************/
+
+// 判断当前列是否必须保持可见
+function isColumnVisibleLocked(column: ColumnsItem) {
+  const visibleCount = visibleBusinessColumns.value.length;
+  return (
+    visibleCount <= 1 && !hiddenColumnKeySet.value.has(String(column.dataKey))
+  );
+}
+
+// 同步隐藏列并对外抛出
+function updateHiddenColumnKeys(keys: string[]) {
+  hiddenColumnKeysState.value = keys;
+  emit('update:hiddenColumnKeys', keys);
+  emit('column-visibility-change', { hiddenKeys: keys });
+}
+
+// 切换列显隐
+function onColumnVisibleChange(column: ColumnsItem, checked: unknown) {
+  const columnKey = String(column.dataKey ?? '');
+  if (!columnKey) return;
+
+  if (checked) {
+    updateHiddenColumnKeys(
+      hiddenColumnKeysState.value.filter((key) => key !== columnKey)
+    );
+    return;
+  }
+
+  if (visibleBusinessColumns.value.length <= 1) {
+    return;
+  }
+
+  if (!hiddenColumnKeySet.value.has(columnKey)) {
+    updateHiddenColumnKeys([...hiddenColumnKeysState.value, columnKey]);
+  }
+}
+
+// 顶部工具区切换列显隐
+function onToolbarColumnVisibleChange(payload: {
+  dataKey: string;
+  checked: boolean | string | number;
+}) {
+  onColumnVisibleChange(
+    {
+      dataKey: payload.dataKey,
+    } as ColumnsItem,
+    payload.checked
+  );
+}
+
+// 生成排序请求项
+function buildSortItems(fromIndex: number, toIndex: number) {
+  const nextRows = [...fieldConfigRows.value];
+  const moved = nextRows.splice(fromIndex, 1)[0];
+  if (!moved) return [];
+  nextRows.splice(toIndex, 0, moved);
+  return nextRows
+    .filter((item) => item?.id != null)
+    .map(
+      (item, index): DataItem => ({
+        id: Number(item.id),
+        sort: index + 1,
+      })
+    );
+}
+
+// 顶部工具区调整列顺序
+function onToolbarColumnMove(payload: {
+  columnKey: string;
+  direction: 'up' | 'down';
+}) {
+  const targetColumn = sortableColumns.value.find(
+    (item) => String(item.key) === String(payload.columnKey)
+  );
+  if (!targetColumn) return;
+  void moveColumn(targetColumn, payload.direction);
+}
+
+// 调整列顺序并刷新字段配置
+async function moveColumn(column: ColumnsItem, direction: 'up' | 'down') {
+  if (!props.entityKey || !fieldConfigRows.value.length) return;
+
+  const currentIndex = sortableColumns.value.findIndex(
+    (item) => String(item.key) === String(column.key)
+  );
+  if (currentIndex < 0) return;
+
+  const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+  if (targetIndex < 0 || targetIndex >= sortableColumns.value.length) return;
+
+  const items = buildSortItems(currentIndex, targetIndex);
+  if (!items.length) return;
+
+  columnSortLoading.value = true;
+  try {
+    await fieldConfigSort({
+      entityKey: props.entityKey,
+      items,
+    });
+    await reloadColumns();
+    ElMessage.success(t('common.success'));
+  } catch (error) {
+    console.error('Failed to sort columns:', error);
+    ElMessage.error(t('common.failed'));
+  } finally {
+    columnSortLoading.value = false;
+  }
+}
+
+/******************************** 表格与详情 ********************************/
 
 // 分页切换后刷新列表
 function onPageChange(page: number) {
@@ -221,10 +395,12 @@ async function handleRowDelete(row: Record<string, any>) {
   }
 }
 
+// 查看上一条详情
 function onDetailPrev() {
   if (detailRowIndex.value > 0) detailRowIndex.value--;
 }
 
+// 查看下一条详情
 function onDetailNext() {
   if (detailRowIndex.value < dataList.value.length - 1) {
     detailRowIndex.value++;
@@ -236,6 +412,7 @@ void initData();
 
 /******************************** 对外 API ********************************/
 
+// 打开指定行详情
 function openDetail(row: Record<string, any>) {
   const rk = props.rowKey ?? 'id';
   const idx = dataList.value.findIndex(
@@ -247,6 +424,7 @@ function openDetail(row: Record<string, any>) {
   }
 }
 
+// 关闭详情抽屉
 function closeDetail() {
   detailDrawerVisible.value = false;
 }
@@ -257,6 +435,7 @@ defineExpose({
   getSelectedCount,
   setSelectedKeys,
   reload: initData,
+  reloadColumns,
   deleteSelectedByEntityKey,
   deleteRowByEntityKey,
   openDetail,

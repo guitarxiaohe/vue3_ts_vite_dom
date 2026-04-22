@@ -2,12 +2,13 @@
 import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Search } from '@element-plus/icons-vue';
+import { useQuery } from '@tanstack/vue-query';
 import TableEntlty from '@/components/table-entity/index.vue';
 import type { ColumnsItem } from '@/components/table-entity/index.type';
 
 const { t } = useI18n();
 
-// ── Types ─────────────────────────────────────────────────────────────────
+/******************************** 类型定义 ********************************/
 
 export interface DialogListColumn extends ColumnsItem {}
 
@@ -22,21 +23,25 @@ export interface DialogListFetchResult {
   total: number;
 }
 
-// ── Props / Emits ─────────────────────────────────────────────────────────
+/******************************** 组件入参 ********************************/
 
 const props = withDefaults(
   defineProps<{
+    entityKey?: string;
     visible: boolean;
     modelValue?: any | any[];
     multiple?: boolean;
     fetcher: (p: DialogListFetchParams) => Promise<DialogListFetchResult>;
-    columns: DialogListColumn[];
+    columns?: DialogListColumn[];
     rowKey?: string;
     dialogTitle?: string;
     dialogWidth?: string | number;
     tableHeight?: number;
     tableWidth?: number;
     pageSize?: number;
+    showRowActions?: boolean;
+    queryKey?: string | string[];
+    staleTime?: number;
   }>(),
   {
     multiple: true,
@@ -46,6 +51,8 @@ const props = withDefaults(
     tableHeight: 420,
     tableWidth: 700,
     pageSize: 20,
+    showRowActions: false,
+    staleTime: 5 * 60 * 1000,
   }
 );
 
@@ -55,38 +62,52 @@ const emit = defineEmits<{
   confirm: [rows: Record<string, any>[]];
 }>();
 
-// ── Table ref ─────────────────────────────────────────────────────────────
+/******************************** 表格引用 ********************************/
 
 const tableRef = ref<InstanceType<typeof TableEntlty>>();
 
-// ── Data / Fetching ───────────────────────────────────────────────────────
+/******************************** 表格数据 ********************************/
 
 const keyword = ref('');
 const page = ref(1);
-const total = ref(0);
-const tableData = ref<Record<string, any>[]>([]);
-const loading = ref(false);
 const selectedKeys = ref<any[]>([]);
 
-async function fetchData() {
-  loading.value = true;
-  try {
-    const res = await props.fetcher({
+const resolvedQueryKey = computed(() => {
+  if (props.queryKey) {
+    return Array.isArray(props.queryKey) ? props.queryKey : [props.queryKey];
+  }
+  if (props.entityKey) {
+    return ['__dialog-list__', props.entityKey];
+  }
+  return ['__dialog-list__', props.rowKey, props.pageSize];
+});
+
+const dialogQueryKey = computed(() => [
+  ...resolvedQueryKey.value,
+  page.value,
+  props.pageSize,
+  keyword.value || '',
+]);
+
+const { data: queryData, isFetching: loading } = useQuery({
+  queryKey: dialogQueryKey,
+  queryFn: () =>
+    props.fetcher({
       keyword: keyword.value || undefined,
       page: page.value,
       pageSize: props.pageSize,
-    });
-    tableData.value = res.items;
-    total.value = res.total;
-  } finally {
-    loading.value = false;
-  }
-}
+    }),
+  enabled: computed(() => props.visible),
+  staleTime: computed(() => props.staleTime),
+});
+
+const tableData = computed(() => queryData.value?.items ?? []);
+const total = computed(() => queryData.value?.total ?? 0);
 
 // 打开弹窗时初始化
 watch(
   () => props.visible,
-  async (visible) => {
+  (visible) => {
     if (!visible) return;
     const vals = Array.isArray(props.modelValue)
       ? props.modelValue
@@ -96,21 +117,20 @@ watch(
     selectedKeys.value = vals;
     keyword.value = '';
     page.value = 1;
-    await fetchData();
   }
 );
 
-async function onSearch() {
+// 搜索列表
+function onSearch() {
   page.value = 1;
-  await fetchData();
 }
 
-async function onPageChange(p: number) {
+// 切换分页
+function onPageChange(p: number) {
   page.value = p;
-  await fetchData();
 }
 
-// ── Selection ─────────────────────────────────────────────────────────────
+/******************************** 选择与确认 ********************************/
 
 const selectedCount = computed(() => selectedKeys.value.length);
 
@@ -123,12 +143,12 @@ function onSelectionChange(rows: Record<string, any>[]) {
   lastSelectedRows = rows;
 }
 
-// ── Confirm / Cancel ──────────────────────────────────────────────���───────
-
+// 关闭弹窗
 function cancel() {
   emit('update:visible', false);
 }
 
+// 确认选择
 function confirm() {
   const rows =
     lastSelectedRows.length > 0
@@ -179,6 +199,7 @@ const computedDialogTitle = computed(
       <!-- 表格 + 分页 -->
       <div class="dialog-list__table" v-loading="loading">
         <TableEntlty
+          :entity-key="entityKey"
           ref="tableRef"
           :columns="columns"
           :data="tableData"
@@ -186,6 +207,7 @@ const computedDialogTitle = computed(
           :width="tableWidth"
           :row-key="rowKey"
           :selected-keys="selectedKeys"
+          :show-row-actions="showRowActions"
           selectable
           :multiple="multiple"
           show-pagination

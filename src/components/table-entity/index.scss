@@ -4,6 +4,54 @@
   width: 100%;
 }
 
+.table-entity__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.table-entity__toolbar-right {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.table-entity__settings-trigger {
+  border-color: var(--el-border-color);
+}
+
+.table-entity__settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.table-entity__settings-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.table-entity__settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.table-entity__settings-label {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.table-entity__settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .table-entity__row-ops {
   justify-content: flex-end;
 }
