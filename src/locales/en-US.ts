@@ -102,6 +102,36 @@ export default {
   },
   demo: {
     title: 'Component Examples',
+    importDialog: {
+      title: 'ImportDialog — Excel Import Flow Dialog',
+      description:
+        'A reusable import dialog based on the Figma design, including upload, preview, field mapping, progress, and result states.',
+      open: 'Open Import Dialog',
+      featureUpload: 'Drag Upload',
+      featurePreview: 'Data Preview',
+      featureMapping: 'Field Mapping',
+      featureProgress: 'Import Progress',
+      templateDownloaded:
+        'The template download event has been triggered. You can connect a real API here.',
+      templateIdle:
+        'Click "Download import template" inside the dialog to trigger the template download event.',
+      successDetail: '{success} rows were imported successfully in this mock flow.',
+      progress: {
+        validating: 'Validating Excel file structure...',
+        matching: 'Resolving sheets and field mappings...',
+        importing: 'Importing data records...',
+        finishing: 'Finishing import summary...',
+      },
+      fields: {
+        planNo: 'SPC Plan No.',
+        planStartDate: 'Planned Start Date',
+        planEndDate: 'Planned End Date',
+        orderStatus: 'Order Status',
+        orderCount: 'Order Quantity',
+        downloadTime: 'Dispatch Time',
+        issuer: 'Dispatcher',
+      },
+    },
     asyncSelect: {
       title: 'AsyncSelect — Async Dropdown (Lazy Load + Dialog Select)',
       single: 'Single Select',
@@ -110,6 +140,19 @@ export default {
       selectUser: 'Please select user',
       selectUserMulti: 'Please select user (multi)',
       selectedCount: '{count} selected: ',
+    },
+    userSelect: {
+      title: 'UserSelect — User Dropdown (Avatar + Description + Group)',
+      emptyState: 'Empty',
+      filledState: 'Filled',
+      multipleState: 'Multiple',
+      groupState: 'Grouped',
+      default: 'Default',
+      disabled: 'Disabled',
+      error: 'Error',
+      filterable: 'Searchable',
+      placeholder: 'Please select',
+      errorText: 'Validation found a serious issue here',
     },
     dialogList: {
       title: 'DialogList — Dialog List (el-table-v2 + Index/Checkbox)',
@@ -138,6 +181,62 @@ export default {
     },
   },
   components: {
+    importDialog: {
+      title: 'Import Data',
+      stepUpload: 'Upload Excel',
+      stepPreview: 'Confirm Data',
+      stepMapping: 'Map Fields',
+      stepImport: 'Import Data',
+      modeLabel: 'Import Mode',
+      modeHelp: 'Choose create or update based on your business scenario.',
+      modeCreate: 'Create Data',
+      modeUpdate: 'Update Data',
+      uploadPlaceholder: 'Drop file here, or',
+      selectUpload: 'select a file',
+      supportedTypes: 'Supported types: {types}',
+      templateText: 'To ensure a smooth import, please',
+      downloadTemplate: 'download the import template',
+      fileLabel: 'Import File',
+      sheetLabel: 'Sheet',
+      previewSummary:
+        '{total} rows found. Only the first {count} rows are shown in preview',
+      mappingExcelColumn: 'Excel Column',
+      mappingTargetField: 'Form Field',
+      mappingDuplicateLabel: 'Detect Duplicate',
+      previous: 'Previous',
+      next: 'Next',
+      startImport: 'Start Import',
+      importingTitle: 'Importing data...',
+      importingProgress: 'Current progress {progress}%',
+      importingHint: 'After closing the dialog, you can view the result in notifications',
+      importingStart: 'Initializing import task...',
+      successTitle: 'Import Successful',
+      successDescription:
+        'After closing the dialog, you can view the result in notifications',
+      errorTitle: 'Import Failed',
+      errorDescription:
+        'Please check the import file and field mappings, then try again',
+      tipSize:
+        'The import file must not exceed {size}MB, and up to 5000 rows can be imported each time',
+      tipHeader:
+        'The sheet header cannot contain empty cells, otherwise the import will fail',
+      tipFormula:
+        'Excel formulas such as +-*/SUM are not supported in import files',
+      tipArea:
+        'Option source, country/region, and geo location fields are not supported',
+      tipRelation:
+        'Related form fields do not support creating or updating imported values, and are only used to match unique related forms',
+      fileRequired: 'Please select a file to import first',
+      fileSizeExceeded: 'The import file size cannot exceed {size}MB',
+      fileTypeInvalid: 'Only the following file types are supported: {types}',
+      parseError: 'Failed to parse the file. Please try again later',
+      importError: 'Import failed. Please try again later',
+      sheetRequired: 'Please choose a sheet to preview',
+      mappingEmpty: 'No field mappings are available',
+      mappingRequired: 'Please complete the mapping for "{field}" first',
+      mappingDuplicate:
+        'The same Excel column cannot be mapped to multiple form fields',
+    },
     userAvatarInfo: {
       ariaLabel: 'User avatar and profile text',
       clickToViewDetail: 'Click to view profile',
