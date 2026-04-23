@@ -9,18 +9,21 @@
       :column-sort-loading="columnSortLoading"
       @column-visible-change="onToolbarColumnVisibleChange"
       @column-move="onToolbarColumnMove"
+      @column-reorder="onToolbarColumnReorder"
     />
 
     <!-------------------------- 虚拟表格 -------------------------->
-    <ElTableV2
-      :loading="tableLoading"
-      :columns="displayColumns"
-      :data="dataList"
-      :width="props.width ?? 700"
-      :height="props.height ?? 400"
-      :row-event-handlers="selectable ? rowEventHandlers : undefined"
-      fixed
-    />
+    <div ref="tableViewportRef" class="table-entity__viewport">
+      <ElTableV2
+        :loading="tableLoading"
+        :columns="displayColumns"
+        :data="dataList"
+        :width="resolvedTableWidth"
+        :height="props.height ?? 400"
+        :row-event-handlers="selectable ? rowEventHandlers : undefined"
+        fixed
+      />
+    </div>
     <!-------------------------- 分页 -------------------------->
     <div v-if="showPagination" class="table-entlty__pagination">
       <el-pagination
@@ -52,18 +55,23 @@
 
 <script setup lang="ts">
 import { ref, watch, reactive, computed } from 'vue';
+import { useElementSize } from '@vueuse/core';
 import { ElMessage, ElMessageBox, ElTableV2 } from 'element-plus';
 import { useSlots } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { fieldConfigSort } from '@/api/modules/user';
 import type { DataItem } from '@/types/user';
-import type { ColumnsItem, TableEntlty } from './index.type';
+import type {
+  ColumnsItem,
+  TableColumnReorderPayload,
+  TableEntlty,
+} from './index.type';
 import { isDataFetcher } from './utils';
+import { formatCellText, textDisplayWidth } from './column-utils';
 import { useTableSelection } from './use-table-selection';
 import { useTableColumns } from './use-table-columns';
 import { useTableData } from './use-table-data';
 import { useEntityDelete } from './use-entity-delete';
-import { buildOperationsColumn } from './row-operations';
 import RowDetailDrawer from './row-detail-drawer.vue';
 import TableToolbar from './table-toolbar.vue';
 
@@ -71,7 +79,6 @@ import TableToolbar from './table-toolbar.vue';
 
 const props = withDefaults(defineProps<TableEntlty>(), {
   height: 400,
-  width: 700,
   selectable: true,
   multiple: true,
   rowKey: 'id',
@@ -81,8 +88,7 @@ const props = withDefaults(defineProps<TableEntlty>(), {
   showPagination: false,
   columns: () => [],
   dataParams: () => ({}),
-  showRowActions: true,
-  showDefaultRowActions: true,
+  rowActionColumn: undefined,
   hiddenColumnKeys: () => [],
   showColumnSettings: true,
 });
@@ -98,7 +104,6 @@ const emit = defineEmits<{
   'page-change': [page: number];
   'delete-success': [];
   'delete-error': [payload: { message: string }];
-  'row-action': [payload: { event: string; row: Record<string, any> }];
   'column-visibility-change': [payload: { hiddenKeys: string[] }];
 }>();
 
@@ -116,8 +121,16 @@ const pagination = reactive({
 
 const detailDrawerVisible = ref(false);
 const detailRowIndex = ref(0);
+const tableViewportRef = ref<HTMLElement>();
+const { width: viewportWidth } = useElementSize(tableViewportRef);
 
 const detailRow = computed(() => dataList.value[detailRowIndex.value] ?? null);
+const resolvedTableWidth = computed(() =>
+  Math.max(1, Math.floor(props.width ?? viewportWidth.value))
+);
+const TEXT_COLUMN_MIN_WIDTH = 88;
+const TEXT_COLUMN_MAX_WIDTH = 200;
+const TEXT_COLUMN_PADDING = 36;
 
 // 与父级分页 props 同步内部页码、每页条数
 watch(
@@ -226,31 +239,77 @@ const visibleBusinessColumns = computed(() =>
   )
 );
 
-// 数据列 + 可选右侧操作列
+// 数据列 + 外部注入的右侧操作列
 const displayColumns = computed(() => {
   const base: ColumnsItem[] = [];
   if (props.selectable) {
     base.push(selectionColumn.value);
   }
-  base.push(...visibleBusinessColumns.value);
-  if (props.showRowActions !== false) {
-    base.push(
-      buildOperationsColumn(props, {
-        onDetail: (_row, idx) => {
-          detailRowIndex.value = idx;
-          detailDrawerVisible.value = true;
-        },
-        onDelete: (row) => {
-          void handleRowDelete(row);
-        },
-        onCustomAction: (event, row) => {
-          emit('row-action', { event, row });
-        },
-      })
-    );
+  base.push(...autoFitBusinessColumns.value);
+  if (props.rowActionColumn) {
+    base.push(props.rowActionColumn);
   }
-  return base;
+
+  return fillColumnsToViewport(base, resolvedTableWidth.value);
 });
+
+// 根据当前页内容自动估算业务列宽，超过上限交给省略号展示
+const autoFitBusinessColumns = computed(() =>
+  visibleBusinessColumns.value.map((column) => {
+    const dataKey = String(column.dataKey ?? '');
+    const titleText = String(column.title ?? dataKey);
+    const valueWidth = dataList.value.reduce((maxWidth, row) => {
+      const text = formatCellText(dataKey ? row[dataKey] : '');
+      return Math.max(maxWidth, textDisplayWidth(text));
+    }, textDisplayWidth(titleText));
+    const nextWidth = Math.min(
+      TEXT_COLUMN_MAX_WIDTH,
+      Math.max(TEXT_COLUMN_MIN_WIDTH, valueWidth + TEXT_COLUMN_PADDING)
+    );
+
+    return {
+      ...column,
+      width: nextWidth,
+    };
+  })
+);
+
+// 当列总宽小于容器时，加空白填充列，避免改变业务列自身宽度
+function fillColumnsToViewport(columns: ColumnsItem[], tableWidth: number) {
+  if (!columns.length || tableWidth <= 1) return columns;
+
+  const normalizedColumns = columns.map((column) => ({
+    ...column,
+    width: Number(column.width ?? 120),
+  }));
+  const totalWidth = normalizedColumns.reduce(
+    (sum, column) => sum + Number(column.width ?? 0),
+    0
+  );
+
+  if (totalWidth >= tableWidth) {
+    return normalizedColumns;
+  }
+
+  const fillColumn: ColumnsItem = {
+    key: '__fill__',
+    dataKey: '__fill__',
+    title: '',
+    width: tableWidth - totalWidth,
+  };
+  const opsIndex = normalizedColumns.findIndex(
+    (column) => String(column.key ?? '') === '__ops__'
+  );
+
+  if (opsIndex < 0) {
+    return [...normalizedColumns, fillColumn];
+  }
+  return [
+    ...normalizedColumns.slice(0, opsIndex),
+    fillColumn,
+    ...normalizedColumns.slice(opsIndex),
+  ];
+}
 
 /******************************** 列设置 ********************************/
 
@@ -303,6 +362,22 @@ function onToolbarColumnVisibleChange(payload: {
   );
 }
 
+// 调整本地业务列顺序
+function reorderBusinessColumns(orderedKeys: string[]) {
+  const columnMap = new Map(
+    businessColumns.value.map((column) => [String(column.key), column])
+  );
+  const nextColumns = orderedKeys
+    .map((key) => columnMap.get(String(key)))
+    .filter((column): column is ColumnsItem => !!column);
+  const orderedKeySet = new Set(orderedKeys.map(String));
+  const restColumns = businessColumns.value.filter(
+    (column) => !orderedKeySet.has(String(column.key))
+  );
+
+  businessColumns.value = [...nextColumns, ...restColumns];
+}
+
 // 生成排序请求项
 function buildSortItems(fromIndex: number, toIndex: number) {
   const nextRows = [...fieldConfigRows.value];
@@ -329,6 +404,12 @@ function onToolbarColumnMove(payload: {
   );
   if (!targetColumn) return;
   void moveColumn(targetColumn, payload.direction);
+}
+
+// 顶部工具区拖拽重排列顺序
+function onToolbarColumnReorder(payload: TableColumnReorderPayload) {
+  reorderBusinessColumns(payload.orderedKeys);
+  void moveColumnToIndex(payload.oldIndex, payload.newIndex);
 }
 
 // 调整列顺序并刷新字段配置
@@ -362,6 +443,37 @@ async function moveColumn(column: ColumnsItem, direction: 'up' | 'down') {
   }
 }
 
+// 按拖拽目标下标调整列顺序并刷新字段配置
+async function moveColumnToIndex(fromIndex: number, toIndex: number) {
+  if (!props.entityKey || !fieldConfigRows.value.length) return;
+  if (fromIndex < 0 || toIndex < 0) return;
+  if (
+    fromIndex >= sortableColumns.value.length ||
+    toIndex >= sortableColumns.value.length
+  ) {
+    return;
+  }
+
+  const items = buildSortItems(fromIndex, toIndex);
+  if (!items.length) return;
+
+  columnSortLoading.value = true;
+  try {
+    await fieldConfigSort({
+      entityKey: props.entityKey,
+      items,
+    });
+    await reloadColumns();
+    ElMessage.success(t('common.success'));
+  } catch (error) {
+    console.error('Failed to sort columns:', error);
+    ElMessage.error(t('common.failed'));
+    await reloadColumns();
+  } finally {
+    columnSortLoading.value = false;
+  }
+}
+
 /******************************** 表格与详情 ********************************/
 
 // 分页切换后刷新列表
@@ -390,20 +502,22 @@ async function handleRowDelete(row: Record<string, any>) {
       }
     );
     const ok = await deleteRowByEntityKey(row);
-    if (!ok) return;
+    if (!ok) return false;
 
     if (viewing) {
       if (!dataList.value.length) {
         detailDrawerVisible.value = false;
-        return;
+        return true;
       }
       detailRowIndex.value = Math.min(
         detailRowIndex.value,
         dataList.value.length - 1
       );
     }
+    return true;
   } catch (e) {
     // throw new Error(e);
+    return false;
   }
 }
 
@@ -450,8 +564,10 @@ defineExpose({
   reloadColumns,
   deleteSelectedByEntityKey,
   deleteRowByEntityKey,
+  deleteRow: handleRowDelete,
   openDetail,
   closeDetail,
+  getColumns: () => visibleBusinessColumns.value,
 });
 </script>
 

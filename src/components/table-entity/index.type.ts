@@ -59,15 +59,6 @@ export type TableEntityColSlotProps = {
   rowIndex: number;
 };
 
-/******************************** 行操作列 ********************************/
-
-// 行尾自定义按钮：点击后 emit('row-action', { event, row })
-export type TableRowActionItem = {
-  label: string;
-  event: string;
-  type?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | '';
-};
-
 /******************************** 组件 Props ********************************/
 
 export type TableEntlty = {
@@ -88,13 +79,8 @@ export type TableEntlty = {
   pageSize?: number;
   currentPage?: number;
   showPagination?: boolean;
-  // 行尾操作列（固定右侧）
-  showRowActions?: boolean;
-  // 默认「详情」「删除」
-  showDefaultRowActions?: boolean;
-  rowActions?: TableRowActionItem[];
-  rowActionColumnTitle?: string;
-  rowActionColumnWidth?: number;
+  // 行尾操作列由外部注入，表格不内置业务按钮
+  rowActionColumn?: ColumnsItem;
   // 列设置入口与前端显隐态
   showColumnSettings?: boolean;
   hiddenColumnKeys?: string[];
@@ -114,3 +100,10 @@ export type TableColumnSettingItem = {
   title: string;
 };
 
+// 顶部工具区列拖拽排序结果
+export type TableColumnReorderPayload = {
+  columnKey: string;
+  oldIndex: number;
+  newIndex: number;
+  orderedKeys: string[];
+};

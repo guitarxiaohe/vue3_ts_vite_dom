@@ -34,7 +34,10 @@ export function applyColumnSlots(
         if (slotFn) {
           return h(
             'div',
-            { class: 'table-entity__col-slot' },
+            {
+              class: 'table-entity__col-slot',
+              title: formatCellText(value),
+            },
             slotFn({
               row: rowData,
               value,
@@ -51,7 +54,7 @@ export function applyColumnSlots(
         }
         return h(
           'span',
-          { class: 'table-entity__col-text' },
+          { class: 'table-entity__col-text', title: formatCellText(value) },
           formatCellText(value)
         );
       },

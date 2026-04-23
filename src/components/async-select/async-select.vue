@@ -18,7 +18,15 @@ import type {
 
 const { t } = useI18n();
 
-type Opt = { value: string | number; label: string };
+/******************************** 类型 ********************************/
+
+type OptLabel = {
+  label: string;
+  dragLabel: string;
+  raw: Record<string, any>;
+};
+
+type Opt = { value: string | number; label: OptLabel };
 
 type AsyncSelectListResult = {
   items: Record<string, any>[];
@@ -40,6 +48,7 @@ const props = withDefaults(
     dialogPageSize?: number;
     queryKey?: string | string[];
     staleTime?: number;
+    dragKey?: string;
   }>(),
   {
     multiple: false,
@@ -51,6 +60,7 @@ const props = withDefaults(
     columns: () => [],
     dialogPageSize: 20,
     staleTime: 5 * 60 * 1000,
+    dragKey: '',
   }
 );
 
@@ -104,7 +114,11 @@ const activeValues = computed<Array<string | number>>(() => {
 function toOpt(item: Record<string, any>): Opt {
   return {
     value: item[props.valueKey] as string | number,
-    label: String(item[props.labelKey] ?? ''),
+    label: {
+      label: String(item[props.labelKey] ?? ''),
+      dragLabel: props.dragKey ? String(item[props.dragKey] ?? '') : '',
+      raw: item,
+    },
   };
 }
 
@@ -252,11 +266,26 @@ const computedDialogTitle = computed(
       :loading="selectLoading"
       :multiple="multiple"
       filterable
+      clearable
       :placeholder="computedPlaceholder"
       :disabled="disabled"
       v-bind="$attrs"
       @visible-change="onDropdownVisible"
-    />
+    >
+      <template #label="{ label, value }">
+        <span>{{ label.label }}</span>
+      </template>
+      <template #default="{ item }">
+        <div class="async-select__option">
+          <p class="async-select__option-label">
+            {{ item.label.label }}
+          </p>
+          <p v-if="item.label.dragLabel" class="async-select__option-desc">
+            {{ item.label.dragLabel }}
+          </p>
+        </div>
+      </template>
+    </el-select-v2>
     <el-button
       :icon="Search"
       :disabled="disabled"
@@ -272,7 +301,11 @@ const computedDialogTitle = computed(
     :model-value="modelValue"
     :multiple="multiple"
     :fetcher="fetchList"
-    :columns="props.entityConfig?.columns?.length ? props.entityConfig.columns : props.columns"
+    :columns="
+      props.entityConfig?.columns?.length
+        ? props.entityConfig.columns
+        : props.columns
+    "
     :row-key="valueKey"
     :dialog-title="computedDialogTitle"
     :page-size="resolvedDialogPageSize"
@@ -299,5 +332,45 @@ const computedDialogTitle = computed(
   flex-shrink: 0;
   height: 32px;
   padding: 0 10px;
+}
+
+.async-select__option {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.3;
+  margin-bottom: 5px !important;
+}
+
+.async-select__option-label,
+.async-select__option-desc {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.async-select__option-label {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.async-select__option-desc {
+  margin-top: 2px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.async-select
+  :deep(.el-select-dropdown__item.is-selected .async-select__option-label),
+.async-select
+  :deep(.el-select-dropdown__item.is-selected .async-select__option-desc),
+.async-select
+  :deep(.el-select-dropdown__item.selected .async-select__option-label),
+.async-select
+  :deep(.el-select-dropdown__item.selected .async-select__option-desc) {
+  color: var(--el-color-primary);
 }
 </style>

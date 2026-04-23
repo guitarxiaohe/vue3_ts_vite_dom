@@ -80,54 +80,56 @@ const handleSelect = (index: string) => {
 </script>
 
 <template>
-  <div class="conventional-menu" :class="{ 'is-collapse': isCollapse }">
-    <div class="conventional-menu__logo">
-      <span class="logo-icon">✨</span>
-      <span v-show="!isCollapse" class="logo-text">YourBrand</span>
-    </div>
+  <el-aside :class="{ 'is-collapse': isCollapse }">
+    <div class="conventional-menu" :class="{ 'is-collapse': isCollapse }">
+      <div class="conventional-menu__logo">
+        <span class="logo-icon">✨</span>
+        <span v-show="!isCollapse" class="logo-text">YourBrand</span>
+      </div>
 
-    <el-scrollbar class="conventional-menu__scroll">
-      <el-menu
-        :default-active="defaultActive"
-        :collapse="isCollapse"
-        :collapse-transition="false"
-        :unique-opened="true"
-        background-color="transparent"
-        text-color="var(--color-text-primary)"
-        active-text-color="#6c3ff5"
-        @select="handleSelect"
-      >
-        <template v-for="item in menuItems" :key="item.index">
-          <el-sub-menu v-if="item.children" :index="item.index">
-            <template #title>
+      <el-scrollbar class="conventional-menu__scroll">
+        <el-menu
+          :default-active="defaultActive"
+          :collapse="isCollapse"
+          :collapse-transition="false"
+          :unique-opened="true"
+          background-color="transparent"
+          text-color="var(--color-text-primary)"
+          active-text-color="#6c3ff5"
+          @select="handleSelect"
+        >
+          <template v-for="item in menuItems" :key="item.index">
+            <el-sub-menu v-if="item.children" :index="item.index">
+              <template #title>
+                <component :is="item.icon" :size="18" class="menu-icon" />
+                <span>{{ t(item.nameKey) }}</span>
+              </template>
+              <el-menu-item
+                v-for="child in item.children"
+                :key="child.index"
+                :index="child.index"
+              >
+                {{ t(child.nameKey) }}
+              </el-menu-item>
+            </el-sub-menu>
+
+            <el-menu-item v-else :index="item.index">
               <component :is="item.icon" :size="18" class="menu-icon" />
-              <span>{{ t(item.nameKey) }}</span>
-            </template>
-            <el-menu-item
-              v-for="child in item.children"
-              :key="child.index"
-              :index="child.index"
-            >
-              {{ t(child.nameKey) }}
+              <template #title>{{ t(item.nameKey) }}</template>
             </el-menu-item>
-          </el-sub-menu>
+          </template>
+        </el-menu>
+      </el-scrollbar>
 
-          <el-menu-item v-else :index="item.index">
-            <component :is="item.icon" :size="18" class="menu-icon" />
-            <template #title>{{ t(item.nameKey) }}</template>
-          </el-menu-item>
-        </template>
-      </el-menu>
-    </el-scrollbar>
-
-    <div class="conventional-menu__footer">
-      <SettingsPanel v-show="!isCollapse" />
-      <div class="collapse-btn" @click="toggleCollapse">
-        <ChevronLeft v-if="!isCollapse" :size="18" />
-        <ChevronRight v-else :size="18" />
+      <div class="conventional-menu__footer">
+        <SettingsPanel v-show="!isCollapse" />
+        <div class="collapse-btn" @click="toggleCollapse">
+          <ChevronLeft v-if="!isCollapse" :size="18" />
+          <ChevronRight v-else :size="18" />
+        </div>
       </div>
     </div>
-  </div>
+  </el-aside>
 </template>
 
 <style lang="scss" scoped>

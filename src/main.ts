@@ -4,6 +4,7 @@ import { VueQueryPlugin } from '@tanstack/vue-query';
 import ElementPlus from 'element-plus';
 import 'element-plus/dist/index.css';
 import 'element-plus/theme-chalk/dark/css-vars.css';
+import './styles/tailwind.css';
 import './styles/variables.scss';
 import './styles/base.scss';
 import router from './router';

@@ -39,7 +39,6 @@ const props = withDefaults(
     tableHeight?: number;
     tableWidth?: number;
     pageSize?: number;
-    showRowActions?: boolean;
     queryKey?: string | string[];
     staleTime?: number;
   }>(),
@@ -51,7 +50,6 @@ const props = withDefaults(
     tableHeight: 420,
     tableWidth: 700,
     pageSize: 20,
-    showRowActions: false,
     staleTime: 5 * 60 * 1000,
   }
 );
@@ -207,7 +205,6 @@ const computedDialogTitle = computed(
           :width="tableWidth"
           :row-key="rowKey"
           :selected-keys="selectedKeys"
-          :show-row-actions="showRowActions"
           selectable
           :multiple="multiple"
           show-pagination

@@ -203,6 +203,7 @@ async function fetchSystemUserList(query: TableListQuery) {
           :entityConfig="{
             entityKey: 'dept',
           }"
+          dragKey="leader"
           :placeholder="t('demo.asyncSelect.selectUserMulti')"
           :dialog-title="t('demo.asyncSelect.selectUser')"
           style="width: 420px"

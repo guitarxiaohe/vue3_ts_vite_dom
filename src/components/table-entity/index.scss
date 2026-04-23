@@ -4,6 +4,10 @@
   width: 100%;
 }
 
+.table-entity__viewport {
+  width: 100%;
+}
+
 .table-entity__toolbar {
   display: flex;
   justify-content: flex-end;
@@ -54,6 +58,16 @@
 
 .table-entity__row-ops {
   justify-content: flex-end;
+}
+
+:deep(.table-entity__col-text),
+:deep(.table-entity__col-slot) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .table-entlty__pagination {

@@ -8,6 +8,15 @@ export function fontWidth(fint: string | undefined): number {
   return fint.length * 30;
 }
 
+// 按内容粗算表格展示宽度，中文更宽、英文数字更窄
+export function textDisplayWidth(text: string): number {
+  return [...text].reduce((sum, char) => {
+    if (/[\u4e00-\u9fa5]/.test(char)) return sum + 14;
+    if (/[A-Z]/.test(char)) return sum + 9;
+    return sum + 8;
+  }, 0);
+}
+
 // 接口返回的 fixed 字符串转为 TableV2 枚举
 export function normalizeColumnFixed(
   v: unknown
