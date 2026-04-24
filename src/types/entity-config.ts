@@ -3,6 +3,7 @@ import type {
   ExternalFilterDefinition,
   MultiviewFilterField,
 } from '@/features/multiview/types';
+import type { TableListQuery } from '@/components/table-entity/index.type';
 
 /******************************** 操作配置 ********************************/
 
@@ -25,6 +26,32 @@ export interface EntityTableSortConfig {
   order?: 'asc' | 'desc';
 }
 
+// 子表关联字段映射
+export interface EntityTableChildRelationFieldConfig {
+  parentKey: string;
+  childKey: string;
+}
+
+// 详情子表配置
+export interface EntityTableChildConfig {
+  entityKey: string;
+  label?: string;
+  labelKey?: string;
+  relationField:
+    | EntityTableChildRelationFieldConfig
+    | EntityTableChildRelationFieldConfig[];
+  columns?: ColumnsItem[];
+  rowKey?: string;
+  height?: number;
+  pageSize?: number;
+  showPagination?: boolean;
+  hiddenColumnKeys?: string[];
+  dataParams?: Record<string, string | number | boolean | undefined>;
+  fetcher?: (
+    query: TableListQuery
+  ) => Promise<{ total: number; rows: Record<string, any>[] }>;
+}
+
 // 表格展示配置
 export interface EntityTableConfig {
   columns?: ColumnsItem[];
@@ -37,6 +64,11 @@ export interface EntityTableConfig {
   freezeLeftKeys?: string[];
   defaultSort?: EntityTableSortConfig;
   showColumnSettings?: boolean;
+  useFieldConfig?: boolean;
+  fetcher?: (
+    query: TableListQuery
+  ) => Promise<{ total: number; rows: Record<string, any>[] }>;
+  children?: EntityTableChildConfig[];
 }
 
 /******************************** 筛选配置 ********************************/

@@ -1,5 +1,6 @@
 import type { Component, VNode } from 'vue';
 import type { Column } from 'element-plus';
+import type { EntityTableChildConfig } from '@/types/entity-config';
 
 /******************************** 列扩展配置 ********************************/
 
@@ -64,6 +65,8 @@ export type TableEntityColSlotProps = {
 export type TableEntlty = {
   // 实体键：无 columns 时拉列配置；无自定义 data 时走列表接口；内置删除依赖
   entityKey?: string;
+  // 预加载字段配置：与 columns 搭配时复用排序元数据，避免重复拉取
+  fieldConfigRows?: Record<string, any>[];
   // 列表查询附加参数，并入分页请求
   dataParams?: Record<string, string | number | boolean | undefined>;
   // 数据：函数优先，其次静态数组，否则 entityKey + getList
@@ -89,6 +92,10 @@ export type TableEntlty = {
   detailRenderMap?: DetailRenderMap;
   detailVisibleCount?: number;
   detailHiddenKeys?: string[];
+  detailChildren?: EntityTableChildConfig[];
+  sortableColumnKeys?: string[];
+  sortField?: string;
+  sortOrder?: 'asc' | 'desc';
 };
 
 /******************************** 顶部工具区 ********************************/

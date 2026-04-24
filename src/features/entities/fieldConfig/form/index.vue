@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import DetailDrawer from '@/features/form-shell/components/form-drawer.vue';
 import { mapEntityFormFields } from '@/features/entities/_shared/form-field-adapter';
 import { getFieldConfigFormFields } from './constants';
+import { getEntityTableConfig } from '@/utils/entity-config';
 import type {
   EntityFormEmits,
   EntityFormProps,
@@ -25,6 +26,9 @@ const { t } = useI18n();
 
 const submitLoading = ref<boolean>(false);
 const formData = ref<Record<string, unknown>>({});
+const formChildren = computed(
+  () => getEntityTableConfig(props.entityKey ?? 'fieldConfig').children ?? []
+);
 
 const formFields = computed(() =>
   mapEntityFormFields(getFieldConfigFormFields(t))
@@ -99,6 +103,7 @@ function onCancel() {
     :columns="2"
     :saving="submitLoading"
     :title="drawerTitle"
+    :child-tables="formChildren"
     @save="handleSave"
     @cancel="onCancel"
     @update:visible="emit('update:visible', $event)"

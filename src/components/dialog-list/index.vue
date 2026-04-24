@@ -87,6 +87,8 @@ const dialogQueryKey = computed(() => [
   keyword.value || '',
 ]);
 
+const resolvedGcTime = computed(() => Math.max(props.staleTime, 10 * 60 * 1000));
+
 const { data: queryData, isFetching: loading } = useQuery({
   queryKey: dialogQueryKey,
   queryFn: () =>
@@ -97,6 +99,9 @@ const { data: queryData, isFetching: loading } = useQuery({
     }),
   enabled: computed(() => props.visible),
   staleTime: computed(() => props.staleTime),
+  gcTime: resolvedGcTime,
+  refetchOnMount: false,
+  refetchOnReconnect: false,
 });
 
 const tableData = computed(() => queryData.value?.items ?? []);
@@ -171,7 +176,6 @@ const computedDialogTitle = computed(
     :title="computedDialogTitle"
     :width="dialogWidth"
     append-to-body
-    destroy-on-close
     @update:model-value="emit('update:visible', $event)"
   >
     <div class="dialog-list">

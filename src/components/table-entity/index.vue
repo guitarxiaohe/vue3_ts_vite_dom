@@ -47,6 +47,7 @@
       :render-map="props.detailRenderMap"
       :visible-count="props.detailVisibleCount"
       :hidden-keys="props.detailHiddenKeys"
+      :child-tables="props.detailChildren"
       @prev="onDetailPrev"
       @next="onDetailNext"
     />
@@ -54,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, reactive, computed } from 'vue';
+import { h, ref, watch, reactive, computed } from 'vue';
 import { useElementSize } from '@vueuse/core';
 import { ElMessage, ElMessageBox, ElTableV2 } from 'element-plus';
 import { useSlots } from 'vue';
@@ -105,6 +106,7 @@ const emit = defineEmits<{
   'delete-success': [];
   'delete-error': [payload: { message: string }];
   'column-visibility-change': [payload: { hiddenKeys: string[] }];
+  'sort-change': [payload: { field: string; order: 'asc' | 'desc' }];
 }>();
 
 /******************************** 表格状态 ********************************/
@@ -267,12 +269,58 @@ const autoFitBusinessColumns = computed(() =>
       Math.max(TEXT_COLUMN_MIN_WIDTH, valueWidth + TEXT_COLUMN_PADDING)
     );
 
+    const sortable = props.sortableColumnKeys?.includes(dataKey) ?? false;
+    const isCurrentSort = props.sortField === dataKey;
+    const currentOrder = isCurrentSort ? props.sortOrder : undefined;
+
     return {
       ...column,
       width: nextWidth,
+      headerCellRenderer: sortable
+        ? () =>
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'table-entity__sort-header',
+                onClick: () => onColumnSortToggle(dataKey),
+              },
+              [
+                h('span', { class: 'table-entity__sort-title' }, titleText),
+                renderSortIndicator(currentOrder),
+              ]
+            )
+        : undefined,
     };
   })
 );
+
+// 切换列头排序：同一列在升序/降序之间切换
+function onColumnSortToggle(field: string) {
+  const nextOrder: 'asc' | 'desc' =
+    props.sortField === field && props.sortOrder === 'asc' ? 'desc' : 'asc';
+  emit('sort-change', { field, order: nextOrder });
+}
+
+// 渲染排序指示器（上下双箭头，激活态高亮）
+function renderSortIndicator(order?: 'asc' | 'desc') {
+  return h('span', { class: 'table-entity__sort-icons' }, [
+    h('span', {
+      class: [
+        'table-entity__sort-icon',
+        'table-entity__sort-icon--up',
+        order === 'asc' ? 'is-active' : '',
+      ],
+    }),
+    h('span', {
+      class: [
+        'table-entity__sort-icon',
+        'table-entity__sort-icon--down',
+        order === 'desc' ? 'is-active' : '',
+      ],
+    }),
+  ]);
+}
 
 // 当列总宽小于容器时，加空白填充列，避免改变业务列自身宽度
 function fillColumnsToViewport(columns: ColumnsItem[], tableWidth: number) {
@@ -382,16 +430,30 @@ function reorderBusinessColumns(orderedKeys: string[]) {
 function buildSortItems(fromIndex: number, toIndex: number) {
   const nextRows = [...fieldConfigRows.value];
   const moved = nextRows.splice(fromIndex, 1)[0];
-  if (!moved) return [];
+  if (!moved) {
+    return {
+      items: [],
+      nextRows: [],
+    };
+  }
   nextRows.splice(toIndex, 0, moved);
-  return nextRows
-    .filter((item) => item?.id != null)
-    .map(
-      (item, index): DataItem => ({
-        id: Number(item.id),
-        sort: index + 1,
-      })
-    );
+  return {
+    items: nextRows
+      .filter((item) => item?.id != null)
+      .map(
+        (item, index): DataItem => ({
+          id: Number(item.id),
+          sort: index + 1,
+        })
+      ),
+    nextRows,
+  };
+}
+
+// 同步本地字段顺序，避免外部预加载场景重复拉取
+function syncLocalFieldConfigRows(rows: Record<string, any>[]) {
+  fieldConfigRows.value = rows;
+  reorderBusinessColumns(rows.map((item) => String(item.id ?? '')));
 }
 
 // 顶部工具区调整列顺序
@@ -424,8 +486,10 @@ async function moveColumn(column: ColumnsItem, direction: 'up' | 'down') {
   const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
   if (targetIndex < 0 || targetIndex >= sortableColumns.value.length) return;
 
-  const items = buildSortItems(currentIndex, targetIndex);
-  if (!items.length) return;
+  const { items, nextRows } = buildSortItems(currentIndex, targetIndex);
+  if (!items.length || !nextRows.length) return;
+
+  syncLocalFieldConfigRows(nextRows);
 
   columnSortLoading.value = true;
   try {
@@ -433,11 +497,11 @@ async function moveColumn(column: ColumnsItem, direction: 'up' | 'down') {
       entityKey: props.entityKey,
       items,
     });
-    await reloadColumns();
     ElMessage.success(t('common.success'));
   } catch (error) {
     console.error('Failed to sort columns:', error);
     ElMessage.error(t('common.failed'));
+    await reloadColumns();
   } finally {
     columnSortLoading.value = false;
   }
@@ -454,8 +518,8 @@ async function moveColumnToIndex(fromIndex: number, toIndex: number) {
     return;
   }
 
-  const items = buildSortItems(fromIndex, toIndex);
-  if (!items.length) return;
+  const { items, nextRows } = buildSortItems(fromIndex, toIndex);
+  if (!items.length || !nextRows.length) return;
 
   columnSortLoading.value = true;
   try {
@@ -463,7 +527,7 @@ async function moveColumnToIndex(fromIndex: number, toIndex: number) {
       entityKey: props.entityKey,
       items,
     });
-    await reloadColumns();
+    syncLocalFieldConfigRows(nextRows);
     ElMessage.success(t('common.success'));
   } catch (error) {
     console.error('Failed to sort columns:', error);

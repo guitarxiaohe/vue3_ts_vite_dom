@@ -63,12 +63,44 @@
         </div>
       </el-col>
     </el-row>
+
+    <!-------------------------- 子表区域 -------------------------->
+    <section
+      v-if="row && hasChildTables"
+      class="row-detail-drawer__children"
+    >
+      <el-tabs
+        v-if="showChildTabs"
+        v-model="activeChildTab"
+        class="row-detail-drawer__tabs"
+      >
+        <el-tab-pane
+          v-for="child in resolvedChildTables"
+          :key="child.entityKey"
+          :label="child.label"
+          :name="child.name"
+        >
+          <RowDetailChildTable
+            :config="child.config"
+            :row="row"
+            :show-title="false"
+          />
+        </el-tab-pane>
+      </el-tabs>
+
+      <RowDetailChildTable
+        v-else-if="resolvedChildTables[0]"
+        :config="resolvedChildTables[0].config"
+        :row="row"
+      />
+    </section>
   </el-drawer>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, isVNode } from 'vue';
+import { computed, defineComponent, h, isVNode, ref, watch } from 'vue';
 import { ArrowDown, ArrowUp } from '@element-plus/icons-vue';
+import { useI18n } from 'vue-i18n';
 import type { PropType } from 'vue';
 import type {
   ColumnsItem,
@@ -76,6 +108,8 @@ import type {
   DetailRenderResult,
 } from './index.type';
 import { formatCellText } from './column-utils';
+import type { EntityTableChildConfig } from '@/types/entity-config';
+import RowDetailChildTable from './row-detail-child-table.vue';
 
 /******************************** 行详情抽屉（当前页 dataList 内上一条 / 下一条） ********************************/
 
@@ -91,6 +125,7 @@ const props = withDefaults(
     renderMap?: DetailRenderMap;
     visibleCount?: number;
     hiddenKeys?: string[];
+    childTables?: EntityTableChildConfig[];
   }>(),
   {
     title: '详情',
@@ -98,6 +133,7 @@ const props = withDefaults(
     totalRows: 0,
     visibleCount: 11,
     hiddenKeys: () => [],
+    childTables: () => [],
   }
 );
 
@@ -106,6 +142,8 @@ const emit = defineEmits<{
   prev: [];
   next: [];
 }>();
+const { t, te } = useI18n();
+const activeChildTab = ref<string>('');
 
 const DetailRender = defineComponent({
   name: 'DetailRender',
@@ -125,6 +163,19 @@ const DetailRender = defineComponent({
 
 const drawerTitle = computed(() => props.title ?? '详情');
 const renderMap = computed(() => props.renderMap);
+const hasChildTables = computed(() => (props.childTables?.length ?? 0) > 0);
+const resolvedChildTables = computed(() => {
+  return (props.childTables ?? []).map((item, index) => ({
+    name: `${item.entityKey}-${index}`,
+    label:
+      item.labelKey && te(item.labelKey)
+        ? t(item.labelKey)
+        : item.label || item.entityKey,
+    config: item,
+    entityKey: `${item.entityKey}-${index}`,
+  }));
+});
+const showChildTabs = computed(() => resolvedChildTables.value.length > 1);
 
 // 排除选择列、操作列，并支持隐藏字段与最大展示数量
 const detailColumns = computed(() => {
@@ -148,6 +199,7 @@ const detailColumnSpan = computed(() =>
 
 const drawerSize = computed(() => {
   if (props.width != null) return props.width;
+  if (hasChildTables.value) return '1080px';
   return detailColumnSpan.value === 6 ? '880px' : '480px';
 });
 
@@ -155,6 +207,14 @@ function cellDisplay(row: Record<string, any>, col: ColumnsItem) {
   const dk = col.dataKey as string;
   return formatCellText(row[dk]);
 }
+
+watch(
+  () => [props.modelValue, props.row],
+  () => {
+    activeChildTab.value = resolvedChildTables.value[0]?.name ?? '';
+  },
+  { immediate: true, deep: true }
+);
 </script>
 
 <style scoped lang="scss">
@@ -194,6 +254,16 @@ function cellDisplay(row: Record<string, any>, col: ColumnsItem) {
 
 .row-detail-drawer__grid {
   margin-top: 0;
+}
+
+.row-detail-drawer__children {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.row-detail-drawer__tabs:deep(.el-tabs__header) {
+  margin-bottom: 8px;
 }
 
 .row-detail-drawer__item {

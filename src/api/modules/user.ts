@@ -4,10 +4,10 @@ import type {
   FieldConfig,
   LoginParams,
   LoginResponse,
-  MenuItem,
   SysUser,
   SysUserDetailApiResponse,
 } from '@/types/user';
+import type { SysRouter } from '@/types/menu';
 import { isMockEnabled } from '@/utils/is-mock';
 
 const nowTs = () => new Date().toISOString();
@@ -185,6 +185,101 @@ const mockEntityFields: Record<string, Array<FieldConfig & Record<string, unknow
       isVisible: true,
     }),
   ],
+  dict: [
+    createMockField({
+      id: 31,
+      entityKey: 'dict',
+      fieldKey: 'dictName',
+      fieldName: '字典名称',
+      fieldType: 'input',
+      sort: 1,
+      isVisible: true,
+      isRequired: true,
+    }),
+    createMockField({
+      id: 32,
+      entityKey: 'dict',
+      fieldKey: 'dictType',
+      fieldName: '字典类型',
+      fieldType: 'input',
+      sort: 2,
+      isVisible: true,
+      isRequired: true,
+    }),
+    createMockField({
+      id: 33,
+      entityKey: 'dict',
+      fieldKey: 'status',
+      fieldName: '状态',
+      fieldType: 'select',
+      sort: 3,
+      isVisible: true,
+      options: [
+        { label: '启用', value: '0' },
+        { label: '停用', value: '1' },
+      ],
+    }),
+    createMockField({
+      id: 34,
+      entityKey: 'dict',
+      fieldKey: 'remark',
+      fieldName: '备注',
+      fieldType: 'textarea',
+      sort: 4,
+      isVisible: true,
+    }),
+  ],
+  dictData: [
+    createMockField({
+      id: 41,
+      entityKey: 'dictData',
+      fieldKey: 'dictLabel',
+      fieldName: '字典标签',
+      fieldType: 'input',
+      sort: 1,
+      isVisible: true,
+    }),
+    createMockField({
+      id: 42,
+      entityKey: 'dictData',
+      fieldKey: 'dictValue',
+      fieldName: '字典键值',
+      fieldType: 'input',
+      sort: 2,
+      isVisible: true,
+    }),
+    createMockField({
+      id: 43,
+      entityKey: 'dictData',
+      fieldKey: 'dictType',
+      fieldName: '字典类型',
+      fieldType: 'input',
+      sort: 3,
+      isVisible: true,
+    }),
+    createMockField({
+      id: 44,
+      entityKey: 'dictData',
+      fieldKey: 'status',
+      fieldName: '状态',
+      fieldType: 'select',
+      sort: 4,
+      isVisible: true,
+      options: [
+        { label: '启用', value: '0' },
+        { label: '停用', value: '1' },
+      ],
+    }),
+    createMockField({
+      id: 45,
+      entityKey: 'dictData',
+      fieldKey: 'dictSort',
+      fieldName: '排序',
+      fieldType: 'number',
+      sort: 5,
+      isVisible: true,
+    }),
+  ],
 };
 
 const mockUserRows: SysUser[] = Array.from({ length: 26 }, (_, i) => ({
@@ -215,12 +310,136 @@ const mockDeptRows = Array.from({ length: 8 }, (_, i) => ({
   remark: `这是部门${i + 1}的备注信息`,
 }));
 
+let mockDictRows = [
+  {
+    dictId: 1,
+    dictName: '用户性别',
+    dictType: 'sys_user_sex',
+    dictClass: 'system',
+    status: '0',
+    remark: '用户性别字典',
+    createdTime: '2026-04-01 10:00:00',
+  },
+  {
+    dictId: 2,
+    dictName: '任务状态',
+    dictType: 'sys_job_status',
+    dictClass: 'system',
+    status: '0',
+    remark: '任务状态字典',
+    createdTime: '2026-04-02 10:00:00',
+  },
+  {
+    dictId: 3,
+    dictName: '通知类型',
+    dictType: 'sys_notice_type',
+    dictClass: 'business',
+    status: '1',
+    remark: '通知类型字典',
+    createdTime: '2026-04-03 10:00:00',
+  },
+];
+
+let mockDictDataRows = [
+  {
+    dictCode: 101,
+    dictSort: 1,
+    dictLabel: '男',
+    dictValue: '0',
+    dictType: 'sys_user_sex',
+    color: '#b7ebc2',
+    status: '0',
+    remark: '男性',
+  },
+  {
+    dictCode: 102,
+    dictSort: 2,
+    dictLabel: '女',
+    dictValue: '1',
+    dictType: 'sys_user_sex',
+    color: '#ffd6e7',
+    status: '0',
+    remark: '女性',
+  },
+  {
+    dictCode: 103,
+    dictSort: 3,
+    dictLabel: '未知',
+    dictValue: '2',
+    dictType: 'sys_user_sex',
+    color: '#ffe58f',
+    status: '1',
+    remark: '未知性别',
+  },
+  {
+    dictCode: 201,
+    dictSort: 1,
+    dictLabel: '正常',
+    dictValue: '0',
+    dictType: 'sys_job_status',
+    color: '#b7ebc2',
+    status: '0',
+    remark: '启用状态',
+  },
+  {
+    dictCode: 202,
+    dictSort: 2,
+    dictLabel: '暂停',
+    dictValue: '1',
+    dictType: 'sys_job_status',
+    color: '#ffccc7',
+    status: '1',
+    remark: '停用状态',
+  },
+  {
+    dictCode: 301,
+    dictSort: 1,
+    dictLabel: '通知',
+    dictValue: '1',
+    dictType: 'sys_notice_type',
+    color: '#91d5ff',
+    status: '0',
+    remark: '通知消息',
+  },
+];
+
+/******************************** Mock 列表工具 ********************************/
+
+const filterMockRows = (
+  rows: Array<Record<string, unknown>>,
+  params?: Record<string, unknown>
+) => {
+  const filterEntries = Object.entries(params ?? {}).filter(
+    ([key, value]) =>
+      !['pageNum', 'pageSize', 'orderByColumn', 'isAsc'].includes(key) &&
+      value !== undefined &&
+      value !== null &&
+      String(value).trim() !== ''
+  );
+
+  if (!filterEntries.length) {
+    return rows;
+  }
+
+  return rows.filter((row) =>
+    filterEntries.every(([key, value]) => {
+      const current = row[key];
+      if (current == null) {
+        return false;
+      }
+      return String(current)
+        .toLowerCase()
+        .includes(String(value).toLowerCase());
+    })
+  );
+};
+
 export const login = (data: LoginParams) => {
   return httpClient.post<LoginResponse>('/login', data);
 };
 
 export const getRoutersApi = () => {
-  return httpClient.post<MenuItem[]>('/routers');
+  return httpClient.get<SysRouter[]>('/getRouters');
 };
 
 // 根据实体标识查询字段配置列表
@@ -276,13 +495,21 @@ export const getListByEntityKeyApi = (
         ? mockUserRows
         : entityKey === 'dept'
           ? mockDeptRows
-          : [];
-    const rows = rowsSource.slice(start, start + pageSize);
+          : entityKey === 'dict'
+            ? mockDictRows
+            : entityKey === 'dictData'
+              ? mockDictDataRows
+              : [];
+    const filteredRows = filterMockRows(
+      rowsSource as Array<Record<string, unknown>>,
+      params
+    );
+    const rows = filteredRows.slice(start, start + pageSize);
     return Promise.resolve({
       code: 200,
       message: 'mock',
       msg: 'mock',
-      total: rowsSource.length,
+      total: filteredRows.length,
       rows,
       timestamp: nowTs(),
     } as any);
@@ -327,6 +554,113 @@ export const fieldConfigSort = (data: DataStructure) => {
     data
   ) as Promise<SysUserDetailApiResponse>;
 };
+
+/******************************** Dict Mock 提交 ********************************/
+
+export type MockDictDataItem = {
+  dictCode?: number | string;
+  dictSort?: number;
+  dictLabel?: string;
+  dictValue?: string;
+  dictType?: string;
+  color?: string;
+  status?: string;
+  remark?: string;
+};
+
+export type MockDictPayload = {
+  dictId?: number | string;
+  dictName: string;
+  dictType: string;
+  dictClass?: string;
+  status?: string;
+  remark?: string;
+};
+
+// 保存字典及字典值示例数据
+export async function saveMockDictBundle(payload: {
+  previousDictType?: string;
+  dict: MockDictPayload;
+  items: MockDictDataItem[];
+}) {
+  const nextDictType = String(payload.dict.dictType ?? '').trim();
+  const previousDictType = String(payload.previousDictType ?? '').trim();
+  const isCreate = payload.dict.dictId == null || payload.dict.dictId === '';
+
+  if (!nextDictType) {
+    throw new Error('dictType is required');
+  }
+
+  if (isCreate) {
+    const nextId =
+      Math.max(0, ...mockDictRows.map((item) => Number(item.dictId ?? 0))) + 1;
+    mockDictRows.unshift({
+      ...payload.dict,
+      dictId: nextId,
+      status: String(payload.dict.status ?? '0'),
+      dictClass: String(payload.dict.dictClass ?? 'system'),
+      createdTime: nowTs().slice(0, 19).replace('T', ' '),
+    });
+  } else {
+    const targetIndex = mockDictRows.findIndex(
+      (item) => String(item.dictId) === String(payload.dict.dictId)
+    );
+
+    if (targetIndex >= 0) {
+      mockDictRows[targetIndex] = {
+        ...mockDictRows[targetIndex],
+        ...payload.dict,
+        status: String(payload.dict.status ?? '0'),
+        dictClass: String(payload.dict.dictClass ?? 'system'),
+      };
+    }
+  }
+
+  if (previousDictType && previousDictType !== nextDictType) {
+    mockDictDataRows = mockDictDataRows.filter(
+      (item) => String(item.dictType) !== previousDictType
+    );
+  }
+
+  mockDictDataRows = mockDictDataRows.filter(
+    (item) => String(item.dictType) !== nextDictType
+  );
+
+  const maxDictCode = Math.max(
+    0,
+    ...mockDictDataRows.map((item) => Number(item.dictCode ?? 0))
+  );
+
+  let dictCodeSeed = maxDictCode;
+  const nextItems = payload.items.map((item, index) => {
+    const rawCode = item.dictCode;
+    const normalizedCode =
+      rawCode == null || rawCode === ''
+        ? (() => {
+            dictCodeSeed += 1;
+            return dictCodeSeed;
+          })()
+        : rawCode;
+
+    return {
+      ...item,
+      dictCode: normalizedCode,
+      dictSort: Number(item.dictSort ?? index + 1),
+      dictType: nextDictType,
+      color: String(item.color ?? '#b7ebc2'),
+      status: String(item.status ?? '0'),
+      remark: String(item.remark ?? ''),
+    };
+  });
+
+  mockDictDataRows.push(...nextItems);
+
+  return Promise.resolve({
+    code: 200,
+    msg: '操作成功',
+    timestamp: nowTs(),
+  } as any);
+}
 
 /**
  *

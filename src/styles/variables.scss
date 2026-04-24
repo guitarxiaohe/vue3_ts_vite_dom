@@ -1,9 +1,18 @@
 :root {
   // ========== 主色调 ==========
-  --color-primary: #6c3ff5;
-  --color-primary-light: #8b5cf6;
-  --color-primary-dark: #5b2ee3;
-  --color-primary-bg: rgba(108, 63, 245, 0.1);
+  --color-primary: #0048ff;
+  --color-primary-light: #336dff;
+  --color-primary-dark: #003acc;
+  --color-primary-bg: rgba(0, 72, 255, 0.1);
+  --el-color-primary: var(--color-primary);
+  --el-color-primary-light-3: #4d7bff;
+  --el-color-primary-light-5: #80a3ff;
+  --el-color-primary-light-7: #b3c8ff;
+  --el-color-primary-light-8: #cddcff;
+  --el-color-primary-light-9: #e6edff;
+  --el-color-primary-dark-2: #003acc;
+  --el-font-family: 'MiSans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --el-text-color-primary: rgba(0, 72, 255, 1);
 
   // ========== 功能色 ==========
   --color-success: #10b981;
@@ -37,7 +46,7 @@
   --color-bg-card: #ffffff;
   --color-bg-hover: #f3f4f6;
   --color-bg-active: #e5e7eb;
-  --color-bg-mask: rgba(0, 0, 0, 0.5);
+  --color-bg-mask: rgba(230, 237, 255, 1);
 
   // ========== 边框颜色 ==========
   --color-border: #e5e7eb;
@@ -88,6 +97,16 @@
 // 暗色主题 - 支持 data-theme 和 .dark 两种方式
 html.dark,
 [data-theme='dark'] {
+  --el-color-primary: #4d7bff;
+  --el-color-primary-light-3: #7aa0ff;
+  --el-color-primary-light-5: #9bb9ff;
+  --el-color-primary-light-7: #bdd3ff;
+  --el-color-primary-light-8: #d6e3ff;
+  --el-color-primary-light-9: #ebf1ff;
+  --el-color-primary-dark-2: #3d62cc;
+  --el-font-family: 'MiSans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --el-text-color-primary: rgba(0, 72, 255, 1);
+
   --color-text-primary: #f9fafb;
   --color-text-secondary: #d1d5db;
   --color-text-placeholder: #9ca3af;
@@ -97,7 +116,7 @@ html.dark,
   --color-bg-card: #1f2937;
   --color-bg-hover: #374151;
   --color-bg-active: #4b5563;
-  --color-bg-mask: rgba(0, 0, 0, 0.7);
+  --color-bg-mask: rgba(230, 237, 255, 1);
 
   --color-border: #374151;
   --color-border-light: #4b5563;

@@ -5,6 +5,8 @@ import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import FormDrawerForm from './form-drawer-form.vue';
 import type { DetailField, DetailRecord } from '../types/detail';
+import type { EntityTableChildConfig } from '@/types/entity-config';
+import RowDetailChildTable from '@/components/table-entity/row-detail-child-table.vue';
 
 /******************************** 类型定义 ********************************/
 
@@ -22,6 +24,7 @@ interface FormDrawerProps {
   showNavigation?: boolean;
   formData?: DetailRecord;
   saveText?: string;
+  childTables?: EntityTableChildConfig[];
 }
 
 interface FormDrawerFormInstance {
@@ -46,6 +49,7 @@ const props = withDefaults(defineProps<FormDrawerProps>(), {
   showNavigation: true,
   formData: undefined,
   saveText: '',
+  childTables: () => [],
 });
 
 const emits = defineEmits<{
@@ -66,12 +70,31 @@ const currentIndex = ref<number>(props.initialIndex ?? 0);
 const syncingFromOuter = ref<boolean>(false);
 
 const resolvedTitle = computed(() => props.title || t('common.detail'));
+const activeChildTab = ref<string>('');
 const total = computed(() => props.recordList?.length ?? 0);
 const isFirst = computed(() => currentIndex.value <= 0);
 const isLast = computed(() => currentIndex.value >= total.value - 1);
 const showNavigation = computed(() => {
   return props.showNavigation && !props.isCreate && total.value > 1;
 });
+const hasChildTables = computed(() => (props.childTables?.length ?? 0) > 0);
+const resolvedSize = computed(() => {
+  if (hasChildTables.value && props.size === '456px') {
+    return '1080px';
+  }
+  return props.size;
+});
+const resolvedChildTables = computed(() => {
+  return (props.childTables ?? []).map((item, index) => ({
+    key: `${item.entityKey}-${index}`,
+    label:
+      item.labelKey && t(item.labelKey) !== item.labelKey
+        ? t(item.labelKey)
+        : item.label || item.entityKey,
+    config: item,
+  }));
+});
+const showChildTabs = computed(() => resolvedChildTables.value.length > 1);
 
 /******************************** 数据方法 ********************************/
 
@@ -220,6 +243,7 @@ watch(
 
     currentIndex.value = props.initialIndex ?? 0;
     await loadCurrent();
+    activeChildTab.value = resolvedChildTables.value[0]?.key ?? '';
   },
   { immediate: true }
 );
@@ -244,7 +268,7 @@ watch(currentIndex, async (value) => {
   <el-drawer
     :model-value="props.visible"
     :title="resolvedTitle"
-    :size="props.size"
+    :size="resolvedSize"
     direction="rtl"
     @close="() => emits('update:visible', false)"
   >
@@ -268,6 +292,34 @@ watch(currentIndex, async (value) => {
         :columns="props.columns"
         :is-create="props.isCreate"
       />
+
+      <!-------------------------- 子表区域 -------------------------->
+      <div v-if="hasChildTables" class="form-drawer__children">
+        <el-tabs
+          v-if="showChildTabs"
+          v-model="activeChildTab"
+          class="form-drawer__tabs"
+        >
+          <el-tab-pane
+            v-for="child in resolvedChildTables"
+            :key="child.key"
+            :label="child.label"
+            :name="child.key"
+          >
+            <RowDetailChildTable
+              :config="child.config"
+              :row="internalFormData"
+              :show-title="false"
+            />
+          </el-tab-pane>
+        </el-tabs>
+
+        <RowDetailChildTable
+          v-else-if="resolvedChildTables[0]"
+          :config="resolvedChildTables[0].config"
+          :row="internalFormData"
+        />
+      </div>
 
       <!-------------------------- 底部操作 -------------------------->
       <div class="form-drawer__footer">
@@ -303,5 +355,14 @@ watch(currentIndex, async (value) => {
   gap: 12px;
   margin-top: 12px;
   padding-top: 16px;
+}
+
+.form-drawer__children {
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.form-drawer__tabs:deep(.el-tabs__header) {
+  margin-bottom: 8px;
 }
 </style>

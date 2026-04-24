@@ -17,6 +17,23 @@ function resolveFieldValue(
   return field[camelKey] ?? field[snakeKey];
 }
 
+// 将字段配置转换为表格列
+export function mapFieldConfigRowsToColumns(rows: Record<string, any>[]) {
+  return rows.map(
+    (col): ColumnsItem => ({
+      width: col.width
+        ? col.width
+        : (fontWidth(resolveFieldValue(col, 'fieldName', 'field_name')) ?? 150),
+      title: resolveFieldValue(col, 'fieldName', 'field_name') ?? '--',
+      key: col.id ?? '--',
+      dataKey: snakeToCamel(
+        resolveFieldValue(col, 'fieldKey', 'field_key') ?? '--'
+      ),
+      fixed: normalizeColumnFixed(resolveFieldValue(col, 'fixed', 'fixed')),
+    })
+  );
+}
+
 // props.columns 优先；否则按 entityKey 拉字段配置并合并 `{dataKey}Col` 插槽
 export function useTableColumns(
   props: TableEntlty,
@@ -45,7 +62,9 @@ export function useTableColumns(
   async function initColumns() {
     try {
       if (props.columns?.length) {
-        fieldConfigRows.value = [];
+        fieldConfigRows.value = Array.isArray(props.fieldConfigRows)
+          ? [...props.fieldConfigRows]
+          : [];
         setTableColumns(buildBusinessColumns(props.columns));
         return;
       }
@@ -61,22 +80,7 @@ export function useTableColumns(
       fieldConfigRows.value = Array.isArray(responseData) ? responseData : [];
 
       if (!isEmptyValue(responseData)) {
-        const columns = responseData.map(
-          (col): ColumnsItem => ({
-            width: col.width
-              ? col.width
-              : (fontWidth(resolveFieldValue(col, 'fieldName', 'field_name')) ??
-                150),
-            title: resolveFieldValue(col, 'fieldName', 'field_name') ?? '--',
-            key: col.id ?? '--',
-            dataKey: snakeToCamel(
-              resolveFieldValue(col, 'fieldKey', 'field_key') ?? '--'
-            ),
-            fixed: normalizeColumnFixed(
-              resolveFieldValue(col, 'fixed', 'fixed')
-            ),
-          })
-        );
+        const columns = mapFieldConfigRowsToColumns(responseData);
         setTableColumns(buildBusinessColumns(columns));
         return;
       }
@@ -98,6 +102,18 @@ export function useTableColumns(
     () => props.columns,
     () => {
       if (props.columns?.length) void initColumns();
+    },
+    { deep: true }
+  );
+
+  watch(
+    () => props.fieldConfigRows,
+    () => {
+      if (props.columns?.length) {
+        fieldConfigRows.value = Array.isArray(props.fieldConfigRows)
+          ? [...props.fieldConfigRows]
+          : [];
+      }
     },
     { deep: true }
   );

@@ -55,6 +55,7 @@ export interface EntityFormField {
 
 // 实体表单组件 Props
 export interface EntityFormProps {
+  entityKey?: string;
   visible: boolean;
   isCreate: boolean;
   record?: Record<string, unknown>;

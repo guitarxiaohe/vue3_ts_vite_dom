@@ -2,7 +2,7 @@
   <el-drawer
     v-model="drawerVisible"
     :title="drawerTitle"
-    size="560px"
+    :size="drawerSize"
     destroy-on-close
   >
     <div class="generic-entity-form">
@@ -98,6 +98,34 @@
         </el-form-item>
       </el-form>
 
+      <!-------------------------- 子表区域 -------------------------->
+      <div v-if="hasChildTables" class="generic-entity-form__children">
+        <el-tabs
+          v-if="showChildTabs"
+          v-model="activeChildTab"
+          class="generic-entity-form__tabs"
+        >
+          <el-tab-pane
+            v-for="child in resolvedChildTables"
+            :key="child.key"
+            :label="child.label"
+            :name="child.key"
+          >
+            <RowDetailChildTable
+              :config="child.config"
+              :row="formData"
+              :show-title="false"
+            />
+          </el-tab-pane>
+        </el-tabs>
+
+        <RowDetailChildTable
+          v-else-if="resolvedChildTables[0]"
+          :config="resolvedChildTables[0].config"
+          :row="formData"
+        />
+      </div>
+
       <!-------------------------- 底部操作 -------------------------->
       <div class="generic-entity-form__footer">
         <el-button @click="onCancel">{{ t('common.cancel') }}</el-button>
@@ -119,6 +147,7 @@ import {
   getEntityConfig,
   getEntityFormSubmitter,
 } from '@/features/entities/registry';
+import { getEntityTableConfig } from '@/utils/entity-config';
 import { snakeToCamel } from '@/utils/value';
 import type { AsyncSelectEntityConfig } from '@/components/async-select';
 import type { ColumnsItem } from '@/components/table-entity/index.type';
@@ -127,6 +156,7 @@ import type {
   AsyncSelectFetchResult,
 } from '@/components/async-select/async-select.type';
 import type { EntityFormSubmitContext } from '@/features/entities/types';
+import RowDetailChildTable from '@/components/table-entity/row-detail-child-table.vue';
 
 /******************************** 类型定义 ********************************/
 
@@ -206,6 +236,20 @@ const entityKey = computed(() => {
 const submitter = computed(() =>
   entityKey.value ? getEntityFormSubmitter(entityKey.value) : null
 );
+const childTables = computed(
+  () => getEntityTableConfig(entityKey.value).children ?? []
+);
+const hasChildTables = computed(() => childTables.value.length > 0);
+const drawerSize = computed(() => (hasChildTables.value ? '1080px' : '560px'));
+const activeChildTab = ref<string>('');
+const resolvedChildTables = computed(() => {
+  return childTables.value.map((item, index) => ({
+    key: `${item.entityKey}-${index}`,
+    label: item.label || item.labelKey || item.entityKey,
+    config: item,
+  }));
+});
+const showChildTabs = computed(() => resolvedChildTables.value.length > 1);
 
 const drawerTitle = computed(() => {
   const title =
@@ -583,6 +627,7 @@ watch(
   async (visible) => {
     if (!visible) return;
     await loadFieldRows();
+    activeChildTab.value = resolvedChildTables.value[0]?.key ?? '';
   },
   { immediate: true }
 );
@@ -618,6 +663,14 @@ watch(
   gap: 12px;
   margin-top: auto;
   padding-top: 12px;
+}
+
+.generic-entity-form__children {
+  padding-top: 8px;
+}
+
+.generic-entity-form__tabs:deep(.el-tabs__header) {
+  margin-bottom: 8px;
 }
 
 </style>

@@ -42,7 +42,7 @@ const routes: RouteRecordRaw[] = [
       },
 
       {
-        path: 'multiview/:entityKey',
+        path: 'multiview/:entityKey(.*)',
         name: 'Multiview',
         component: () => import('@/views/multiview/multiview-page.vue'),
         meta: {

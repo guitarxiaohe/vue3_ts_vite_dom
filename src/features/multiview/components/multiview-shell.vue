@@ -77,12 +77,13 @@
 
           <AsyncSelect
             v-else-if="field.component === 'async-select'"
-            v-model="filterForm[field.key]"
+            :model-value="(filterForm[field.key] ?? null) as any"
             :entity-config="field.entityConfig"
             :value-key="field.valueKey || 'value'"
             :label-key="field.labelKey || 'label'"
             :drag-key="field.dragKey"
             :placeholder="field.placeholder || t('common.pleaseSelect')"
+            @update:model-value="(value) => (filterForm[field.key] = value as FilterFormValue)"
           />
 
           <el-date-picker
@@ -108,11 +109,13 @@
     <!-------------------------- 表格区域 -------------------------->
     <section class="multiview-shell__table-card">
       <TableEntlty
+        v-if="tableReady"
         ref="tableRef"
         v-model:selected-keys="selectedKeys"
         v-model:current-page="currentPage"
         v-model:hidden-column-keys="hiddenColumnKeys"
         :entity-key="entityKey"
+        :field-config-rows="backendFieldConfigs as unknown as Record<string, any>[]"
         :data="fetchTableData"
         :data-params="requestParams"
         :row-key="tableConfig.rowKey || rowKey"
@@ -121,17 +124,22 @@
         :page-size="pageSize"
         :selectable="effectiveShowSelection"
         :multiple="tableConfig.multiple ?? true"
-        :columns="tableConfig.columns || []"
+        :columns="resolvedTableColumns"
         :row-action-column="actionColumn"
         :show-pagination="!hidePagination"
         :show-column-settings="tableConfig.showColumnSettings ?? true"
+        :sortable-column-keys="sortableTimeColumnKeys"
+        :sort-field="activeSort?.field ?? ''"
+        :sort-order="activeSort?.order"
         :detail-drawer-title="detailConfig.title"
         :detail-drawer-width="detailConfig.width"
         :detail-visible-count="detailConfig.visibleCount"
         :detail-hidden-keys="detailConfig.hiddenKeys"
+        :detail-children="tableConfig.children"
         @selection-change="onSelectionChange"
         @page-change="onPageChange"
         @delete-success="onTableDeleteSuccess"
+        @sort-change="onSortChange"
       />
     </section>
 
@@ -155,8 +163,10 @@ import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import AsyncSelect from '@/components/async-select/async-select.vue';
 import TableEntlty from '@/components/table-entity/index.vue';
+import { mapFieldConfigRowsToColumns } from '@/components/table-entity/use-table-columns';
 import ImportDialog from '@/components/import-dialog';
 import { getByEntityKeyAndFieldKeyApi, getListByEntityKeyApi } from '@/api/modules/user';
+import { snakeToCamel } from '@/utils/value';
 import {
   getEntityActionsConfig,
   getEntityConfig,
@@ -235,6 +245,7 @@ const selectedRows = ref<Record<string, any>[]>([]);
 const hiddenColumnKeys = ref<string[]>([]);
 const currentPage = ref<number>(1);
 const total = ref<number>(0);
+const tableReady = ref<boolean>(false);
 const filterForm = reactive<Record<string, FilterFormValue>>({});
 const importDialogVisible = ref(false);
 const importTargetFields = ref<ImportDialogTargetField[]>([]);
@@ -271,6 +282,16 @@ const detailConfig = computed<EntityDetailConfig>(
 const pageSize = computed<number>(
   () => tableConfig.value.pageSize ?? props.pageSize
 );
+
+const COMMON_TIME_SORT_KEYS = [
+  'createdTime',
+  'createTime',
+  'updatedTime',
+  'updateTime',
+  'createdAt',
+  'updatedAt',
+];
+const TIME_FIELD_TYPES = ['date', 'datetime'];
 
 const pageTitle = computed<string>(
   () => props.title || entityConfig.value?.title || props.entityKey
@@ -349,6 +370,104 @@ function mapBackendFieldToFilter(field: FieldConfig): EntityFilterFieldConfig {
   };
 }
 
+// 判断字段是否为时间类型（用于默认排序推断）
+function isTimeField(field: FieldConfig) {
+  const fieldType = String(field.fieldType ?? '')
+    .trim()
+    .toLowerCase();
+  return TIME_FIELD_TYPES.includes(fieldType);
+}
+
+// 规范化排序方向
+function normalizeSortOrder(order: unknown): 'asc' | 'desc' {
+  const value = String(order ?? '')
+    .trim()
+    .toLowerCase();
+  return value === 'asc' ? 'asc' : 'desc';
+}
+
+// 读取实体注册中的默认排序方向偏好（仅决定升/降序，不决定可排序字段）
+function getDefaultSortOrderByField(field: string): 'asc' | 'desc' | null {
+  const defaultSort = tableConfig.value.defaultSort;
+  if (!defaultSort) return null;
+
+  if (Array.isArray(defaultSort)) {
+    const matched = defaultSort.find((item) => item?.field === field);
+    return matched ? normalizeSortOrder(matched.order) : null;
+  }
+
+  if (defaultSort.field === field) {
+    return normalizeSortOrder(defaultSort.order);
+  }
+
+  return null;
+}
+
+// 从后端字段配置中推断默认排序（优先时间字段）
+function resolveBackendDefaultSort() {
+  const candidate = backendFieldConfigs.value
+    .filter((field) => isTimeField(field) && Boolean(field.fieldKey))
+    .sort((a, b) => Number(a.sort ?? 999) - Number(b.sort ?? 999))[0];
+
+  if (!candidate?.fieldKey) {
+    return null;
+  }
+
+  return {
+    field: candidate.fieldKey,
+    order: getDefaultSortOrderByField(candidate.fieldKey) ?? 'desc',
+  } as const;
+}
+
+// 从模块列配置中兜底推断通用时间排序
+function resolveCommonDefaultSort() {
+  const tableColumns = tableConfig.value.columns ?? [];
+  const matched = COMMON_TIME_SORT_KEYS.find((key) =>
+    tableColumns.some((column) => String(column.dataKey ?? '') === key)
+  );
+
+  if (!matched) {
+    return null;
+  }
+
+  return {
+    field: matched,
+    order: getDefaultSortOrderByField(matched) ?? ('desc' as const),
+  };
+}
+
+// 默认排序优先级：模块 defaultSort > 字段接口时间字段 > 通用时间字段
+const resolvedDefaultSort = computed(() => {
+  const moduleDefaultSort = tableConfig.value.defaultSort;
+  if (moduleDefaultSort && !Array.isArray(moduleDefaultSort) && moduleDefaultSort.field) {
+    return {
+      field: moduleDefaultSort.field,
+      order: normalizeSortOrder(moduleDefaultSort.order),
+    };
+  }
+
+  return resolveBackendDefaultSort() ?? resolveCommonDefaultSort();
+});
+
+const sortableTimeColumnKeys = computed<string[]>(() => {
+  return backendFieldConfigs.value
+    .filter((field) => isTimeField(field) && Boolean(field.fieldKey))
+    .map((field) => snakeToCamel(String(field.fieldKey)))
+    .filter(Boolean);
+});
+
+const resolvedTableColumns = computed(() => {
+  if (backendFieldConfigs.value.length) {
+    return mapFieldConfigRowsToColumns(
+      backendFieldConfigs.value as unknown as Record<string, any>[]
+    );
+  }
+
+  return tableConfig.value.columns ?? [];
+});
+
+const activeSort = ref<{ field: string; order: 'asc' | 'desc' } | null>(null);
+
 const filterFields = computed<EntityFilterFieldConfig[]>(() => {
   const backendFilters = backendFieldConfigs.value
     .filter((field) => isFuzzyField(field))
@@ -380,9 +499,6 @@ const filterFields = computed<EntityFilterFieldConfig[]>(() => {
     }))
     .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 });
-setTimeout(() => {
-  console.log(filterFields.value, 'filterFields');
-}, 1000);
 
 const requestParams = computed<
   Record<string, string | number | boolean | undefined>
@@ -415,6 +531,11 @@ const { actionColumn } = useMultiviewActions(
 
 // 加载后端字段配置筛选项
 async function loadBackendFieldConfigs() {
+  if (tableConfig.value.useFieldConfig === false) {
+    backendFieldConfigs.value = [];
+    return;
+  }
+
   if (!props.entityKey) {
     backendFieldConfigs.value = [];
     return;
@@ -450,7 +571,7 @@ function initFilterForm() {
 // 生成请求参数
 function buildRequestParams() {
   const params: Record<string, string | number | boolean | undefined> = {};
-  const defaultSort = tableConfig.value.defaultSort;
+  const defaultSort = activeSort.value ?? resolvedDefaultSort.value;
 
   for (const field of filterFields.value) {
     const value = filterForm[field.key];
@@ -476,14 +597,41 @@ function buildRequestParams() {
 
   if (defaultSort?.field) {
     params.orderByColumn = defaultSort.field;
-    params.isAsc = defaultSort.order ?? 'asc';
+    params.isAsc = defaultSort.order ?? 'desc';
   }
 
   return params;
 }
 
+// 更新当前排序并刷新列表
+function onSortChange(payload: { field: string; order: 'asc' | 'desc' }) {
+  const isSwitchField = activeSort.value?.field !== payload.field;
+  const preferredOrder = getDefaultSortOrderByField(payload.field);
+  activeSort.value = {
+    field: payload.field,
+    order: isSwitchField && preferredOrder ? preferredOrder : payload.order,
+  };
+  currentPage.value = 1;
+  void tableRef.value?.reload();
+}
+
 // 拉取表格数据
 async function fetchTableData(query: TableListQuery) {
+  if (tableConfig.value.fetcher) {
+    const payload = await tableConfig.value.fetcher({
+      ...query,
+      ...requestParams.value,
+    });
+
+    total.value = Number(payload.total) || 0;
+    tableRows.value = payload.rows ?? [];
+
+    return {
+      total: total.value,
+      rows: tableRows.value,
+    };
+  }
+
   const result = (await getListByEntityKeyApi(props.entityKey, {
     ...query,
     ...requestParams.value,
@@ -720,11 +868,16 @@ function onTableDeleteSuccess() {
 watch(
   () => props.entityKey,
   async () => {
+    tableReady.value = false;
     clearSelection();
     hiddenColumnKeys.value = [];
     currentPage.value = 1;
+    total.value = 0;
+    tableRows.value = [];
     await loadBackendFieldConfigs();
+    activeSort.value = resolvedDefaultSort.value;
     initFilterForm();
+    tableReady.value = true;
   },
   { immediate: true }
 );

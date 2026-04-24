@@ -61,6 +61,10 @@ const entityModule: EntityModule = {
       height: 520,
       pageSize: 20,
       showColumnSettings: true,
+      defaultSort:{
+        field: 'createdTime',
+        order: 'asc',
+      }
     },
     detail: {
       title: '文件详情',

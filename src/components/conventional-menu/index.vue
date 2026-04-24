@@ -1,93 +1,154 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed, ref } from 'vue';
+import { useQuery } from '@tanstack/vue-query';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import SettingsPanel from '@/components/settings-panel/index.vue';
 import {
-  House,
-  Box,
-  Package,
-  Settings,
-  MessageSquare,
-  FileText,
-  HelpCircle,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-vue-next';
+  fetchRouterTree,
+  ROUTER_TREE_QUERY_KEY,
+} from '@/api/modules/menu';
+import type { SysRouter } from '@/types/menu';
+import { resolveMenuIcon } from '@/features/entities/menu/form/menu-icons';
+import type { ConventionalMenuItem } from './index.type';
+import MenuBranch from './menu-branch.vue';
+
+/******************************** 基础状态 ********************************/
 
 const router = useRouter();
 const route = useRoute();
 const { t } = useI18n();
 
-const isCollapse = ref(false);
+const isCollapse = ref<boolean>(false);
 
-const toggleCollapse = () => {
+const {
+  data: menuTreeData,
+  isFetching: menuLoading,
+  error: menuError,
+} = useQuery({
+  queryKey: ROUTER_TREE_QUERY_KEY,
+  queryFn: fetchRouterTree,
+  staleTime: 5 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
+  retry: 0,
+  refetchOnMount: false,
+  refetchOnReconnect: false,
+  refetchOnWindowFocus: false,
+});
+
+const defaultActive = computed<string>(() => route.path);
+
+const menuItems = computed<ConventionalMenuItem[]>(() => {
+  return buildMenuItems(menuTreeData.value ?? []);
+});
+
+/******************************** 交互方法 ********************************/
+
+// 切换菜单收起状态
+function toggleCollapse(): void {
   isCollapse.value = !isCollapse.value;
-};
+}
 
-const menuItems = [
-  {
-    index: '/',
-    nameKey: 'menu.home',
-    icon: House,
-  },
-  {
-    index: '/three',
-    nameKey: 'menu.threeScene',
-    icon: Box,
-  },
-  {
-    index: '/components',
-    nameKey: 'menu.components',
-    icon: Package,
-  },
-  {
-    index: 'system',
-    nameKey: 'menu.settings',
-    icon: Settings,
-    children: [
-      { index: '/settings/user', nameKey: 'menu.user' },
-      { index: '/settings/data', nameKey: 'menu.data' },
-    ],
-  },
-  {
-    index: 'message',
-    nameKey: 'menu.messages',
-    icon: MessageSquare,
-    children: [
-      { index: '/messages/list', nameKey: 'menu.messages' },
-      { index: '/messages/calendar', nameKey: 'menu.calendar' },
-    ],
-  },
-  {
-    index: '/files',
-    nameKey: 'menu.files',
-    icon: FileText,
-  },
-  {
-    index: '/help',
-    nameKey: 'menu.help',
-    icon: HelpCircle,
-  },
-];
+// 菜单点击跳转
+function handleSelect(index: string): void {
+  if (/^https?:\/\//.test(index)) {
+    window.open(index, '_blank', 'noopener,noreferrer');
+    return;
+  }
 
-const defaultActive = computed(() => route.path);
+  if (!index.startsWith('/')) {
+    return;
+  }
 
-const handleSelect = (index: string) => {
-  if (!index.startsWith('/')) return;
   router.push(index);
-};
+}
+
+/******************************** 菜单映射 ********************************/
+
+// 解析菜单展示名称
+function resolveMenuTitle(routeItem: SysRouter): string {
+  return (
+    routeItem.meta?.title ||
+    routeItem.parentName ||
+    routeItem.name ||
+    ''
+  );
+}
+
+// 规范化菜单路径
+function normalizeMenuIndex(routeItem: SysRouter): string {
+  const link = String(routeItem.meta?.link ?? '').trim();
+  const path = String(routeItem.path ?? '').trim();
+
+  if (link) {
+    return link;
+  }
+
+  if (!path) {
+    return `menu-${routeItem.menuId ?? routeItem.name ?? Date.now()}`;
+  }
+
+  if (/^https?:\/\//.test(path)) {
+    return path;
+  }
+
+  const normalizedPath = path.replace(/^\/+/, '');
+
+  if (!normalizedPath) {
+    return `menu-${routeItem.menuId ?? routeItem.name ?? Date.now()}`;
+  }
+
+  if (normalizedPath.startsWith('multiview/')) {
+    return `/${normalizedPath}`;
+  }
+
+  return `/multiview/${normalizedPath}`;
+}
+
+// 构建侧边栏菜单树
+function buildMenuItems(menus: SysRouter[]): ConventionalMenuItem[] {
+  return menus.flatMap((menu) => {
+    if (menu.hidden || menu.menuType === 'F') {
+      return [];
+    }
+
+    const currentIndex = normalizeMenuIndex(menu);
+    const children = buildMenuItems(menu.children ?? []);
+    const title = resolveMenuTitle(menu);
+
+    if (!title && children.length) {
+      return children;
+    }
+
+    const menuItem: ConventionalMenuItem = {
+      menuId: Number(menu.menuId ?? 0),
+      index: currentIndex,
+      title,
+      icon: menu.meta?.icon ? resolveMenuIcon(menu.meta.icon) : null,
+      children,
+    };
+
+    if (!menuItem.title) {
+      return children;
+    }
+
+    return [menuItem];
+  });
+}
 </script>
 
 <template>
   <el-aside :class="{ 'is-collapse': isCollapse }">
     <div class="conventional-menu" :class="{ 'is-collapse': isCollapse }">
+      <!-------------------------- 品牌区 -------------------------->
       <div class="conventional-menu__logo">
         <span class="logo-icon">✨</span>
         <span v-show="!isCollapse" class="logo-text">YourBrand</span>
       </div>
 
-      <el-scrollbar class="conventional-menu__scroll">
+      <!-------------------------- 菜单区 -------------------------->
+      <el-scrollbar v-loading="menuLoading" class="conventional-menu__scroll">
         <el-menu
           :default-active="defaultActive"
           :collapse="isCollapse"
@@ -98,29 +159,20 @@ const handleSelect = (index: string) => {
           active-text-color="#6c3ff5"
           @select="handleSelect"
         >
-          <template v-for="item in menuItems" :key="item.index">
-            <el-sub-menu v-if="item.children" :index="item.index">
-              <template #title>
-                <component :is="item.icon" :size="18" class="menu-icon" />
-                <span>{{ t(item.nameKey) }}</span>
-              </template>
-              <el-menu-item
-                v-for="child in item.children"
-                :key="child.index"
-                :index="child.index"
-              >
-                {{ t(child.nameKey) }}
-              </el-menu-item>
-            </el-sub-menu>
-
-            <el-menu-item v-else :index="item.index">
-              <component :is="item.icon" :size="18" class="menu-icon" />
-              <template #title>{{ t(item.nameKey) }}</template>
-            </el-menu-item>
-          </template>
+          <MenuBranch
+            v-for="item in menuItems"
+            :key="item.menuId"
+            :item="item"
+          />
         </el-menu>
+
+        <el-empty
+          v-if="!menuLoading && !menuItems.length"
+          :description="menuError ? t('common.failed') : t('common.noData')"
+        />
       </el-scrollbar>
 
+      <!-------------------------- 底部区 -------------------------->
       <div class="conventional-menu__footer">
         <SettingsPanel v-show="!isCollapse" />
         <div class="collapse-btn" @click="toggleCollapse">
@@ -229,7 +281,6 @@ const handleSelect = (index: string) => {
 .conventional-menu__footer {
   display: flex;
   align-items: center;
-  //   justify-content: space-between;
   padding: 0.5rem;
   border-top: 1px solid var(--el-border-color-lighter);
 
