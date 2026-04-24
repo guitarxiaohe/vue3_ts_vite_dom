@@ -8,6 +8,15 @@ import { applyColumnSlots } from './column-slots';
 
 /******************************** 列配置加载与插槽合并 ********************************/
 
+// 兼容字段配置的 camelCase 与 snake_case
+function resolveFieldValue(
+  field: Record<string, any>,
+  camelKey: string,
+  snakeKey: string
+) {
+  return field[camelKey] ?? field[snakeKey];
+}
+
 // props.columns 优先；否则按 entityKey 拉字段配置并合并 `{dataKey}Col` 插槽
 export function useTableColumns(
   props: TableEntlty,
@@ -54,11 +63,18 @@ export function useTableColumns(
       if (!isEmptyValue(responseData)) {
         const columns = responseData.map(
           (col): ColumnsItem => ({
-            width: col.width ? col.width : (fontWidth(col.fieldName) ?? 150),
-            title: col.fieldName ?? '--',
+            width: col.width
+              ? col.width
+              : (fontWidth(resolveFieldValue(col, 'fieldName', 'field_name')) ??
+                150),
+            title: resolveFieldValue(col, 'fieldName', 'field_name') ?? '--',
             key: col.id ?? '--',
-            dataKey: snakeToCamel(col.fieldKey ?? '--'),
-            fixed: normalizeColumnFixed(col.fixed),
+            dataKey: snakeToCamel(
+              resolveFieldValue(col, 'fieldKey', 'field_key') ?? '--'
+            ),
+            fixed: normalizeColumnFixed(
+              resolveFieldValue(col, 'fixed', 'fixed')
+            ),
           })
         );
         setTableColumns(buildBusinessColumns(columns));

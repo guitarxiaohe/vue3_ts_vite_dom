@@ -2,7 +2,10 @@ import { defineAsyncComponent } from 'vue';
 import type { EntityModule } from '@/features/entities/types';
 // 用户管理模块配置
 const entityModule: EntityModule = {
-  entityKey: 'dept',
+  entityKey: 'user',
+  form: {
+    component: defineAsyncComponent(() => import('./form/index.vue')),
+  },
   rowActions: {
     actionColumnWidth: 220,
     customButtons: [
@@ -17,7 +20,7 @@ const entityModule: EntityModule = {
     ],
   },
   config: {
-    entityKey: 'dept',
+    entityKey: 'user',
     title: '用户管理',
     actions: {
       showCreate: true,
@@ -28,10 +31,10 @@ const entityModule: EntityModule = {
       showExport: true,
     },
     table: {
-      rowKey: 'deptId',
+      rowKey: 'userId',
       height: 520,
       pageSize: 20,
-      defaultSort: { field: 'deptId', order: 'asc' },
+      defaultSort: { field: 'userId', order: 'asc' },
       showColumnSettings: true,
     },
     detail: {

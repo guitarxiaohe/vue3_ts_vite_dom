@@ -2,9 +2,9 @@
 import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQuery } from '@tanstack/vue-query';
-import { Search } from '@element-plus/icons-vue';
 import DialogList from '@/components/dialog-list/index.vue';
 import { getListByEntityKeyApi } from '@/api/modules/user';
+import moreDotIcon from '@/assets/svg/icons/more-dot.svg';
 import type {
   ColumnsItem,
   TableListQuery,
@@ -32,6 +32,17 @@ type AsyncSelectListResult = {
   items: Record<string, any>[];
   total: number;
 };
+
+const DEFAULT_LABEL_KEYS = [
+  'label',
+  'name',
+  'title',
+  'deptName',
+  'nickName',
+  'userName',
+  'fileOriginName',
+];
+const DEFAULT_VALUE_KEYS = ['value', 'id', 'userId', 'deptId', 'fileId'];
 
 const props = withDefaults(
   defineProps<{
@@ -113,13 +124,41 @@ const activeValues = computed<Array<string | number>>(() => {
 
 function toOpt(item: Record<string, any>): Opt {
   return {
-    value: item[props.valueKey] as string | number,
+    value: resolveOptionValue(item),
     label: {
-      label: String(item[props.labelKey] ?? ''),
+      label: resolveOptionLabel(item),
       dragLabel: props.dragKey ? String(item[props.dragKey] ?? '') : '',
       raw: item,
     },
   };
+}
+
+// 解析选项主文案
+function resolveOptionLabel(item: Record<string, any>) {
+  const keys = [props.labelKey, ...DEFAULT_LABEL_KEYS].filter(Boolean);
+
+  for (const key of keys) {
+    const value = item[String(key)];
+    if (value !== undefined && value !== null && value !== '') {
+      return String(value);
+    }
+  }
+
+  return '';
+}
+
+// 解析选项值
+function resolveOptionValue(item: Record<string, any>) {
+  const keys = [props.valueKey, ...DEFAULT_VALUE_KEYS].filter(Boolean);
+
+  for (const key of keys) {
+    const value = item[String(key)];
+    if (value !== undefined && value !== null && value !== '') {
+      return value as string | number;
+    }
+  }
+
+  return '' as string;
 }
 
 async function fetchEntityList(
@@ -229,6 +268,7 @@ function onDropdownVisible(visible: boolean) {
 const dialogVisible = ref(false);
 
 function openDialog() {
+  if (props.disabled) return;
   dialogVisible.value = true;
 }
 
@@ -272,7 +312,7 @@ const computedDialogTitle = computed(
       v-bind="$attrs"
       @visible-change="onDropdownVisible"
     >
-      <template #label="{ label, value }">
+      <template #label="{ label }">
         <span>{{ label.label }}</span>
       </template>
       <template #default="{ item }">
@@ -286,13 +326,18 @@ const computedDialogTitle = computed(
         </div>
       </template>
     </el-select-v2>
-    <el-button
-      :icon="Search"
-      :disabled="disabled"
-      class="async-select__trigger"
+    <button
+      type="button"
+      class="async-select__inner-trigger"
+      :class="{ 'is-disabled': disabled }"
       :title="t('common.dialogSelect')"
-      @click="openDialog"
-    />
+      @mousedown.prevent
+      @click.stop="openDialog"
+    >
+      <el-icon>
+        <img :src="moreDotIcon" :alt="t('common.more')" />
+      </el-icon>
+    </button>
   </div>
 
   <DialogList
@@ -316,22 +361,59 @@ const computedDialogTitle = computed(
 </template>
 
 <style scoped lang="scss">
+:deep(.el-select) {
+  width: 260px !important;
+
+}
+
+:deep(.el-input__icon){
+  margin-right: 15px;
+}
+
 .async-select {
-  display: inline-flex;
-  align-items: center;
-  width: 100%;
-  gap: 4px;
+  position: relative;
+  display: block;
+  width: 260px;
 }
 
 .async-select__select {
-  flex: 1;
-  min-width: 0;
+  width: 260px;
 }
 
-.async-select__trigger {
-  flex-shrink: 0;
-  height: 32px;
-  padding: 0 10px;
+// .async-select__select:deep(.el-select__suffix),
+// .async-select__select:deep(.el-select-v2__suffix) {
+//   margin-right: 24px;
+//   transition: margin-right 0.2s ease;
+// }
+
+.async-select__inner-trigger {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 4px;
+  padding: 0;
+  background: transparent;
+  color: var(--el-text-color-regular);
+  cursor: pointer;
+  font-size: 14px;
+  transform: translateY(-50%);
+}
+
+.async-select__inner-trigger:hover:not(.is-disabled) {
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-primary);
+}
+
+.async-select__inner-trigger.is-disabled {
+  cursor: not-allowed;
+  color: var(--el-text-color-placeholder);
 }
 
 .async-select__option {

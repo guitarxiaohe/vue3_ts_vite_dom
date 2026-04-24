@@ -102,6 +102,7 @@ export interface FieldConfig {
   entityKey: string;
   fieldKey: string;
   fieldName: string;
+  fieldType: string | null;
   dictCode: string | null;
   selectEntityKey: string | null;
   sort: number;
@@ -111,6 +112,7 @@ export interface FieldConfig {
   createdTime: number | null;
   updatedBy: number | null;
   updatedTime: number | null;
+  fixed: 'left' | 'right' | null;
 }
 
 /**

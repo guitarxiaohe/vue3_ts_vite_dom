@@ -197,6 +197,7 @@ const computedDialogTitle = computed(
       <!-- 表格 + 分页 -->
       <div class="dialog-list__table" v-loading="loading">
         <TableEntlty
+          :showColumnSettings="false"
           :entity-key="entityKey"
           ref="tableRef"
           :columns="columns"

@@ -18,20 +18,6 @@
           {{ resolvedActions.createName }}
         </el-button>
         <el-button
-          v-if="resolvedActions.showEdit"
-          :disabled="selectedKeys.length !== 1"
-          @click="emit('edit', selectedRows[0])"
-        >
-          {{ t('common.edit') }}
-        </el-button>
-        <el-button
-          v-if="resolvedActions.showCopy"
-          :disabled="selectedKeys.length !== 1"
-          @click="emit('copy', selectedRows[0])"
-        >
-          {{ t('common.copy') }}
-        </el-button>
-        <el-button
           v-if="resolvedActions.showDelete"
           type="danger"
           :disabled="selectedKeys.length === 0"
@@ -170,7 +156,7 @@ import { ElMessage } from 'element-plus';
 import AsyncSelect from '@/components/async-select/async-select.vue';
 import TableEntlty from '@/components/table-entity/index.vue';
 import ImportDialog from '@/components/import-dialog';
-import { getListByEntityKeyApi } from '@/api/modules/user';
+import { getByEntityKeyAndFieldKeyApi, getListByEntityKeyApi } from '@/api/modules/user';
 import {
   getEntityActionsConfig,
   getEntityConfig,
@@ -181,6 +167,7 @@ import type {
   EntityFilterFieldConfig,
   EntityTableConfig,
 } from '@/types/entity-config';
+import type { FieldConfig } from '@/types/user';
 import type { TableListQuery } from '@/components/table-entity/index.type';
 import type {
   ImportDialogMappingItem,
@@ -251,6 +238,7 @@ const total = ref<number>(0);
 const filterForm = reactive<Record<string, FilterFormValue>>({});
 const importDialogVisible = ref(false);
 const importTargetFields = ref<ImportDialogTargetField[]>([]);
+const backendFieldConfigs = ref<FieldConfig[]>([]);
 
 const entityConfig = computed(() => getEntityConfig(props.entityKey));
 
@@ -294,7 +282,82 @@ const effectiveShowSelection = computed(
   () => hasEntityConfig.value && props.showSelection
 );
 
+// 判断字段是否启用模糊查询
+function isFuzzyField(field: FieldConfig) {
+  return (
+    field.isFuzzySearch === true ||
+    Number(field.isFuzzySearch ?? 0) === 1
+  );
+}
+
+// 将后端字段配置转换为筛选项
+function mapBackendFieldToFilter(field: FieldConfig): EntityFilterFieldConfig {
+  const fieldType = String(field.fieldType ?? 'input').toLowerCase();
+
+  if (fieldType === 'select') {
+    return {
+      key: field.fieldKey,
+      label: field.fieldName,
+      component: 'async-select',
+      placeholder: t('common.pleaseSelect'),
+      order: field.sort ?? 999,
+      entityConfig: {
+        entityKey: field.selectEntityKey ?? '',
+      },
+    };
+  }
+
+  if (fieldType === 'dict') {
+    return {
+      key: field.fieldKey,
+      label: field.fieldName,
+      component: 'async-select',
+      placeholder: t('common.pleaseSelect'),
+      order: field.sort ?? 999,
+      entityConfig: {
+        entityKey: field.selectEntityKey ?? '',
+      },
+    };
+  }
+
+  if (fieldType === 'text') {
+    return {
+      key: field.fieldKey,
+      label: field.fieldName,
+      component: 'input',
+      placeholder: t('common.enterKeyword'),
+      order: field.sort ?? 999,
+    };
+  }
+
+  if (fieldType === 'date' || fieldType === 'datetime') {
+    return {
+      key: field.fieldKey,
+      label: field.fieldName,
+      component: 'date',
+      placeholder: t('common.pleaseSelect'),
+      order: field.sort ?? 999,
+    };
+  }
+
+  return {
+    key: field.fieldKey,
+    label: field.fieldName,
+    component: 'input',
+    placeholder: t('common.enterKeyword'),
+    order: field.sort ?? 999,
+  };
+}
+
 const filterFields = computed<EntityFilterFieldConfig[]>(() => {
+  const backendFilters = backendFieldConfigs.value
+    .filter((field) => isFuzzyField(field))
+    .map((field) => mapBackendFieldToFilter(field));
+
+  if (backendFilters.length) {
+    return backendFilters.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  }
+
   if (!hasEntityConfig.value) {
     return [
       {
@@ -317,6 +380,9 @@ const filterFields = computed<EntityFilterFieldConfig[]>(() => {
     }))
     .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 });
+setTimeout(() => {
+  console.log(filterFields.value, 'filterFields');
+}, 1000);
 
 const requestParams = computed<
   Record<string, string | number | boolean | undefined>
@@ -346,6 +412,29 @@ const { actionColumn } = useMultiviewActions(
 );
 
 /******************************** 数据方法 ********************************/
+
+// 加载后端字段配置筛选项
+async function loadBackendFieldConfigs() {
+  if (!props.entityKey) {
+    backendFieldConfigs.value = [];
+    return;
+  }
+
+  try {
+    const response = (await getByEntityKeyAndFieldKeyApi(
+      props.entityKey
+    )) as unknown as {
+      data?: FieldConfig[];
+    };
+
+    backendFieldConfigs.value = Array.isArray(response.data)
+      ? response.data
+      : [];
+  } catch (error) {
+    backendFieldConfigs.value = [];
+    console.error('failed to load backend field config filters', error);
+  }
+}
 
 // 初始化筛选默认值
 function initFilterForm() {
@@ -630,10 +719,11 @@ function onTableDeleteSuccess() {
 
 watch(
   () => props.entityKey,
-  () => {
+  async () => {
     clearSelection();
     hiddenColumnKeys.value = [];
     currentPage.value = 1;
+    await loadBackendFieldConfigs();
     initFilterForm();
   },
   { immediate: true }

@@ -4,6 +4,14 @@ import type { EntityRowActionsConfig } from './_shared/row-actions-types';
 
 /******************************** 实体模块 ********************************/
 
+// 通用实体表单提交上下文
+export interface EntityFormSubmitContext {
+  entityKey: string;
+  isCreate: boolean;
+  record?: Record<string, unknown> | null;
+  data: Record<string, unknown>;
+}
+
 // 实体表头按钮配置
 export interface EntityTableActionConfig {
   component: Component;
@@ -23,6 +31,9 @@ export interface EntityModule {
   entityKey: string;
   form?: {
     component?: Component;
+    submit?: (
+      context: EntityFormSubmitContext
+    ) => Promise<Record<string, unknown> | void>;
   };
   detail?: {
     component?: Component;

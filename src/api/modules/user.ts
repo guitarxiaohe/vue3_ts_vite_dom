@@ -1,7 +1,7 @@
-import type { ColumnsItem } from '@/components/table-entity/index.type';
 import { httpClient } from '../client';
 import type {
   DataStructure,
+  FieldConfig,
   LoginParams,
   LoginResponse,
   MenuItem,
@@ -12,24 +12,179 @@ import { isMockEnabled } from '@/utils/is-mock';
 
 const nowTs = () => new Date().toISOString();
 
-const mockEntityColumns: Record<string, ColumnsItem[]> = {
+const createMockField = (
+  field: Partial<FieldConfig> & Record<string, unknown>
+): FieldConfig & Record<string, unknown> => ({
+  id: Number(field.id ?? Date.now()),
+  entityKey: String(field.entityKey ?? ''),
+  fieldKey: String(field.fieldKey ?? ''),
+  fieldName: String(field.fieldName ?? field.fieldKey ?? ''),
+  fieldType: (field.fieldType as string | null | undefined) ?? 'input',
+  dictCode: (field.dictCode as string | null | undefined) ?? null,
+  selectEntityKey:
+    (field.selectEntityKey as string | null | undefined) ?? null,
+  sort: Number(field.sort ?? 0),
+  isFuzzySearch: Boolean(field.isFuzzySearch ?? false),
+  isVisible: Boolean(field.isVisible ?? true),
+  createdBy: null,
+  createdTime: null,
+  updatedBy: null,
+  updatedTime: null,
+  fixed: (field.fixed as 'left' | 'right' | null | undefined) ?? null,
+  ...field,
+});
+
+const mockEntityFields: Record<string, Array<FieldConfig & Record<string, unknown>>> = {
+  dept: [
+    createMockField({
+      id: 1,
+      entityKey: 'dept',
+      fieldKey: 'deptName',
+      fieldName: '部门名称',
+      fieldType: 'input',
+      sort: 1,
+      isVisible: true,
+      isRequired: true,
+    }),
+    createMockField({
+      id: 2,
+      entityKey: 'dept',
+      fieldKey: 'leader',
+      fieldName: '负责人',
+      fieldType: 'select',
+      sort: 2,
+      isVisible: true,
+      selectEntityKey: 'user',
+      labelKey: 'nickName',
+      valueKey: 'userId',
+      dragKey: 'userName',
+    }),
+    createMockField({
+      id: 3,
+      entityKey: 'dept',
+      fieldKey: 'status',
+      fieldName: '状态',
+      fieldType: 'select',
+      sort: 3,
+      isVisible: true,
+      options: [
+        { label: '启用', value: '0' },
+        { label: '停用', value: '1' },
+      ],
+    }),
+    createMockField({
+      id: 4,
+      entityKey: 'dept',
+      fieldKey: 'remark',
+      fieldName: '备注',
+      fieldType: 'textarea',
+      sort: 4,
+      isVisible: true,
+    }),
+  ],
   user: [
-    { key: 'userId', dataKey: 'userId', title: '用户ID', width: 90 },
-    { key: 'userName', dataKey: 'userName', title: '账号', width: 120 },
-    { key: 'nickName', dataKey: 'nickName', title: '昵称', width: 120 },
-    { key: 'email', dataKey: 'email', title: '邮箱', width: 220 },
-  ] as ColumnsItem[],
+    createMockField({
+      id: 11,
+      entityKey: 'user',
+      fieldKey: 'userName',
+      fieldName: '账号',
+      fieldType: 'input',
+      sort: 1,
+      isVisible: true,
+      isRequired: true,
+    }),
+    createMockField({
+      id: 12,
+      entityKey: 'user',
+      fieldKey: 'nickName',
+      fieldName: '昵称',
+      fieldType: 'input',
+      sort: 2,
+      isVisible: true,
+      isRequired: true,
+    }),
+    createMockField({
+      id: 13,
+      entityKey: 'user',
+      fieldKey: 'email',
+      fieldName: '邮箱',
+      fieldType: 'input',
+      sort: 3,
+      isVisible: true,
+    }),
+    createMockField({
+      id: 14,
+      entityKey: 'user',
+      fieldKey: 'deptId',
+      fieldName: '所属部门',
+      fieldType: 'select',
+      sort: 4,
+      isVisible: true,
+      selectEntityKey: 'dept',
+      labelKey: 'deptName',
+      valueKey: 'deptId',
+      dragKey: 'leader',
+    }),
+  ],
   fileInfo: [
-    { key: 'fileId', dataKey: 'fileId', title: '文件ID', width: 90 },
-    {
-      key: 'fileOriginName',
-      dataKey: 'fileOriginName',
-      title: '文件名称',
-      width: 180,
-    },
-    { key: 'fileSuffix', dataKey: 'fileSuffix', title: '后缀', width: 100 },
-    { key: 'fileSizeInfo', dataKey: 'fileSizeInfo', title: '大小', width: 110 },
-  ] as ColumnsItem[],
+    createMockField({
+      id: 21,
+      entityKey: 'fileInfo',
+      fieldKey: 'fileOriginName',
+      fieldName: '文件名称',
+      fieldType: 'input',
+      sort: 1,
+      isVisible: true,
+      isRequired: true,
+    }),
+    createMockField({
+      id: 22,
+      entityKey: 'fileInfo',
+      fieldKey: 'fileSuffix',
+      fieldName: '文件类型',
+      fieldType: 'select',
+      sort: 2,
+      isVisible: true,
+      options: [
+        { label: '图片', value: 'image' },
+        { label: '文档', value: 'document' },
+        { label: '其他', value: 'other' },
+      ],
+    }),
+    createMockField({
+      id: 23,
+      entityKey: 'fileInfo',
+      fieldKey: 'fileSizeInfo',
+      fieldName: '文件大小',
+      fieldType: 'number',
+      sort: 3,
+      isVisible: true,
+      precision: 0,
+      min: 0,
+    }),
+    createMockField({
+      id: 24,
+      entityKey: 'fileInfo',
+      fieldKey: 'delFlag',
+      fieldName: '删除标记',
+      fieldType: 'select',
+      sort: 4,
+      isVisible: true,
+      options: [
+        { label: '正常', value: '0' },
+        { label: '已删除', value: '1' },
+      ],
+    }),
+    createMockField({
+      id: 25,
+      entityKey: 'fileInfo',
+      fieldKey: 'remark',
+      fieldName: '备注',
+      fieldType: 'textarea',
+      sort: 5,
+      isVisible: true,
+    }),
+  ],
 };
 
 const mockUserRows: SysUser[] = Array.from({ length: 26 }, (_, i) => ({
@@ -52,6 +207,14 @@ const mockUserRows: SysUser[] = Array.from({ length: 26 }, (_, i) => ({
   ],
 }));
 
+const mockDeptRows = Array.from({ length: 8 }, (_, i) => ({
+  deptId: i + 1,
+  deptName: `部门${i + 1}`,
+  leader: `负责人${i + 1}`,
+  status: i % 2 === 0 ? '0' : '1',
+  remark: `这是部门${i + 1}的备注信息`,
+}));
+
 export const login = (data: LoginParams) => {
   return httpClient.post<LoginResponse>('/login', data);
 };
@@ -67,11 +230,11 @@ export const getByEntityKeyAndFieldKeyApi = (entityKey: string) => {
       code: 200,
       message: 'mock',
       msg: 'mock',
-      data: mockEntityColumns[entityKey] ?? [],
+      data: mockEntityFields[entityKey] ?? [],
       timestamp: nowTs(),
     } as any);
   }
-  return httpClient.get<ColumnsItem[]>(
+  return httpClient.get<Array<FieldConfig & Record<string, unknown>>>(
     '/system/fieldConfig/listByEntityKey/' + entityKey
   );
 };
@@ -108,7 +271,12 @@ export const getListByEntityKeyApi = (
     const pageNum = Number(params?.pageNum ?? 1);
     const pageSize = Number(params?.pageSize ?? 10);
     const start = (pageNum - 1) * pageSize;
-    const rowsSource = entityKey === 'user' ? mockUserRows : [];
+    const rowsSource =
+      entityKey === 'user'
+        ? mockUserRows
+        : entityKey === 'dept'
+          ? mockDeptRows
+          : [];
     const rows = rowsSource.slice(start, start + pageSize);
     return Promise.resolve({
       code: 200,

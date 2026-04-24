@@ -1,6 +1,7 @@
 import type { Component } from 'vue';
 import type {
   EntityBatchActionConfig,
+  EntityFormSubmitContext,
   EntityModule,
   EntityTableActionConfig,
 } from './types';
@@ -46,6 +47,11 @@ export function getEntityFormComponent(entityKey: string): Component | null {
   return getEntityModule(entityKey)?.form?.component ?? null;
 }
 
+// 获取实体表单提交方法
+export function getEntityFormSubmitter(entityKey: string) {
+  return getEntityModule(entityKey)?.form?.submit ?? null;
+}
+
 // 获取实体详情组件
 export function getEntityDetailComponent(entityKey: string): Component | null {
   return getEntityModule(entityKey)?.detail?.component ?? null;
@@ -53,7 +59,7 @@ export function getEntityDetailComponent(entityKey: string): Component | null {
 
 // 判断实体是否存在表单
 export function hasEntityForm(entityKey: string): boolean {
-  return Boolean(getEntityFormComponent(entityKey));
+  return Boolean(getEntityModule(entityKey)?.form);
 }
 
 // 获取实体表头按钮配置

@@ -6,6 +6,9 @@ import type { EntityModule } from '@/features/entities/types';
 // 文件管理模块配置
 const entityModule: EntityModule = {
   entityKey: 'fileInfo',
+  form: {
+    component: defineAsyncComponent(() => import('./form/index.vue')),
+  },
   rowActions: {
     actionColumnWidth: 220,
     customButtons: [
