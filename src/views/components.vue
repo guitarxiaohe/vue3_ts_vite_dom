@@ -6,6 +6,7 @@ import DialogList from '@/components/dialog-list/index.vue';
 import type { AsyncSelectFetchParams } from '@/components/async-select';
 import type { DialogListFetchParams } from '@/components/dialog-list/index.vue';
 import TableEntlty from '@/components/table-entity/index.vue';
+import FileUpload from '@/components/file-upload/file-upload.vue';
 import type {
   ColumnsItem,
   TableListQuery,
@@ -96,7 +97,9 @@ async function fetchSystemUserList(query: TableListQuery) {
 <template>
   <div class="demo-page">
     <h2 class="demo-title">{{ t('demo.title') }}</h2>
-
+    <section>
+      <FileUpload />
+    </section>
     <!-- ════════════ UserAvatarInfo ════════════ -->
     <section class="demo-section">
       <h3 class="demo-section__title">{{ t('demo.userAvatar.title') }}</h3>

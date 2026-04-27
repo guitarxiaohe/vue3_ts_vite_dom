@@ -15,6 +15,7 @@ import type {
 
 const MAX_PRIMARY_ACTIONS = 4;
 const DEFAULT_ACTION_COLUMN_WIDTH = 96;
+const MAX_ACTION_COLUMN_WIDTH = 200;
 const ACTION_BUTTON_WIDTH = 40;
 const MORE_BUTTON_WIDTH = 28;
 const ACTION_COLUMN_PADDING = 24;
@@ -112,11 +113,13 @@ export function useMultiviewActions(
     const computedWidth =
       ACTION_COLUMN_PADDING + primaryCount * ACTION_BUTTON_WIDTH + moreWidth;
 
-    return Math.max(
+    const adaptiveWidth = Math.max(
       rowActionsConfig.value.actionColumnWidth ?? 0,
       DEFAULT_ACTION_COLUMN_WIDTH,
       computedWidth
     );
+
+    return Math.min(adaptiveWidth, MAX_ACTION_COLUMN_WIDTH);
   });
 
   // 获取当前行可见按钮
@@ -158,7 +161,7 @@ export function useMultiviewActions(
       key: '__ops__',
       dataKey: '__ops__',
       title: t('common.operation'),
-      width: actionColumnWidth.value,
+      width: actionColumnWidth.value ,
       align: 'right' as const,
       fixed: TableV2FixedDir.RIGHT,
       cellRenderer: ({ rowData }) =>

@@ -2,6 +2,7 @@
 import { computed, toRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { AsyncSelect } from '@/components/async-select';
+import { AsyncCascader } from '@/components/async-cascader';
 import { useFormValidation } from '../composables/use-form-validation';
 import type { DetailField, DetailRecord } from '../types/detail';
 
@@ -104,6 +105,22 @@ defineExpose({ validate, formRef });
                 :disabled="isFieldDisabled(field)"
                 :multiple="field.multiple"
                 :dialog-title="field.label"
+              />
+
+              <AsyncCascader
+                v-else-if="
+                  field.type === 'async-cascader' && field.asyncCascaderConfig
+                "
+                v-model="formData[field.prop]"
+                :fetcher="field.asyncCascaderConfig.fetcher"
+                :entity-config="field.asyncCascaderConfig.entityConfig"
+                :props-map="field.asyncCascaderConfig.propsMap"
+                :clearable="field.asyncCascaderConfig.clearable"
+                :check-strictly="field.asyncCascaderConfig.checkStrictly"
+                :emit-path="field.asyncCascaderConfig.emitPath"
+                :show-all-levels="field.asyncCascaderConfig.showAllLevels"
+                :placeholder="resolveSelectPlaceholder(field)"
+                :disabled="isFieldDisabled(field)"
               />
 
               <el-radio-group

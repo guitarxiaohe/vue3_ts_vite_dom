@@ -139,7 +139,7 @@ function buildMenuItems(menus: SysRouter[]): ConventionalMenuItem[] {
 </script>
 
 <template>
-  <el-aside :class="{ 'is-collapse': isCollapse }">
+  <el-aside class="aside" :class="{ 'is-collapse': isCollapse } ">
     <div class="conventional-menu" :class="{ 'is-collapse': isCollapse }">
       <!-------------------------- 品牌区 -------------------------->
       <div class="conventional-menu__logo">
@@ -185,6 +185,16 @@ function buildMenuItems(menus: SysRouter[]): ConventionalMenuItem[] {
 </template>
 
 <style lang="scss" scoped>
+.aside{
+  width: 200px;
+  &.is-collapse {
+    width: 64px;
+    .conventional-menu__logo {
+      justify-content: center;
+      padding: 1.25rem 0;
+    }
+  }
+}
 .conventional-menu {
   position: fixed;
   top: 0;
@@ -200,7 +210,6 @@ function buildMenuItems(menus: SysRouter[]): ConventionalMenuItem[] {
 
   &.is-collapse {
     width: 64px;
-
     .conventional-menu__logo {
       justify-content: center;
       padding: 1.25rem 0;

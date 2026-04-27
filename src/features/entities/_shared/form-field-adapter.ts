@@ -67,6 +67,40 @@ export function mapEntityFormFields(fields: EntityFormField[]): DetailField[] {
       };
     }
 
+    if (
+      field.type === 'async-cascader' &&
+      field.optionSource === 'api' &&
+      field.apiOptions
+    ) {
+      nextField.asyncCascaderConfig = {
+        fetcher: field.apiOptions.cascaderFetcher
+          ? async (params) => {
+              const result = await field.apiOptions!.cascaderFetcher!({
+                pageNum: 1,
+                pageSize: 999,
+                [field.apiOptions?.parentKey ?? 'parentId']:
+                  params.parentValue ?? field.apiOptions?.rootParentValue ?? 0,
+                ...(field.apiOptions?.dataParams ?? {}),
+              });
+              return result.rows ?? [];
+            }
+          : undefined,
+        entityConfig: field.apiOptions.entityKey
+          ? {
+              entityKey: field.apiOptions.entityKey,
+              queryKey: field.apiOptions.queryKey,
+              dataParams: field.apiOptions.dataParams,
+              parentKey: field.apiOptions.parentKey,
+              valueKey: field.apiOptions.valueKey,
+              labelKey: field.apiOptions.labelKey,
+              leafKey: field.apiOptions.leafKey,
+              childrenKey: field.apiOptions.childrenKey,
+              rootParentValue: field.apiOptions.rootParentValue,
+            }
+          : undefined,
+      };
+    }
+
     return nextField;
   });
 }

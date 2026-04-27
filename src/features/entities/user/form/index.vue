@@ -9,6 +9,7 @@ import type {
   EntityFormEmits,
   EntityFormProps,
 } from '@/features/entities/_shared/types';
+import { createUser, type CreateUserPayload } from './service';
 
 /******************************** 类型定义 ********************************/
 
@@ -42,9 +43,20 @@ async function handleSave(data: Record<string, unknown>) {
   submitLoading.value = true;
 
   try {
-    await new Promise((resolve) => window.setTimeout(resolve, 200));
-    emit('save', data);
-    emit('update:visible', false);
+    if (props.isCreate) {
+      const payload: CreateUserPayload = {
+        deptId: data.deptId as number | string,
+        userName: String(data.userName ?? '').trim(),
+        nickName: String(data.nickName ?? '').trim(),
+        email: String(data.email ?? '').trim() || undefined,
+        phonenumber: String(data.phonenumber ?? '').trim() || undefined,
+        sex: String(data.sex ?? '').trim() || undefined,
+        avatar: String(data.avatar ?? '').trim() || undefined,
+      };
+      await createUser(payload);
+      emit('save');
+      emit('update:visible', false);
+    }
   } finally {
     submitLoading.value = false;
   }

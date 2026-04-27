@@ -117,9 +117,10 @@ function getInitialValueByField(field: DetailField) {
   if (
     field.type === 'select' ||
     field.type === 'async-select' ||
+    field.type === 'async-cascader' ||
     field.type === 'radio'
   ) {
-    return field.multiple ? [] : '';
+    return field.type === 'async-cascader' ? [] : field.multiple ? [] : '';
   }
   if (field.type === 'switch') {
     return false;

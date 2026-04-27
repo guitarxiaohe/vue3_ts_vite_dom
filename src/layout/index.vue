@@ -7,9 +7,10 @@ const systemStore = useSystemStore();
 <template>
   <div class="common-layout">
     <el-container>
-      <el-header>Header</el-header>
+      <ConventionalMenu v-if="systemStore.isConventionalMode" />
+
       <el-container>
-        <ConventionalMenu v-if="systemStore.isConventionalMode" />
+        <el-header>Header</el-header>
 
         <el-main>
           <router-view />

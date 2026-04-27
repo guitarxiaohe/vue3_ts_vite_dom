@@ -38,73 +38,15 @@
     </section>
 
     <!-------------------------- 筛选区域 -------------------------->
-    <section
+    <MultiviewFuzzyFilter
       v-if="showFilters && filterFields.length"
-      class="multiview-shell__filter"
-    >
-      <el-form
-        :model="filterForm"
-        label-position="top"
-        class="multiview-shell__filter-form"
-      >
-        <el-form-item
-          v-for="field in filterFields"
-          :key="field.key"
-          :label="field.label"
-          class="multiview-shell__filter-item"
-        >
-          <el-input
-            v-if="field.component === 'input'"
-            v-model="filterForm[field.key]"
-            :placeholder="field.placeholder || t('common.enterKeyword')"
-            clearable
-            @keyup.enter="search"
-          />
-
-          <el-select
-            v-else-if="field.component === 'select'"
-            v-model="filterForm[field.key]"
-            :placeholder="field.placeholder || t('common.pleaseSelect')"
-            clearable
-          >
-            <el-option
-              v-for="option in field.options ?? []"
-              :key="String(option.value)"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
-
-          <AsyncSelect
-            v-else-if="field.component === 'async-select'"
-            :model-value="(filterForm[field.key] ?? null) as any"
-            :entity-config="field.entityConfig"
-            :value-key="field.valueKey || 'value'"
-            :label-key="field.labelKey || 'label'"
-            :drag-key="field.dragKey"
-            :placeholder="field.placeholder || t('common.pleaseSelect')"
-            @update:model-value="(value) => (filterForm[field.key] = value as FilterFormValue)"
-          />
-
-          <el-date-picker
-            v-else-if="field.component === 'date'"
-            v-model="filterForm[field.key]"
-            type="date"
-            :placeholder="field.placeholder || t('common.pleaseSelect')"
-            clearable
-          />
-        </el-form-item>
-      </el-form>
-
-      <div class="multiview-shell__filter-actions">
-        <el-button v-if="showSearchButton" type="primary" @click="search">
-          {{ t('common.search') }}
-        </el-button>
-        <el-button v-if="showResetButton" @click="reset">
-          {{ t('common.reset') }}
-        </el-button>
-      </div>
-    </section>
+      v-model="filterForm"
+      :fields="filterFields"
+      :show-search-button="showSearchButton"
+      :show-reset-button="showResetButton"
+      @search="search"
+      @reset="reset"
+    />
 
     <!-------------------------- 表格区域 -------------------------->
     <section class="multiview-shell__table-card">
@@ -161,10 +103,10 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
-import AsyncSelect from '@/components/async-select/async-select.vue';
 import TableEntlty from '@/components/table-entity/index.vue';
 import { mapFieldConfigRowsToColumns } from '@/components/table-entity/use-table-columns';
 import ImportDialog from '@/components/import-dialog';
+import MultiviewFuzzyFilter from '@/features/multiview/components/multiview-fuzzy-filter.vue';
 import { getByEntityKeyAndFieldKeyApi, getListByEntityKeyApi } from '@/api/modules/user';
 import { snakeToCamel } from '@/utils/value';
 import {
@@ -939,54 +881,18 @@ defineExpose({
   gap: 8px;
 }
 
-.multiview-shell__filter {
-  display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  padding: 0;
-}
-
-.multiview-shell__filter-form {
-  display: grid;
-  flex: 1;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
-  gap: 14px;
-}
-
-.multiview-shell__filter-item {
-  margin-bottom: 0;
-}
-
-.multiview-shell__filter-actions {
-  display: flex;
-  gap: 8px;
-  padding-bottom: 2px;
-}
-
 .multiview-shell__table-card {
   padding: 0;
 }
 
 @media (max-width: 1024px) {
-  .multiview-shell__header,
-  .multiview-shell__filter {
+  .multiview-shell__header {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .multiview-shell__actions,
-  .multiview-shell__filter-actions {
+  .multiview-shell__actions {
     justify-content: flex-start;
-  }
-
-  .multiview-shell__filter-form {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
-  .multiview-shell__filter-form {
-    grid-template-columns: 1fr;
   }
 }
 </style>

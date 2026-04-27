@@ -164,14 +164,14 @@ function handleFormSave() {
   formVisible.value = false;
   shellRef.value?.refetch();
   shellRef.value?.clearSelection();
-  ElMessage.success(t('common.success'));
+  // ElMessage.success(mag ? mag : t('common.success'));
 }
 </script>
 
 <style scoped lang="scss">
 .multiview-page {
   min-height: 100%;
-  padding: 24px;
+  // padding: 24px;
   background: var(--color-bg-page);
 }
 

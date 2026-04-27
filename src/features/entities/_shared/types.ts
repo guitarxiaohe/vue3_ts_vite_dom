@@ -1,5 +1,8 @@
 import type { FormItemRule } from 'element-plus';
-import type { ColumnsItem, TableListQuery } from '@/components/table-entity/index.type';
+import type {
+  ColumnsItem,
+  TableListQuery,
+} from '@/components/table-entity/index.type';
 
 /******************************** 表单字段配置 ********************************/
 
@@ -15,6 +18,7 @@ export interface EntityFormField {
     | 'number'
     | 'select'
     | 'async-select'
+    | 'async-cascader'
     | 'date'
     | 'datetime'
     | 'textarea'
@@ -44,6 +48,13 @@ export interface EntityFormField {
     fetcher?: (
       query: TableListQuery & { keyword?: string }
     ) => Promise<{ rows: Record<string, any>[]; total: number }>;
+    cascaderFetcher?: (query: TableListQuery) => Promise<{
+      rows: Record<string, any>[];
+    }>;
+    parentKey?: string;
+    childrenKey?: string;
+    leafKey?: string;
+    rootParentValue?: string | number | null;
   };
   rules?: FormItemRule[];
   placeholder?: string;
@@ -66,6 +77,6 @@ export interface EntityFormProps {
 // 实体表单组件 Emits
 export interface EntityFormEmits {
   (e: 'update:visible', value: boolean): void;
-  (e: 'save', data: Record<string, unknown>): void;
+  (e: 'save', data?: Record<string, unknown>): void;
   (e: 'cancel'): void;
 }

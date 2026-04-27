@@ -1,12 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-  watch,
-  nextTick,
-  watchEffect,
-  useSlots,
-} from 'vue';
+import { computed, ref, watch, nextTick, watchEffect, useSlots } from 'vue';
 import { useQuery } from '@tanstack/vue-query';
 import { useI18n } from 'vue-i18n';
 import { getSysUserById } from '@/api/modules/user';
@@ -75,7 +68,7 @@ const props = withDefaults(
     userId: undefined,
     name: undefined,
     subtitle: '',
-    size: 40,
+    size: 30,
     gender: undefined,
     avatarProps: undefined,
     age: undefined,
@@ -140,10 +133,7 @@ const showRemoteLoading = computed(
 /** 显式 props 优先于接口 */
 const displayName = computed(
   () =>
-    props.name ??
-    remoteUser.value?.nickName ??
-    remoteUser.value?.userName ??
-    ''
+    props.name ?? remoteUser.value?.nickName ?? remoteUser.value?.userName ?? ''
 );
 
 const displaySubtitle = computed(
@@ -168,7 +158,11 @@ const displayJobLevel = computed(() => props.jobLevel);
 const hasDrawerDefaultSlot = computed(() => !!slots.default);
 
 const genderSource = computed<UserAvatarGenderInput | undefined>(() => {
-  if (props.gender !== undefined && props.gender !== null && props.gender !== '') {
+  if (
+    props.gender !== undefined &&
+    props.gender !== null &&
+    props.gender !== ''
+  ) {
     return props.gender;
   }
   const sex = remoteUser.value?.sex;
@@ -182,22 +176,10 @@ const genderSource = computed<UserAvatarGenderInput | undefined>(() => {
 const resolvedGender = computed<'male' | 'female' | 'unknown'>(() => {
   const g = genderSource.value;
   if (g === undefined || g === null || g === '') return 'unknown';
-  if (
-    g === 'male' ||
-    g === 1 ||
-    g === 'M' ||
-    g === 'm' ||
-    g === '男'
-  ) {
+  if (g === 'male' || g === 1 || g === 'M' || g === 'm' || g === '男') {
     return 'male';
   }
-  if (
-    g === 'female' ||
-    g === 2 ||
-    g === 'F' ||
-    g === 'f' ||
-    g === '女'
-  ) {
+  if (g === 'female' || g === 2 || g === 'F' || g === 'f' || g === '女') {
     return 'female';
   }
   if (g === 'unknown') return 'unknown';
@@ -221,8 +203,7 @@ const metaClass = computed(() => ({
 
 /** 头像右上角性别角标（仅男/女展示） */
 const showGenderBadge = computed(
-  () =>
-    resolvedGender.value === 'male' || resolvedGender.value === 'female'
+  () => resolvedGender.value === 'male' || resolvedGender.value === 'female'
 );
 
 const genderIconSize = computed(() =>
@@ -249,8 +230,7 @@ const drawerAvatarBind = computed(() => ({
 }));
 
 const drawerTitleText = computed(
-  () =>
-    props.drawerTitle ?? t('components.userAvatarInfo.drawerTitle')
+  () => props.drawerTitle ?? t('components.userAvatarInfo.drawerTitle')
 );
 
 const mergedDrawerProps = computed(() => ({
@@ -274,10 +254,7 @@ function displayField(v: unknown) {
 
 const departmentDisplay = computed(() =>
   displayField(
-    props.department ??
-      props.subtitle ??
-      remoteUser.value?.dept?.deptName ??
-      ''
+    props.department ?? props.subtitle ?? remoteUser.value?.dept?.deptName ?? ''
   )
 );
 
@@ -345,10 +322,7 @@ defineExpose({
 
 <template>
   <div class="user-avatar-info-root">
-    <div
-      v-if="showRemoteLoading"
-      class="user-avatar-info__loading"
-    >
+    <div v-if="showRemoteLoading" class="user-avatar-info__loading">
       <el-skeleton animated>
         <template #template>
           <div class="user-avatar-info__skeleton-row">
@@ -391,11 +365,7 @@ defineExpose({
             :size="genderIconSize"
             :stroke-width="2.5"
           />
-          <Venus
-            v-else
-            :size="genderIconSize"
-            :stroke-width="2.5"
-          />
+          <Venus v-else :size="genderIconSize" :stroke-width="2.5" />
         </span>
       </div>
 
@@ -456,7 +426,10 @@ defineExpose({
         >
           <slot name="drawer-avatar">
             <div class="user-avatar-info__avatar-wrap">
-              <el-avatar class="user-avatar-info__drawer-avatar" v-bind="drawerAvatarBind">
+              <el-avatar
+                class="user-avatar-info__drawer-avatar"
+                v-bind="drawerAvatarBind"
+              >
                 <slot name="avatar">{{ displayName?.slice(0, 1) }}</slot>
               </el-avatar>
               <span
@@ -479,9 +452,7 @@ defineExpose({
             </div>
           </slot>
         </el-descriptions-item>
-        <el-descriptions-item
-          :label="t('components.userAvatarInfo.fieldName')"
-        >
+        <el-descriptions-item :label="t('components.userAvatarInfo.fieldName')">
           <slot name="drawer-name">{{ displayName }}</slot>
         </el-descriptions-item>
         <el-descriptions-item
@@ -489,9 +460,7 @@ defineExpose({
         >
           {{ genderLabel }}
         </el-descriptions-item>
-        <el-descriptions-item
-          :label="t('components.userAvatarInfo.fieldAge')"
-        >
+        <el-descriptions-item :label="t('components.userAvatarInfo.fieldAge')">
           {{ displayField(displayAge) }}
         </el-descriptions-item>
         <el-descriptions-item
@@ -580,8 +549,8 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   border: 2px solid var(--color-bg-card);
   box-sizing: border-box;

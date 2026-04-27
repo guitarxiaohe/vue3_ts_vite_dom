@@ -4,6 +4,12 @@ import type {
   AsyncSelectFetchParams,
   AsyncSelectFetchResult,
 } from '@/components/async-select';
+import type {
+  AsyncCascaderEntityConfig,
+  AsyncCascaderFetchParams,
+  AsyncCascaderNode,
+  CascaderVal,
+} from '@/components/async-cascader';
 import type { ColumnsItem } from '@/components/table-entity/index.type';
 
 /******************************** 表单字段类型 ********************************/
@@ -16,6 +22,7 @@ export type FieldType =
   | 'datetime'
   | 'select'
   | 'async-select'
+  | 'async-cascader'
   | 'textarea'
   | 'radio'
   | 'checkbox'
@@ -31,6 +38,24 @@ export interface AsyncSelectConfig {
   dragKey?: string;
 }
 
+// 异步联级下拉配置
+export interface AsyncCascaderConfig {
+  entityConfig?: AsyncCascaderEntityConfig;
+  fetcher?: (
+    params: AsyncCascaderFetchParams
+  ) => Promise<AsyncCascaderNode[] | Record<string, any>[]>;
+  propsMap?: {
+    value?: string;
+    label?: string;
+    children?: string;
+    leaf?: string;
+  };
+  clearable?: boolean;
+  checkStrictly?: boolean;
+  emitPath?: boolean;
+  showAllLevels?: boolean;
+}
+
 // 单个表单字段定义
 export interface DetailField {
   prop: string;
@@ -38,6 +63,7 @@ export interface DetailField {
   type?: FieldType;
   options?: Array<{ label: string; value: any }>;
   asyncSelectConfig?: AsyncSelectConfig;
+  asyncCascaderConfig?: AsyncCascaderConfig;
   readonly?: boolean;
   disabled?: boolean;
   disabledOnEdit?: boolean;
@@ -49,6 +75,7 @@ export interface DetailField {
   rules?: FormItemRule[];
   placeholder?: string;
   defaultValue?: unknown;
+  defaultPath?: CascaderVal;
   hideOnCreate?: boolean;
   hideOnEdit?: boolean;
   copyable?: boolean;

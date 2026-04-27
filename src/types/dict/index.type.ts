@@ -33,3 +33,20 @@ export interface DictItemFormData extends Record<string, unknown> {
   remark: string;
   status: DictStatusValue;
 }
+
+/******************************** 字典值数据 ********************************/
+
+// 字典值行数据
+export interface DictDataItem extends Record<string, unknown> {
+  dictCode?: number | string;
+  dictSort?: number;
+  dictLabel?: string;
+  dictValue?: string;
+  dictType?: string;
+  cssClass?: string;
+  listClass?: string;
+  color?: string;
+  isDefault?: string;
+  status?: DictStatusValue | string;
+  remark?: string;
+}
