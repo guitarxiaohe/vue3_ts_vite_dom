@@ -7,14 +7,13 @@ import { ref, computed, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import type { UploadProps, UploadRequestOptions } from 'element-plus';
-import { getUploadKey } from '@/services/file-upload';
+import { uploadFile, toAttachmentData } from '@/services/file-upload';
 import type { AttachmentData } from '../file-upload.type';
 import { useFileType } from './use-file-type';
-import { uploadToQiniuWithProgress } from './use-file-upload';
 import { useImageUrl } from '@/composables/use-image-url';
 
 /**
- * 单个文件上传状态
+ * 单个文件上传状态 
  */
 export interface FileUploadItem {
   /** 文件对象 */
@@ -177,33 +176,8 @@ export const useMultipleFileUpload = (
     item.progress = 0;
 
     try {
-      // 1. 获取上传信息
-      const uploadInfo = await getUploadKey();
-      if (!uploadInfo || !uploadInfo.name) {
-        throw new Error(t('upload.fetchInfoFailed'));
-      }
-
-      // 2. 上传文件到七牛云（带进度追踪）
-      const uploadRes = await uploadToQiniuWithProgress(
-        file,
-        uploadInfo,
-        (progress) => {
-          item.progress = progress;
-        },
-        t
-      );
-
-      if (!uploadRes || !uploadRes.key) {
-        throw new Error(t('upload.uploadFailed'));
-      }
-
-      // 4. 构建 AttachmentData 对象（保存文件 key）
-      const attachmentData: AttachmentData = {
-        name: file.name,
-        type: file.type,
-        url: uploadRes.key,
-        size: file.size,
-      };
+      const uploadResponse = await uploadFile(file);
+      const attachmentData = toAttachmentData(file, uploadResponse);
 
       item.status = 'success';
       item.progress = 100;

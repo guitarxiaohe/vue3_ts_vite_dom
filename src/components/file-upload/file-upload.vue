@@ -21,8 +21,8 @@ import type {
   FileUploadEmits,
   AttachmentData,
 } from './file-upload.type';
-import { useFileUpload } from './hooks/use-file-upload';
-import { useMultipleFileUpload } from './hooks/use-multiple-file-upload';
+import { useFileUpload } from './composables/use-file-upload';
+import { useMultipleFileUpload } from './composables/use-multiple-file-upload';
 import FileStatus from './components/file-status.vue';
 
 const props = withDefaults(defineProps<FileUploadProps>(), {
@@ -147,9 +147,14 @@ const isError = computed(() => currentUpload.value.isError.value);
 
 const acceptAttr = computed(() => currentUpload.value.acceptAttr.value);
 
-// 方法使用计算属性
-const beforeUpload = computed(() => currentUpload.value.beforeUpload);
-const handleUpload = computed(() => currentUpload.value.handleUpload);
+// 方法
+const beforeUpload = (...args: Parameters<NonNullable<typeof singleFileUpload.beforeUpload>>) => {
+  return currentUpload.value.beforeUpload?.(...args);
+};
+
+const handleUpload = (...args: Parameters<typeof singleFileUpload.handleUpload>) => {
+  return currentUpload.value.handleUpload(...args);
+};
 // 多文件模式下，判断是否还可以继续上传
 const canUploadMore = computed(() => {
   if (!isMultiple.value) return false;

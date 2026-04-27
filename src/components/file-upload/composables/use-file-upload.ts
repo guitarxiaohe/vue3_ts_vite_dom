@@ -3,11 +3,11 @@
  *
  * 提供文件上传、状态管理、文件操作等功能
  */
-import { ref, computed, type Ref } from 'vue';
+import { ref, computed, watch, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import type { UploadProps, UploadRequestOptions } from 'element-plus';
-import { getUploadKey } from '@/services/file-upload';
+import { uploadFile, toAttachmentData } from '@/services/file-upload';
 import type { AttachmentData } from '../file-upload.type';
 import { useFileType } from './use-file-type';
 import { useImageUrl } from '@/composables/use-image-url';
@@ -107,7 +107,7 @@ export const uploadToQiniuWithProgress = (
     // 发送请求
     xhr.open(
       'POST',
-      `${uploadInfo.host}?key=${encodeURIComponent(uploadInfo.name)}`
+      `${uploadInfo.host}?key=${encodeURIComponent('/common/upload')}`
     );
     xhr.send(formData);
   });
@@ -126,18 +126,33 @@ export const useFileUpload = (options: UseFileUploadOptions) => {
   const uploadProgress = ref(0); // 上传进度 0-100
   const uploadingFile = ref<File | null>(null); // 正在上传的文件
   const uploadError = ref<string>(''); // 上传错误信息
+  const pendingFileData = ref<AttachmentData | null>(null);
 
   /**
    * 获取文件数据
    * 支持字符串 URL/key 或 AttachmentData 对象
    */
   const fileData = computed((): AttachmentData | null => {
+    if (pendingFileData.value) return pendingFileData.value;
     if (!options.modelValue.value) return null;
     if (typeof options.modelValue.value === 'string') {
       return { url: options.modelValue.value };
     }
     return options.modelValue.value;
   });
+
+  watch(
+    () => options.modelValue.value,
+    (value) => {
+      if (value) {
+        pendingFileData.value = null;
+        return;
+      }
+      if (!uploadingFile.value) {
+        pendingFileData.value = null;
+      }
+    }
+  );
 
   const resolvedFileUrl = computed(() =>
     resolveImageUrl(fileData.value?.url || fileData.value?.name || '')
@@ -258,7 +273,7 @@ export const useFileUpload = (options: UseFileUploadOptions) => {
   };
 
   /**
-   * 自定义上传逻辑（带进度追踪）
+   * 自定义上传逻辑
    */
   const handleUpload = async (uploadOptions: UploadRequestOptions) => {
     const file = uploadOptions.file as File;
@@ -268,36 +283,12 @@ export const useFileUpload = (options: UseFileUploadOptions) => {
     uploadError.value = '';
 
     try {
-      // 1. 获取上传信息（包含文件名、上传地址、访问 URL 前缀）
-      // 注意：这个接口直接返回对象，不包装在 ApiResponse 中
-      const uploadInfo = await getUploadKey();
-      if (!uploadInfo || !uploadInfo.name) {
-        throw new Error(t('upload.fetchInfoFailed'));
-      }
+      const uploadResponse = await uploadFile(file);
+      uploadProgress.value = 100;
 
-      // 2. 上传文件到七牛云（使用 XMLHttpRequest 以获取上传进度）
-      const uploadRes = await uploadToQiniuWithProgress(
-        file,
-        uploadInfo,
-        (progress) => {
-          uploadProgress.value = progress;
-        },
-        t
-      );
+      const attachmentData = toAttachmentData(file, uploadResponse);
+      pendingFileData.value = attachmentData;
 
-      if (!uploadRes || !uploadRes.key) {
-        throw new Error(t('upload.uploadFailed'));
-      }
-
-      // 4. 构建 AttachmentData 对象（保存文件 key）
-      const attachmentData: AttachmentData = {
-        name: file.name,
-        type: file.type,
-        url: uploadRes.key,
-        size: file.size,
-      };
-
-      // 5. 更新 v-model（保存 AttachmentData 对象）
       options.onUpdate(attachmentData);
       options.onUploadSuccess?.(attachmentData);
 
@@ -320,6 +311,7 @@ export const useFileUpload = (options: UseFileUploadOptions) => {
   const handleRemove = () => {
     // 清除所有状态（包括错误状态）
     uploadError.value = '';
+    pendingFileData.value = null;
     uploadingFile.value = null;
     uploadProgress.value = 0;
     loading.value = false;

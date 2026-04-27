@@ -1,7 +1,7 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import type { ApiResponse } from '@/types/api';
 import { useUserStore } from '@/stores';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 class HttpClient {
   private instance: AxiosInstance;
 
@@ -22,9 +22,9 @@ class HttpClient {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
-
         console.log(
-          `[Request] ${config.method?.toUpperCase()} ${config.url}`,
+          '%c[Request] ' + `${config.method?.toUpperCase()} ${config.url}`,
+          'color: red; background-color: yellow; font-weight: bold;',
           config.params || config.data
         );
         return config;
@@ -37,8 +37,11 @@ class HttpClient {
     // 响应拦截器
     this.instance.interceptors.response.use(
       (response) => {
-        console.log(`[Response]------------> ${response.config.url}`, response);
-
+        console.log(
+          '%c[Request] ' + `${response.data} `,
+          'color: red; background-color: yellow; font-weight: bold;'
+        );
+        console.log('response.data ==>', response.data);
         if (response.data?.code === 401) {
           // 统一错误处理
           const { logout } = useUserStore();
@@ -49,7 +52,6 @@ class HttpClient {
         }
 
         if (response.data?.code == 500) {
-          console.log('variable ==>', 'Response');
           ElMessage.error(response?.data?.msg || '后端问题');
           return Promise.reject(response.data.msg);
         }
@@ -71,16 +73,13 @@ class HttpClient {
 
   async request<T = any>(config: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
-      const response = await this.instance.request<ApiResponse<T>>(config);
+      const response = await this.instance.request<ApiResponse<T>, ApiResponse<T>>(
+        config
+      );
       return response;
     } catch (error: any) {
       // 返回统一的错误格式
-      return {
-        code: error.response?.status || 500,
-        message: error.message || '请求失败',
-        data: null as any,
-        timestamp: new Date().toISOString(),
-      };
+      return Promise.reject(error);
     }
   }
 
@@ -90,6 +89,17 @@ class HttpClient {
 
   post<T = any>(url: string, data?: any): Promise<ApiResponse<T>> {
     return this.request<T>({ method: 'POST', url, data });
+  }
+
+  postUpload<T = any>(url: string, data: FormData): Promise<T> {
+    return this.instance.request<T, T>({
+      method: 'POST',
+      url,
+      data,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
   }
 
   put<T = any>(url: string, data?: any): Promise<ApiResponse<T>> {
