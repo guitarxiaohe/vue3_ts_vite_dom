@@ -50,14 +50,18 @@
             v-if="renderMap?.[String(col.dataKey)]"
             :content="renderMap[String(col.dataKey)]({ row, column: col })"
           />
+          <DetailRender
+            v-else-if="shouldUseRichRenderer(col)"
+            :content="renderColumnDetail(row, col)"
+          />
           <el-tooltip
             v-else
-            :content="cellDisplay(row, col)"
+            :content="detailText(row, col)"
             placement="top"
             :show-after="200"
           >
             <div class="row-detail-drawer__value">
-              {{ cellDisplay(row, col) }}
+              {{ detailText(row, col) }}
             </div>
           </el-tooltip>
         </div>
@@ -65,10 +69,7 @@
     </el-row>
 
     <!-------------------------- 子表区域 -------------------------->
-    <section
-      v-if="row && hasChildTables"
-      class="row-detail-drawer__children"
-    >
+    <section v-if="row && hasChildTables" class="row-detail-drawer__children">
       <el-tabs
         v-if="showChildTabs"
         v-model="activeChildTab"
@@ -206,6 +207,38 @@ const drawerSize = computed(() => {
 function cellDisplay(row: Record<string, any>, col: ColumnsItem) {
   const dk = col.dataKey as string;
   return formatCellText(row[dk]);
+}
+
+// 判断详情是否使用富内容渲染
+function shouldUseRichRenderer(col: ColumnsItem) {
+  return (
+    typeof col.cellRenderer === 'function' &&
+    ['file', 'user', 'by'].includes(String(col.fieldType ?? '').toLowerCase())
+  );
+}
+
+// 复用表格列的 cellRenderer，保证详情与列表展示一致
+function renderColumnDetail(row: Record<string, any>, col: ColumnsItem) {
+  const dataKey = String(col.dataKey ?? '');
+  const rendered = col.cellRenderer?.({
+    column: col,
+    rowData: row,
+    rowIndex: props.rowIndex,
+    cellData: dataKey ? row[dataKey] : undefined,
+    isScrolling: false,
+  } as unknown as Parameters<NonNullable<ColumnsItem['cellRenderer']>>[0]);
+
+  return rendered ?? h('span', {}, cellDisplay(row, col));
+}
+
+// 详情抽屉单行文案：默认省略，hover 用 tooltip 展示全文
+function detailText(row: Record<string, any>, col: ColumnsItem) {
+  const dataKey = String(col.dataKey ?? '');
+  const cellData = dataKey ? row[dataKey] : undefined;
+  const rawText = col.detailTextFormatter
+    ? col.detailTextFormatter(row, cellData)
+    : cellDisplay(row, col);
+  return formatCellText(rawText);
 }
 
 watch(

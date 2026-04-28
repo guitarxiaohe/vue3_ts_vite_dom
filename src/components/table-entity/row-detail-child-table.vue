@@ -2,7 +2,10 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
-import { getByEntityKeyAndFieldKeyApi, getListByEntityKeyApi } from '@/api/modules/user';
+import {
+  getByEntityKeyAndFieldKeyApi,
+  getListByEntityKeyApi,
+} from '@/api/modules/user';
 import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
 import { getEntityTableConfig } from '@/utils/entity-config';
 import { mapFieldConfigRowsToColumns } from './use-table-columns';
@@ -36,7 +39,9 @@ const total = ref<number>(0);
 const rows = ref<Record<string, any>[]>([]);
 const fieldConfigRows = ref<Record<string, any>[]>([]);
 
-const entityTableConfig = computed(() => getEntityTableConfig(props.config.entityKey));
+const entityTableConfig = computed(() =>
+  getEntityTableConfig(props.config.entityKey)
+);
 const pageSize = computed<number>(
   () => props.config.pageSize ?? entityTableConfig.value.pageSize ?? 10
 );
@@ -50,14 +55,13 @@ const hiddenColumnKeySet = computed(
 );
 
 const resolvedColumns = computed<ColumnsItem[]>(() => {
-  const localColumns =
-    props.config.columns?.length
-      ? props.config.columns
-      : entityTableConfig.value.columns?.length
-        ? entityTableConfig.value.columns
-        : fieldConfigRows.value.length
-          ? mapFieldConfigRowsToColumns(fieldConfigRows.value)
-          : [];
+  const localColumns = props.config.columns?.length
+    ? props.config.columns
+    : entityTableConfig.value.columns?.length
+      ? entityTableConfig.value.columns
+      : fieldConfigRows.value.length
+        ? mapFieldConfigRowsToColumns(fieldConfigRows.value)
+        : [];
 
   return localColumns.filter(
     (column) => !hiddenColumnKeySet.value.has(String(column.dataKey ?? ''))

@@ -3,13 +3,13 @@
  */
 export interface AttachmentData {
   /** 文件名称 */
-  name?: string;
+  fileOriginName?: string;
   /** 文件类型 */
-  type?: string;
+  fileSuffix?: string;
   /** 文件URL 或 key */
-  url?: string;
+  fileUrl?: string;
   /** 文件大小 */
-  size?: number;
+  fileSizeInfo?: number;
 }
 
 /**

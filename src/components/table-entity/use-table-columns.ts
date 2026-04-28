@@ -5,8 +5,8 @@ import { isEmptyValue, snakeToCamel } from '@/utils/value';
 import type { ColumnsItem, TableEntlty } from './index.type';
 import { fontWidth, normalizeColumnFixed } from './column-utils';
 import { applyColumnSlots } from './column-slots';
-import CellAvatar from './cells/cell-avatar.vue';
-
+import UserCell from './cells/cell-avatar.vue';
+import FileCell from './cells/file-cell.vue';
 /******************************** 列配置加载与插槽合并 ********************************/
 
 // 兼容字段配置的 camelCase 与 snake_case
@@ -60,14 +60,73 @@ function resolveDictLabel(
   return String(matched.label ?? value);
 }
 
+// 根据字段类型解析详情抽屉文本
+function resolveDetailTextByFieldType(
+  field: Record<string, any>,
+  rowData: Record<string, any>,
+  cellData: unknown
+) {
+  const fieldType = String(
+    resolveFieldValue(field, 'fieldType') ?? ''
+  ).toLowerCase();
+
+  if (fieldType === 'by') {
+    return String(rowData.createUser?.userName ?? cellData ?? '--');
+  }
+
+  if (
+    fieldType === 'text' ||
+    fieldType === 'input' ||
+    fieldType === 'textarea'
+  ) {
+    return cellData == null || cellData === '' ? '--' : String(cellData);
+  }
+
+  if (fieldType === 'date') {
+    return formatDateTimeText(cellData, true);
+  }
+
+  if (fieldType === 'datetime') {
+    return formatDateTimeText(cellData);
+  }
+
+  if (fieldType === 'dict' || fieldType === 'select') {
+    return resolveDictLabel(field, cellData) ?? String(cellData ?? '--');
+  }
+
+  if (fieldType === 'user') {
+    return String(rowData.userName ?? rowData.nickName ?? cellData ?? '--');
+  }
+
+  return cellData == null || cellData === '' ? '--' : String(cellData);
+}
+
 // 根据字段类型解析单元格渲染器
 function resolveCellRendererByFieldType(field: Record<string, any>) {
   const fieldType = String(
     resolveFieldValue(field, 'fieldType') ?? ''
   ).toLowerCase();
+  const fieldKey = String(
+    resolveFieldValue(field, 'fieldKey') ?? ''
+  ).toLowerCase();
 
-  console.log(field.dictCode, field.selectEntityKey);
-  if (fieldType === 'dict') {
+  if (fieldType === 'file') {
+    return ({
+      rowData,
+      cellData,
+    }: {
+      rowData: Record<string, any>;
+      cellData: string | number | null;
+    }) => {
+      const { fileInfo } = rowData;
+      return h(FileCell, {
+        row: rowData,
+        value: cellData,
+        attachments: [fileInfo],
+      });
+    };
+  }
+  if (fieldType === 'user') {
     return ({
       rowData,
       cellData,
@@ -75,13 +134,14 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
       rowData: Record<string, any>;
       cellData: string | number | null;
     }) =>
-      h(CellAvatar, {
+      h(UserCell, {
         row: rowData,
         value: cellData,
+        userId: rowData.userId,
       });
   }
 
-  if (fieldType === 'by') {
+  if (fieldKey === 'create_by') {
     return ({
       rowData,
       cellData,
@@ -89,13 +149,29 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
       rowData: Record<string, any>;
       cellData: unknown;
     }) =>
-      h(CellAvatar, {
+      h(UserCell, {
         ...rowData.createUser,
         row: rowData,
         value: cellData,
       });
   }
-
+  if (fieldKey === 'update_by') {
+    return ({
+      rowData,
+      cellData,
+    }: {
+      rowData: Record<string, any>;
+      cellData: unknown;
+    }) => {
+      if (rowData.updateUser) {
+        return h(UserCell, {
+          ...rowData.updateUser,
+          row: rowData,
+          value: cellData,
+        });
+      } else return h('div', '--');
+    };
+  }
   if (
     fieldType === 'text' ||
     fieldType === 'input' ||
@@ -128,14 +204,18 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
       );
   }
 
-  return ({ cellData }: { cellData: unknown }) =>
+  return ({ cellData: _cellData }: { cellData: unknown }) =>
     h('div', '未找到对应类型 =>' + fieldType);
 }
 
 // 将字段配置转换为表格列
 export function mapFieldConfigRowsToColumns(rows: Record<string, any>[]) {
-  return rows.map(
-    (col): ColumnsItem => ({
+  return rows.map((col): ColumnsItem => {
+    const fieldType = String(
+      resolveFieldValue(col, 'fieldType') ?? ''
+    ).toLowerCase();
+
+    return {
       width: col.width
         ? col.width
         : (fontWidth(resolveFieldValue(col, 'fieldName')) ?? 150),
@@ -143,9 +223,12 @@ export function mapFieldConfigRowsToColumns(rows: Record<string, any>[]) {
       key: col.id ?? '--',
       dataKey: snakeToCamel(resolveFieldValue(col, 'fieldKey') ?? '--'),
       fixed: normalizeColumnFixed(resolveFieldValue(col, 'fixed')),
+      fieldType,
+      detailTextFormatter: (rowData, cellData) =>
+        resolveDetailTextByFieldType(col, rowData, cellData),
       cellRenderer: resolveCellRendererByFieldType(col),
-    })
-  );
+    };
+  });
 }
 
 // props.columns 优先；否则按 entityKey 拉字段配置并合并 `{dataKey}Col` 插槽

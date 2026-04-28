@@ -34,6 +34,18 @@ export interface DictItemFormData extends Record<string, unknown> {
   status: DictStatusValue;
 }
 
+// 字典值抽屉表单
+export interface DictItemDrawerFormData extends Record<string, unknown> {
+  localId: string;
+  dictCode?: number | string;
+  dictSort: number;
+  dictValue: string;
+  dictLabel: string;
+  color: string;
+  remark: string;
+  enabled: boolean;
+}
+
 /******************************** 字典值数据 ********************************/
 
 // 字典值行数据

@@ -24,6 +24,7 @@ export default {
     back: 'Back',
     prev: 'Previous',
     next: 'Next',
+    create: 'create',
     detail: 'Detail',
     submit: 'Submit',
     keyword: 'Keyword',
@@ -129,7 +130,8 @@ export default {
         'The template download event has been triggered. You can connect a real API here.',
       templateIdle:
         'Click "Download import template" inside the dialog to trigger the template download event.',
-      successDetail: '{success} rows were imported successfully in this mock flow.',
+      successDetail:
+        '{success} rows were imported successfully in this mock flow.',
       progress: {
         validating: 'Validating Excel file structure...',
         matching: 'Resolving sheets and field mappings...',
@@ -222,7 +224,8 @@ export default {
       startImport: 'Start Import',
       importingTitle: 'Importing data...',
       importingProgress: 'Current progress {progress}%',
-      importingHint: 'After closing the dialog, you can view the result in notifications',
+      importingHint:
+        'After closing the dialog, you can view the result in notifications',
       importingStart: 'Initializing import task...',
       successTitle: 'Import Successful',
       successDescription:
@@ -320,7 +323,8 @@ export default {
     typeTextarea: 'Textarea',
     typeNumber: 'Number',
     typeSwitch: 'Switch',
-    searchSubtitle: 'Manage dynamic entity field configuration and list display rules',
+    searchSubtitle:
+      'Manage dynamic entity field configuration and list display rules',
     addSuccess: 'Field config created successfully',
     editSuccess: 'Field config updated successfully',
     deleteSuccess: 'Field config deleted successfully',

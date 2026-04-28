@@ -5,6 +5,8 @@ import { AsyncSelect } from '@/components/async-select';
 import { AsyncCascader } from '@/components/async-cascader';
 import { useFormValidation } from '../composables/use-form-validation';
 import type { DetailField, DetailRecord } from '../types/detail';
+import FileUpload from '@/components/file-upload/file-upload.vue';
+import type { EntityFormField } from '@/features/entities/_shared/types';
 
 /******************************** 类型定义 ********************************/
 
@@ -49,12 +51,16 @@ const visibleFields = computed(() => {
 
 // 获取输入占位文案
 function resolveInputPlaceholder(field: DetailField) {
-  return field.placeholder || t('validation.enterField', { field: field.label });
+  return (
+    field.placeholder || t('validation.enterField', { field: field.label })
+  );
 }
 
 // 获取选择占位文案
 function resolveSelectPlaceholder(field: DetailField) {
-  return field.placeholder || t('validation.selectField', { field: field.label });
+  return (
+    field.placeholder || t('validation.selectField', { field: field.label })
+  );
 }
 
 defineExpose({ validate, formRef });
@@ -107,6 +113,10 @@ defineExpose({ validate, formRef });
                 :dialog-title="field.label"
               />
 
+              <FileUpload
+                v-else-if="field.type === 'fileUpload'"
+                v-bind="fileConfig"
+              />
               <AsyncCascader
                 v-else-if="
                   field.type === 'async-cascader' && field.asyncCascaderConfig
@@ -152,9 +162,7 @@ defineExpose({ validate, formRef });
               </el-checkbox-group>
 
               <el-date-picker
-                v-else-if="
-                  field.type === 'date' || field.type === 'datetime'
-                "
+                v-else-if="field.type === 'date' || field.type === 'datetime'"
                 v-model="formData[field.prop]"
                 :type="field.type"
                 :placeholder="resolveSelectPlaceholder(field)"

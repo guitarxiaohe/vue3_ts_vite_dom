@@ -368,6 +368,118 @@ const prefersDark = usePreferredDark();
 
 ---
 
+## 🧱 9. 实体模块标准示例
+
+以 [src/features/entities/dict/module.ts](src/features/entities/dict/module.ts) 为参考，实体模块建议统一导出一个 `EntityModule` 配置对象；当实体存在筛选条件、子表关系或详情抽屉时，也统一在模块配置中集中声明。
+
+### **标准示例**
+
+```typescript
+import { defineAsyncComponent } from 'vue';
+import type { EntityModule } from '@/features/entities/types';
+
+const entityModule: EntityModule = {
+  entityKey: 'dict',
+  form: {
+    component: defineAsyncComponent(
+      () => import('@/features/entities/dict/form/index.vue')
+    ),
+  },
+  rowActions: {
+    actionColumnWidth: 180,
+  },
+  config: {
+    entityKey: 'dict',
+    title: '字典类型',
+    actions: {
+      showCreate: true,
+      showEdit: true,
+      showCopy: true,
+      showDelete: true,
+      showImport: false,
+      showExport: true,
+    },
+    filters: {
+      fields: {
+        dictName: {
+          key: 'dictName',
+          label: '字典名称',
+          component: 'input',
+          placeholder: '请输入字典名称',
+          order: 1,
+        },
+        dictType: {
+          key: 'dictType',
+          label: '字典类型',
+          component: 'input',
+          placeholder: '请输入字典类型',
+          order: 2,
+        },
+        status: {
+          key: 'status',
+          label: '状态',
+          component: 'select',
+          placeholder: '请选择状态',
+          order: 3,
+          options: [
+            { label: '启用', value: '0' },
+            { label: '停用', value: '1' },
+          ],
+        },
+      },
+    },
+    table: {
+      rowKey: 'dictId',
+      height: 560,
+      pageSize: 20,
+      defaultSort: { field: 'createdTime', order: 'desc' },
+      showColumnSettings: true,
+      children: [
+        {
+          label: '字典值信息',
+          relationField: {
+            parentKey: 'dictType',
+            childKey: 'dictType',
+          },
+          entityKey: 'dictData',
+          rowKey: 'dictCode',
+          hiddenColumnKeys: ['dictType'],
+        },
+      ],
+    },
+    detail: {
+      title: '字典类型详情',
+      width: '70%',
+      visibleCount: 10,
+    },
+  },
+};
+
+export default entityModule;
+```
+
+### **字段说明**
+
+- `entityKey`：实体唯一标识，需与模块目录、接口配置保持一致
+- `form.component`：实体表单组件，统一使用 `defineAsyncComponent`
+- `rowActions.actionColumnWidth`：行操作列宽度
+- `config.actions`：控制增删改复制导入导出等能力开关
+- `config.filters.fields`：列表查询区字段定义，支持输入框、选择器等组件配置
+- `config.table`：控制表格主键、分页、排序、高度、列设置等
+- `config.table.children`：声明主子表关系，用于详情/联动展示子实体
+- `config.detail`：控制详情抽屉标题、宽度、首屏可见字段数
+
+### **推荐约定**
+
+- 模块文件路径统一为 `src/features/entities/<entityKey>/module.ts`
+- 默认导出名称统一为 `entityModule`
+- 表单组件统一异步加载，降低首屏体积
+- `config.entityKey` 与顶层 `entityKey` 保持一致，避免运行时映射错误
+- 有筛选需求时优先在 `config.filters.fields` 中声明，不要把查询逻辑散落到页面组件
+- 有主子表关系时统一使用 `table.children` 描述父子关联字段和子实体键
+
+---
+
 ## 📝 使用说明
 
 将此文档保存为 `AGENTS.md`，放置在项目根目录下。AI Agent 会自动读取并遵循这些规范。

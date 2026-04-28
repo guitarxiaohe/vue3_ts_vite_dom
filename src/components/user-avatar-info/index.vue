@@ -6,7 +6,10 @@ import { getSysUserById } from '@/api/modules/user';
 import { UserSex, type SysUserDetailApiResponse } from '@/types/user';
 import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
 import { Mars, Venus } from 'lucide-vue-next';
-
+import FileCell from '../table-entity/cells/file-cell.vue';
+import { useImageUrl } from '@/composables/use-image-url';
+const { ensureImageBaseUrl, resolveImageUrl } = useImageUrl();
+void ensureImageBaseUrl();
 /******************************** 类型 ********************************/
 
 export type UserAvatarGenderInput =
@@ -217,7 +220,7 @@ const drawerGenderIconSize = computed(() =>
 const mergedAvatarProps = computed(() => ({
   ...props.avatarProps,
   size: props.size,
-  src: displaySrc.value,
+  src: resolveImageUrl(displaySrc.value),
   shape: 'circle',
 }));
 
@@ -225,13 +228,70 @@ const mergedAvatarProps = computed(() => ({
 const drawerAvatarBind = computed(() => ({
   ...props.avatarProps,
   size: props.drawerAvatarSize,
-  src: displaySrc.value,
-  shape: 'circle',
+  url: displaySrc.value,
+  name: '',
 }));
 
 const drawerTitleText = computed(
   () => props.drawerTitle ?? t('components.userAvatarInfo.drawerTitle')
 );
+
+const drawerDetailItems = computed(() => [
+  {
+    key: 'avatar',
+    label: t('components.userAvatarInfo.fieldAvatar'),
+    type: 'avatar' as const,
+    value: '',
+  },
+  {
+    key: 'name',
+    label: t('components.userAvatarInfo.fieldName'),
+    type: 'text' as const,
+    value: displayName.value,
+  },
+  {
+    key: 'gender',
+    label: t('components.userAvatarInfo.fieldGender'),
+    type: 'text' as const,
+    value: genderLabel.value,
+  },
+  {
+    key: 'age',
+    label: t('components.userAvatarInfo.fieldAge'),
+    type: 'text' as const,
+    value: displayField(displayAge.value),
+  },
+  {
+    key: 'workYears',
+    label: t('components.userAvatarInfo.fieldWorkYears'),
+    type: 'text' as const,
+    value: displayField(displayWorkYears.value),
+  },
+  {
+    key: 'email',
+    label: t('components.userAvatarInfo.fieldEmail'),
+    type: 'text' as const,
+    value: displayField(displayEmail.value),
+  },
+  {
+    key: 'phone',
+    label: t('components.userAvatarInfo.fieldPhone'),
+    type: 'text' as const,
+    value: displayField(displayPhone.value),
+  },
+  {
+    key: 'department',
+    label: t('components.userAvatarInfo.fieldDepartment'),
+    type: 'text' as const,
+    value: departmentDisplay.value,
+  },
+  {
+    key: 'jobLevel',
+    label: t('components.userAvatarInfo.fieldJobLevel'),
+    type: 'text' as const,
+    value: displayField(displayJobLevel.value),
+  },
+]);
 
 const mergedDrawerProps = computed(() => ({
   appendToBody: true,
@@ -384,7 +444,7 @@ defineExpose({
             popper-class="user-avatar-info-tooltip"
           >
             <template #content>
-              <div class="user-avatar-info__tooltip-text">
+              <div class="user-avatar-info__tooltip-text displaySubtitle">
                 <slot name="subtitle">{{ displaySubtitle }}</slot>
               </div>
             </template>
@@ -405,90 +465,45 @@ defineExpose({
     <el-drawer
       v-if="drawerRendered"
       v-model="drawerVisible"
-      :title="drawerTitleText"
       :size="drawerSize"
-      class="user-avatar-info-drawer"
+      class="user-avatar-info-drawer row-detail-drawer"
       v-bind="mergedDrawerProps"
       @closed="onDrawerClosed"
     >
+      <template #header>
+        <div class="row-detail-drawer__header">
+          <span class="row-detail-drawer__title">{{ drawerTitleText }}</span>
+        </div>
+      </template>
+
       <div v-if="hasDrawerDefaultSlot" class="user-avatar-info__drawer-slot">
         <slot />
       </div>
-      <el-descriptions
-        v-else
-        :column="1"
-        border
-        class="user-avatar-info__descriptions"
-      >
-        <el-descriptions-item
-          class="user-avatar-info__desc-avatar"
-          :label="t('components.userAvatarInfo.fieldAvatar')"
-        >
-          <slot name="drawer-avatar">
-            <div class="user-avatar-info__avatar-wrap">
-              <el-avatar
-                class="user-avatar-info__drawer-avatar"
-                v-bind="drawerAvatarBind"
-              >
-                <slot name="avatar">{{ displayName?.slice(0, 1) }}</slot>
-              </el-avatar>
-              <span
-                v-if="showGenderBadge"
-                class="user-avatar-info__gender-badge user-avatar-info__gender-badge--drawer"
-                :class="`user-avatar-info__gender-badge--${resolvedGender}`"
-                aria-hidden="true"
-              >
-                <Mars
-                  v-if="resolvedGender === 'male'"
-                  :size="drawerGenderIconSize"
-                  :stroke-width="2.5"
-                />
-                <Venus
-                  v-else
-                  :size="drawerGenderIconSize"
-                  :stroke-width="2.5"
-                />
-              </span>
+      <el-row v-else :gutter="12" class="row-detail-drawer__grid">
+        <el-col v-for="item in drawerDetailItems" :key="item.key" :span="8">
+          <div class="row-detail-drawer__item">
+            <div class="row-detail-drawer__label">{{ item.label }}:</div>
+            <div
+              v-if="item.type === 'avatar'"
+              class="row-detail-drawer__value user-avatar-info__drawer-avatar-value"
+            >
+              <slot name="drawer-avatar">
+                <div class="user-avatar-info__avatar-wrap">
+                  <FileCell :attachments="[drawerAvatarBind]" />
+                </div>
+              </slot>
             </div>
-          </slot>
-        </el-descriptions-item>
-        <el-descriptions-item :label="t('components.userAvatarInfo.fieldName')">
-          <slot name="drawer-name">{{ displayName }}</slot>
-        </el-descriptions-item>
-        <el-descriptions-item
-          :label="t('components.userAvatarInfo.fieldGender')"
-        >
-          {{ genderLabel }}
-        </el-descriptions-item>
-        <el-descriptions-item :label="t('components.userAvatarInfo.fieldAge')">
-          {{ displayField(displayAge) }}
-        </el-descriptions-item>
-        <el-descriptions-item
-          :label="t('components.userAvatarInfo.fieldWorkYears')"
-        >
-          {{ displayField(displayWorkYears) }}
-        </el-descriptions-item>
-        <el-descriptions-item
-          :label="t('components.userAvatarInfo.fieldEmail')"
-        >
-          {{ displayField(displayEmail) }}
-        </el-descriptions-item>
-        <el-descriptions-item
-          :label="t('components.userAvatarInfo.fieldPhone')"
-        >
-          {{ displayField(displayPhone) }}
-        </el-descriptions-item>
-        <el-descriptions-item
-          :label="t('components.userAvatarInfo.fieldDepartment')"
-        >
-          {{ departmentDisplay }}
-        </el-descriptions-item>
-        <el-descriptions-item
-          :label="t('components.userAvatarInfo.fieldJobLevel')"
-        >
-          {{ displayField(displayJobLevel) }}
-        </el-descriptions-item>
-      </el-descriptions>
+            <div v-else class="row-detail-drawer__value">
+              <slot v-if="item.key === 'name'" name="drawer-name">
+                {{ item.value }}
+              </slot>
+              <template v-else>
+                {{ item.value }}
+              </template>
+            </div>
+          </div>
+        </el-col>
+      </el-row>
     </el-drawer>
   </div>
 </template>
@@ -613,6 +628,7 @@ defineExpose({
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  font-size: 10px;
 }
 
 .user-avatar-info__subtitle--overflow {
@@ -626,15 +642,6 @@ defineExpose({
   line-height: 1.45;
 }
 
-.user-avatar-info__descriptions {
-  width: 100%;
-}
-
-.user-avatar-info__desc-avatar :deep(.el-descriptions__content) {
-  display: flex;
-  align-items: center;
-}
-
 .user-avatar-info__drawer-avatar {
   flex-shrink: 0;
 }
@@ -642,6 +649,55 @@ defineExpose({
 .user-avatar-info__drawer-slot {
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
+}
+
+.user-avatar-info__drawer-avatar-value {
+  white-space: normal;
+  overflow: visible;
+}
+
+.row-detail-drawer__header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 24px;
+  gap: 12px;
+}
+
+.row-detail-drawer__title {
+  flex: 1;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.row-detail-drawer__grid {
+  margin-top: 0;
+}
+
+.row-detail-drawer__item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+
+.row-detail-drawer__label {
+  flex-shrink: 0;
+  margin-right: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 20px;
+}
+
+.row-detail-drawer__value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  line-height: 22px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
 }
 
 /* 男性：名称与副标题均为蓝色 */
@@ -661,6 +717,14 @@ defineExpose({
 /* el-tooltip 的 popper 挂载到 body */
 .user-avatar-info-tooltip.el-popper {
   max-width: min(90vw, 380px);
+}
+
+.user-avatar-info-drawer .el-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .user-avatar-info-drawer .el-drawer__body {

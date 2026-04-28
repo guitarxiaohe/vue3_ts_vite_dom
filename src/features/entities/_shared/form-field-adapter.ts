@@ -1,5 +1,6 @@
 import type { DetailField } from '@/features/form-shell/types/detail';
 import type { EntityFormField } from './types';
+import fileUpload from '../../../components/file-upload/index';
 
 /******************************** 字段适配 ********************************/
 
@@ -25,6 +26,10 @@ export function mapEntityFormFields(fields: EntityFormField[]): DetailField[] {
       hideOnEdit: field.hideOnEdit,
       copyable: field.copyable,
     };
+
+    if (field.type === 'fileUpload') {
+      nextField.options = field.options;
+    }
 
     if (field.optionSource === 'static' && field.options) {
       nextField.options = field.options;

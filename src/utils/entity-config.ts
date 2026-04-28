@@ -20,7 +20,7 @@ export const getEntityActionsConfig = (
 
   return {
     showCreate: config.showCreate ?? true,
-    createName: config.createName ?? i18n.global.t('actions.create'),
+    createName: config.createName ?? i18n.global.t('common.add'),
     showEdit: config.showEdit ?? true,
     showCopy: config.showCopy ?? true,
     showDelete: config.showDelete ?? true,
