@@ -53,6 +53,7 @@ export function getFieldConfigFormFields(t: Translate): EntityFormField[] {
       defaultValue: 'input',
       options: [
         { label: t('fieldConfig.typeInput'), value: 'input' },
+        { label: t('fieldConfig.typeText'), value: 'text' },
         { label: t('fieldConfig.typeSelect'), value: 'select' },
         { label: t('fieldConfig.dictSelect'), value: 'dict' },
         { label: t('fieldConfig.typeDate'), value: 'date' },
@@ -60,6 +61,22 @@ export function getFieldConfigFormFields(t: Translate): EntityFormField[] {
         { label: t('fieldConfig.typeTextarea'), value: 'textarea' },
         { label: t('fieldConfig.typeNumber'), value: 'number' },
         { label: t('fieldConfig.typeSwitch'), value: 'switch' },
+        { label: t('fieldConfig.typeFile'), value: 'file' },
+        { label: t('fieldConfig.typeBy'), value: 'by' },
+        { label: t('fieldConfig.typeUser'), value: 'user' },
+      ],
+    },
+    {
+      prop: 'fieldRole',
+      label: t('fieldConfig.fieldRole'),
+      type: 'select',
+      optionSource: 'static',
+      defaultValue: '',
+      options: [
+        { label: t('fieldConfig.roleNone'), value: '' },
+        { label: t('fieldConfig.roleCreateUser'), value: 'createUser' },
+        { label: t('fieldConfig.roleUpdateUser'), value: 'updateUser' },
+        { label: t('fieldConfig.roleFileInfo'), value: 'fileInfo' },
       ],
     },
     {

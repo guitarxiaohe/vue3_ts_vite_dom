@@ -2,16 +2,53 @@ import { h, ref, watch, type ComputedRef, type Ref } from 'vue';
 import type { Slots } from 'vue';
 import { getByEntityKeyAndFieldKeyApi } from '@/api/modules/user';
 import { isEmptyValue, snakeToCamel } from '@/utils/value';
-import type { ColumnsItem, TableEntlty } from './index.type';
-import { fontWidth, normalizeColumnFixed } from './column-utils';
-import { applyColumnSlots } from './column-slots';
-import UserCell from './cells/cell-avatar.vue';
-import FileCell from './cells/file-cell.vue';
+import type { ColumnsItem, TableEntlty } from '../index.type';
+import { fontWidth, normalizeColumnFixed } from '../utils/column-utils';
+import { applyColumnSlots } from '../utils/column-slots';
+import UserCell from '../cells/cell-avatar.vue';
+import FileCell from '../cells/file-cell.vue';
 /******************************** 列配置加载与插槽合并 ********************************/
 
 // 兼容字段配置的 camelCase 与 snake_case
 function resolveFieldValue(field: Record<string, any>, camelKey: string) {
   return field[camelKey];
+}
+
+// 解析字段角色配置
+function resolveFieldRole(field: Record<string, any>) {
+  return String(resolveFieldValue(field, 'fieldRole') ?? '').trim();
+}
+
+// 解析文件增强对象键名
+function resolveFileInfoKey(field: Record<string, any>) {
+  const fieldKey = String(resolveFieldValue(field, 'fieldKey') ?? '');
+  const camelFieldKey = snakeToCamel(fieldKey);
+  return camelFieldKey === 'fileUrl' ? 'fileInfo' : `${camelFieldKey}Info`;
+}
+
+// 解析审计用户对象
+function resolveAuditUser(
+  field: Record<string, any>,
+  rowData: Record<string, any>
+) {
+  const fieldRole = resolveFieldRole(field);
+  const fieldKey = String(
+    resolveFieldValue(field, 'fieldKey') ?? ''
+  ).toLowerCase();
+
+  if (fieldRole === 'updateUser') {
+    return rowData.updateUser ?? null;
+  }
+
+  if (fieldRole === 'createUser') {
+    return rowData.createUser ?? null;
+  }
+
+  if (fieldKey === 'update_by' || fieldKey === 'updateby') {
+    return rowData.updateUser ?? null;
+  }
+
+  return rowData.createUser ?? null;
 }
 
 // 规范化日期时间文案 时间戳转 YYYY-MM-DD HH:MM:SS
@@ -71,7 +108,8 @@ function resolveDetailTextByFieldType(
   ).toLowerCase();
 
   if (fieldType === 'by') {
-    return String(rowData.createUser?.userName ?? cellData ?? '--');
+    const auditUser = resolveAuditUser(field, rowData);
+    return String(auditUser?.userName ?? cellData ?? '--');
   }
 
   if (
@@ -118,11 +156,12 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
       rowData: Record<string, any>;
       cellData: string | number | null;
     }) => {
-      const { fileInfo } = rowData;
+      const fileInfoKey = resolveFileInfoKey(field);
+      const attachment = rowData[fileInfoKey];
       return h(FileCell, {
         row: rowData,
         value: cellData,
-        attachments: [fileInfo],
+        attachments: attachment ? [attachment] : [],
       });
     };
   }
@@ -141,21 +180,7 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
       });
   }
 
-  if (fieldKey === 'create_by') {
-    return ({
-      rowData,
-      cellData,
-    }: {
-      rowData: Record<string, any>;
-      cellData: unknown;
-    }) =>
-      h(UserCell, {
-        ...rowData.createUser,
-        row: rowData,
-        value: cellData,
-      });
-  }
-  if (fieldKey === 'update_by') {
+  if (fieldType === 'by') {
     return ({
       rowData,
       cellData,
@@ -163,13 +188,13 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
       rowData: Record<string, any>;
       cellData: unknown;
     }) => {
-      if (rowData.updateUser) {
-        return h(UserCell, {
-          ...rowData.updateUser,
-          row: rowData,
-          value: cellData,
-        });
-      } else return h('div', '--');
+      const auditUser = resolveAuditUser(field, rowData);
+      if (!auditUser) return h('div', '--');
+      return h(UserCell, {
+        ...auditUser,
+        row: rowData,
+        value: cellData,
+      });
     };
   }
   if (

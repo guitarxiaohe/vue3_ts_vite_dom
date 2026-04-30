@@ -108,7 +108,7 @@ import type {
   DetailRenderMap,
   DetailRenderResult,
 } from './index.type';
-import { formatCellText } from './column-utils';
+import { formatCellText } from './utils/column-utils';
 import type { EntityTableChildConfig } from '@/types/entity-config';
 import RowDetailChildTable from './row-detail-child-table.vue';
 
@@ -261,15 +261,16 @@ watch(
 
 // 抽屉头部左侧：切换与序号
 .row-detail-drawer__toolbar {
-  background-color: --color-bg-card;
+  background-color: var(--color-bg-card);
   border-radius: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   position: absolute;
-  top: calc(50% - 50px);
-  left: -30px;
+  top: calc(50% - 350px);
+  left: -28px;
+  width: 25px;
 }
 
 .row-detail-drawer__pos {

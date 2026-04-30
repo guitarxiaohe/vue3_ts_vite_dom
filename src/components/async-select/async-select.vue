@@ -362,22 +362,22 @@ const computedDialogTitle = computed(
 
 <style scoped lang="scss">
 :deep(.el-select) {
-  width: 260px !important;
-
+  // width: 260px !important;
 }
 
-:deep(.el-input__icon){
+:deep(.el-input__icon) {
   margin-right: 15px;
 }
 
 .async-select {
   position: relative;
   display: block;
-  width: 260px;
+  // width: 260px;
+  width: 100%;
 }
 
 .async-select__select {
-  width: 260px;
+  // width: 260px;
 }
 
 // .async-select__select:deep(.el-select__suffix),

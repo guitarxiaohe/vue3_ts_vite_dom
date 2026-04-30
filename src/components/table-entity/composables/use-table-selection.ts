@@ -1,6 +1,6 @@
 import { ref, computed, h, watch, type Ref } from 'vue';
 import { ElCheckbox, TableV2FixedDir } from 'element-plus';
-import type { ColumnsItem, TableEntlty } from './index.type';
+import type { ColumnsItem, TableEntlty } from '../index.type';
 
 /******************************** 类型 ********************************/
 
@@ -104,9 +104,7 @@ export function useTableSelection(
   const allCurrentSelected = computed(
     () =>
       dataList.value.length > 0 &&
-      dataList.value.every((r) =>
-        selectedKeySet.value.has(r[rowKeyField()])
-      )
+      dataList.value.every((r) => selectedKeySet.value.has(r[rowKeyField()]))
   );
 
   const someCurrentSelected = computed(() =>
@@ -186,8 +184,7 @@ export function useTableSelection(
         }
         return h(ElCheckbox, {
           modelValue: allCurrentSelected.value,
-          indeterminate:
-            someCurrentSelected.value && !allCurrentSelected.value,
+          indeterminate: someCurrentSelected.value && !allCurrentSelected.value,
           disabled: dataList.value.length === 0,
           onClick: (e: MouseEvent) => {
             e.stopPropagation();

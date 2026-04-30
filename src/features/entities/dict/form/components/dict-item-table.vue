@@ -12,11 +12,16 @@ import TableEntlty from '@/components/table-entity/index.vue';
 import type { ColumnsItem } from '@/components/table-entity/index.type';
 import DetailDrawer from '@/features/form-shell/components/form-drawer.vue';
 import type { DetailField } from '@/features/form-shell/types/detail';
-import type {
-  DictItemDrawerFormData,
-  DictItemFormData,
-  DictStatusValue,
-} from '@/types/dict';
+import type { DictItemFormData } from '@/types/dict';
+import {
+  createDefaultDrawerForm,
+  getStatusLabel,
+  getStatusTagType,
+  normalizeDrawerForm,
+  normalizeOrder,
+  normalizeStatus,
+  toItem,
+} from '../../shared/utils';
 
 /******************************** 类型定义 ********************************/
 
@@ -174,7 +179,7 @@ const tableColumns = computed<ColumnsItem[]>(() => [
         {
           type: getStatusTagType(normalizeStatus(rowData.status)),
         },
-        () => getStatusLabel(normalizeStatus(rowData.status))
+        () => getStatusLabel(normalizeStatus(rowData.status), t)
       ),
   },
 ]);
@@ -218,120 +223,6 @@ const actionColumn = computed<ColumnsItem>(() => ({
 }));
 
 /******************************** 数据方法 ********************************/
-
-// 创建本地子表标识
-function createLocalId() {
-  return `dict-item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-// 创建默认子表记录
-function createDefaultItem(): DictItemFormData {
-  return {
-    localId: createLocalId(),
-    dictCode: undefined,
-    dictSort: 1,
-    dictValue: '',
-    dictLabel: '',
-    color: '#b7ebc2',
-    remark: '',
-    status: '0',
-  };
-}
-
-// 创建抽屉默认数据
-function createDefaultDrawerForm(): DictItemDrawerFormData {
-  return {
-    localId: createLocalId(),
-    dictCode: undefined,
-    dictSort: 1,
-    dictValue: '',
-    dictLabel: '',
-    color: '#b7ebc2',
-    remark: '',
-    enabled: true,
-  };
-}
-
-// 规范化状态值
-function normalizeStatus(value: unknown): DictStatusValue {
-  return String(value ?? '0') === '1' ? '1' : '0';
-}
-
-// 规范化子表记录
-function normalizeItem(
-  record?: Record<string, unknown>,
-  index = 0
-): DictItemFormData {
-  const source = record ?? {};
-
-  return {
-    ...createDefaultItem(),
-    localId:
-      String(source.localId ?? source.dictCode ?? '').trim() || createLocalId(),
-    dictCode: source.dictCode as number | string | undefined,
-    dictSort: Number(source.dictSort ?? index + 1),
-    dictValue: String(source.dictValue ?? '').trim(),
-    dictLabel: String(source.dictLabel ?? '').trim(),
-    color: String(source.color ?? '#b7ebc2'),
-    remark: String(source.remark ?? ''),
-    status: normalizeStatus(source.status),
-  };
-}
-
-// 规范化抽屉数据
-function normalizeDrawerForm(
-  record?: Record<string, unknown>,
-  index = 0
-): DictItemDrawerFormData {
-  const source = normalizeItem(record, index);
-
-  return {
-    localId: source.localId,
-    dictCode: source.dictCode,
-    dictSort: source.dictSort,
-    dictValue: source.dictValue,
-    dictLabel: source.dictLabel,
-    color: source.color,
-    remark: source.remark,
-    enabled: source.status === '0',
-  };
-}
-
-// 抽屉数据转为子表记录
-function toItem(record: Record<string, unknown>, index = 0): DictItemFormData {
-  const source = record as DictItemDrawerFormData;
-
-  return {
-    localId: String(source.localId ?? createLocalId()),
-    dictCode: source.dictCode,
-    dictSort: Number(source.dictSort ?? index + 1),
-    dictValue: String(source.dictValue ?? '').trim(),
-    dictLabel: String(source.dictLabel ?? '').trim(),
-    color: String(source.color ?? '#b7ebc2'),
-    remark: String(source.remark ?? ''),
-    status: source.enabled ? '0' : '1',
-  };
-}
-
-// 重排本地顺序
-function normalizeOrder(items: DictItemFormData[]) {
-  return items.map((item, index) => ({
-    ...item,
-    dictSort: index + 1,
-  }));
-}
-
-// 获取状态标签
-function getStatusLabel(status: DictStatusValue) {
-  return status === '0'
-    ? t('dictPage.statusEnabled')
-    : t('dictPage.statusDisabled');
-}
-
-// 获取状态标签类型
-function getStatusTagType(status: DictStatusValue) {
-  return status === '0' ? 'success' : 'danger';
-}
 
 // 打开新增抽屉
 function openCreate() {
@@ -449,6 +340,7 @@ watch(drawerVisible, (visible) => {
       <TableEntlty
         :entity-key="'dictData'"
         :data="props.items"
+        :columns="tableColumns"
         :row-action-column="actionColumn"
         :row-key="'localId'"
         :height="320"

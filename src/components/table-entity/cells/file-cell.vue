@@ -43,7 +43,6 @@ const props = withDefaults(defineProps<Props>(), {
   attachments: null,
   maxPreviewCount: 3,
 });
-
 const { ensureImageBaseUrl, resolveImageUrl } = useImageUrl();
 void ensureImageBaseUrl();
 
@@ -109,7 +108,7 @@ const imageUrls = computed(() =>
     .map((item) => buildFullUrl(item.fileUrl || item.fileOriginName || ''))
     .filter((fileUrl) => !!fileUrl)
 );
-
+console.log('imageUrls ==>', imageUrls.value);
 /**
  * 非图片附件，转为带图标信息的文件对象
  */

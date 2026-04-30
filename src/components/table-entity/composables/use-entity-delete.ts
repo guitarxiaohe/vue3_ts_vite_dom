@@ -2,7 +2,7 @@ import type { Ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { deleteByEntityKeyAndIdApi } from '@/api/modules/user';
 import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
-import type { TableEntlty } from './index.type';
+import type { TableEntlty } from '../index.type';
 
 /******************************** 类型 ********************************/
 
@@ -32,10 +32,7 @@ export function useEntityDelete(
     const idsStr = ids.join(',');
     try {
       tableLoading.value = true;
-      const res = (await deleteByEntityKeyAndIdApi(
-        entityKey,
-        idsStr
-      )) as {
+      const res = (await deleteByEntityKeyAndIdApi(entityKey, idsStr)) as {
         code?: number;
         msg?: string;
         message?: string;
@@ -68,7 +65,9 @@ export function useEntityDelete(
   }
 
   // 行内删除：单主键
-  async function deleteRowByEntityKey(row: Record<string, any>): Promise<boolean> {
+  async function deleteRowByEntityKey(
+    row: Record<string, any>
+  ): Promise<boolean> {
     const rk = props.rowKey ?? 'id';
     const id = row[rk];
     if (id == null || id === '') {

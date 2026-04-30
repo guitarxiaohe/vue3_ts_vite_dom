@@ -15,6 +15,7 @@ let mockFieldConfigs: FieldConfig[] = [
     fieldKey: 'userName',
     fieldName: '用户名',
     fieldType: 'input',
+    fieldRole: null,
     sort: 1,
     isFuzzySearch: 1,
     isVisible: 1,
@@ -30,6 +31,7 @@ let mockFieldConfigs: FieldConfig[] = [
     fieldKey: 'deptId',
     fieldName: '所属部门',
     fieldType: 'select',
+    fieldRole: null,
     selectEntityKey: 'dept',
     sort: 2,
     isFuzzySearch: 0,
@@ -46,6 +48,7 @@ let mockFieldConfigs: FieldConfig[] = [
     fieldKey: 'fileOriginName',
     fieldName: '文件名称',
     fieldType: 'input',
+    fieldRole: null,
     sort: 1,
     isFuzzySearch: 1,
     isVisible: 1,
@@ -86,6 +89,9 @@ export function listFieldConfig(params: FieldConfigQuery) {
         return false;
       }
       if (filters.fieldType && item.fieldType !== filters.fieldType) {
+        return false;
+      }
+      if (filters.fieldRole && item.fieldRole !== filters.fieldRole) {
         return false;
       }
       return true;

@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { useI18n } from 'vue-i18n';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
+import DetailDrawer from '@/features/form-shell/components/form-drawer.vue';
 import {
   addMenu,
   assertAjaxOk,
@@ -198,19 +199,26 @@ function removeLocaleRow(index: number) {
   syncMenuName();
 }
 
-// 提交表单
-async function handleSave() {
+// 校验表单
+async function validateForm() {
   syncMenuName();
 
   if (!formData.value.menuName.trim()) {
     ElMessage.warning(
       t('validation.enterField', { field: t('menuPage.menuName') })
     );
-    return;
+    throw new Error('menuName required');
   }
 
   await formRef.value?.validate();
+}
 
+function clearFormValidation() {
+  formRef.value?.clearValidate();
+}
+
+// 提交表单
+async function handleSave() {
   saving.value = true;
 
   try {
@@ -262,193 +270,195 @@ watch(
 </script>
 
 <template>
-  <el-drawer
-    :model-value="props.visible"
+  <DetailDrawer
+    v-model:form-data="formData"
+    :visible="props.visible"
+    :record="props.record"
+    :record-list="props.recordList"
+    :initial-index="props.initialIndex"
+    :is-create="props.isCreate"
     :title="drawerTitle"
+    :saving="saving"
     size="520px"
-    direction="rtl"
-    @update:model-value="emit('update:visible', $event)"
+    :custom-validate="validateForm"
+    :custom-clear-validate="clearFormValidation"
+    @save="handleSave"
+    @cancel="handleCancel"
+    @update:visible="emit('update:visible', $event)"
   >
-    <div class="menu-form">
-      <!-------------------------- 表单主体 -------------------------->
-      <el-form
-        ref="formRef"
-        :model="formData"
-        :rules="formRules"
-        label-position="top"
-      >
-        <!-------------------------- 基础字段 -------------------------->
-        <el-form-item :label="t('menuPage.parentMenu')">
-          <el-tree-select
-            v-model="formData.parentId"
-            :data="filteredParentOptions"
-            node-key="menuId"
-            :props="{
-              label: 'menuName',
-              value: 'menuId',
-              children: 'children',
-            }"
-            check-strictly
-            clearable
-            style="width: 100%"
-          />
-        </el-form-item>
-
-        <el-form-item :label="t('menuPage.menuType')" prop="menuType">
-          <el-select v-model="formData.menuType" style="width: 100%">
-            <el-option
-              v-for="item in menuTypeOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
+    <template #content>
+      <div class="menu-form">
+        <el-form
+          ref="formRef"
+          :model="formData"
+          :rules="formRules"
+          label-position="top"
+        >
+          <!-------------------------- 基础字段 -------------------------->
+          <el-form-item :label="t('menuPage.parentMenu')">
+            <el-tree-select
+              v-model="formData.parentId"
+              :data="filteredParentOptions"
+              node-key="menuId"
+              :props="{
+                label: 'menuName',
+                value: 'menuId',
+                children: 'children',
+              }"
+              check-strictly
+              clearable
+              style="width: 100%"
             />
-          </el-select>
-        </el-form-item>
+          </el-form-item>
 
-        <!-------------------------- 语言名称 -------------------------->
-        <div class="menu-form__block">
-          <div class="menu-form__header">
-            <span>{{ t('menuPage.menuName') }}</span>
-            <el-button text @click="addLocaleRow">
-              {{ t('menuPage.addLocale') }}
-            </el-button>
-          </div>
-
-          <div
-            v-for="(item, index) in formData.localeNames"
-            :key="`${item.locale}-${index}`"
-            class="menu-form__locale-row"
-          >
-            <el-select v-model="item.locale" style="width: 120px">
+          <el-form-item :label="t('menuPage.menuType')" prop="menuType">
+            <el-select v-model="formData.menuType" style="width: 100%">
               <el-option
-                v-for="locale in localeOptions"
-                :key="locale.value"
-                :label="locale.label"
-                :value="locale.value"
+                v-for="item in menuTypeOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
               />
             </el-select>
+          </el-form-item>
+
+          <!-------------------------- 语言名称 -------------------------->
+          <div class="menu-form__block">
+            <div class="menu-form__header">
+              <span>{{ t('menuPage.menuName') }}</span>
+              <el-button text @click="addLocaleRow">
+                {{ t('menuPage.addLocale') }}
+              </el-button>
+            </div>
+
+            <div
+              v-for="(item, index) in formData.localeNames"
+              :key="`${item.locale}-${index}`"
+              class="menu-form__locale-row"
+            >
+              <el-select v-model="item.locale" style="width: 120px">
+                <el-option
+                  v-for="locale in localeOptions"
+                  :key="locale.value"
+                  :label="locale.label"
+                  :value="locale.value"
+                />
+              </el-select>
+              <el-input
+                v-model="item.label"
+                :placeholder="t('validation.enterField', { field: t('menuPage.menuName') })"
+                @blur="syncMenuName"
+              />
+              <el-button
+                :disabled="formData.localeNames.length <= 1"
+                text
+                @click="removeLocaleRow(index)"
+              >
+                {{ t('common.delete') }}
+              </el-button>
+            </div>
+          </div>
+
+          <el-form-item :label="t('menuPage.orderNum')" prop="orderNum">
+            <el-input-number
+              v-model="formData.orderNum"
+              :min="0"
+              :max="9999"
+              controls-position="right"
+              style="width: 100%"
+            />
+          </el-form-item>
+
+          <el-form-item :label="t('menuPage.icon')">
+            <el-select v-model="formData.icon" style="width: 100%">
+              <el-option
+                v-for="item in MENU_ICON_OPTIONS"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              >
+                <div class="menu-form__icon-option">
+                  <component :is="item.component" :size="16" />
+                  <span>{{ item.label }}</span>
+                </div>
+              </el-option>
+            </el-select>
+
+            <div class="menu-form__icon-preview">
+              <component :is="previewIcon" :size="42" />
+            </div>
+          </el-form-item>
+
+          <el-form-item :label="t('menuPage.path')">
+            <el-input v-model="formData.path" clearable />
+          </el-form-item>
+
+          <el-form-item :label="t('menuPage.component')">
+            <el-input v-model="formData.component" clearable />
+          </el-form-item>
+
+          <el-form-item :label="t('menuPage.routeName')">
+            <el-input v-model="formData.routeName" clearable />
+          </el-form-item>
+
+          <el-form-item :label="t('menuPage.query')">
+            <el-input v-model="formData.query" clearable />
+          </el-form-item>
+
+          <el-form-item :label="t('menuPage.permission')">
+            <el-input v-model="formData.perms" clearable />
+          </el-form-item>
+
+          <!-------------------------- 状态开关 -------------------------->
+          <div class="menu-form__switches">
+            <div class="menu-form__switch-item">
+              <span>{{ t('menuPage.visible') }}</span>
+              <el-switch
+                v-model="formData.visible"
+                active-value="0"
+                inactive-value="1"
+              />
+            </div>
+
+            <div class="menu-form__switch-item">
+              <span>{{ t('menuPage.status') }}</span>
+              <el-switch
+                v-model="formData.status"
+                active-value="0"
+                inactive-value="1"
+              />
+            </div>
+
+            <div class="menu-form__switch-item">
+              <span>{{ t('menuPage.cache') }}</span>
+              <el-switch
+                v-model="formData.isCache"
+                :active-value="0"
+                :inactive-value="1"
+              />
+            </div>
+
+            <div class="menu-form__switch-item">
+              <span>{{ t('menuPage.frame') }}</span>
+              <el-switch
+                v-model="formData.isFrame"
+                :active-value="1"
+                :inactive-value="0"
+              />
+            </div>
+          </div>
+
+          <el-form-item :label="t('menuPage.remark')">
             <el-input
-              v-model="item.label"
-              :placeholder="t('validation.enterField', { field: t('menuPage.menuName') })"
-              @blur="syncMenuName"
+              v-model="formData.remark"
+              type="textarea"
+              :rows="4"
             />
-            <el-button
-              :disabled="formData.localeNames.length <= 1"
-              text
-              @click="removeLocaleRow(index)"
-            >
-              {{ t('common.delete') }}
-            </el-button>
-          </div>
-        </div>
-
-        <el-form-item :label="t('menuPage.orderNum')" prop="orderNum">
-          <el-input-number
-            v-model="formData.orderNum"
-            :min="0"
-            :max="9999"
-            controls-position="right"
-            style="width: 100%"
-          />
-        </el-form-item>
-
-        <el-form-item :label="t('menuPage.icon')">
-          <el-select v-model="formData.icon" style="width: 100%">
-            <el-option
-              v-for="item in MENU_ICON_OPTIONS"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            >
-              <div class="menu-form__icon-option">
-                <component :is="item.component" :size="16" />
-                <span>{{ item.label }}</span>
-              </div>
-            </el-option>
-          </el-select>
-
-          <div class="menu-form__icon-preview">
-            <component :is="previewIcon" :size="42" />
-          </div>
-        </el-form-item>
-
-        <el-form-item :label="t('menuPage.path')">
-          <el-input v-model="formData.path" clearable />
-        </el-form-item>
-
-        <el-form-item :label="t('menuPage.component')">
-          <el-input v-model="formData.component" clearable />
-        </el-form-item>
-
-        <el-form-item :label="t('menuPage.routeName')">
-          <el-input v-model="formData.routeName" clearable />
-        </el-form-item>
-
-        <el-form-item :label="t('menuPage.query')">
-          <el-input v-model="formData.query" clearable />
-        </el-form-item>
-
-        <el-form-item :label="t('menuPage.permission')">
-          <el-input v-model="formData.perms" clearable />
-        </el-form-item>
-
-        <!-------------------------- 状态开关 -------------------------->
-        <div class="menu-form__switches">
-          <div class="menu-form__switch-item">
-            <span>{{ t('menuPage.visible') }}</span>
-            <el-switch
-              v-model="formData.visible"
-              active-value="0"
-              inactive-value="1"
-            />
-          </div>
-
-          <div class="menu-form__switch-item">
-            <span>{{ t('menuPage.status') }}</span>
-            <el-switch
-              v-model="formData.status"
-              active-value="0"
-              inactive-value="1"
-            />
-          </div>
-
-          <div class="menu-form__switch-item">
-            <span>{{ t('menuPage.cache') }}</span>
-            <el-switch
-              v-model="formData.isCache"
-              :active-value="0"
-              :inactive-value="1"
-            />
-          </div>
-
-          <div class="menu-form__switch-item">
-            <span>{{ t('menuPage.frame') }}</span>
-            <el-switch
-              v-model="formData.isFrame"
-              :active-value="1"
-              :inactive-value="0"
-            />
-          </div>
-        </div>
-
-        <el-form-item :label="t('menuPage.remark')">
-          <el-input
-            v-model="formData.remark"
-            type="textarea"
-            :rows="4"
-          />
-        </el-form-item>
-      </el-form>
-
-      <!-------------------------- 底部操作 -------------------------->
-      <div class="menu-form__footer">
-        <el-button @click="handleCancel">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">
-          {{ t('common.save') }}
-        </el-button>
+          </el-form-item>
+        </el-form>
       </div>
-    </div>
-  </el-drawer>
+    </template>
+  </DetailDrawer>
 </template>
 
 <style scoped lang="scss">
@@ -507,13 +517,6 @@ watch(
   align-items: center;
   justify-content: space-between;
   color: var(--color-text-primary);
-}
-
-.menu-form__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 8px;
 }
 
 @media (max-width: 640px) {

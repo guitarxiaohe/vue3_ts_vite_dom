@@ -67,12 +67,12 @@ import type {
   TableColumnReorderPayload,
   TableEntlty,
 } from './index.type';
-import { isDataFetcher } from './utils';
-import { formatCellText, textDisplayWidth } from './column-utils';
-import { useTableSelection } from './use-table-selection';
-import { useTableColumns } from './use-table-columns';
-import { useTableData } from './use-table-data';
-import { useEntityDelete } from './use-entity-delete';
+import { isDataFetcher } from './utils/utils';
+import { formatCellText, textDisplayWidth } from './utils/column-utils';
+import { useTableSelection } from './composables/use-table-selection';
+import { useTableColumns } from './composables/use-table-columns';
+import { useTableData } from './composables/use-table-data';
+import { useEntityDelete } from './composables/use-entity-delete';
 import RowDetailDrawer from './row-detail-drawer.vue';
 import TableToolbar from './table-toolbar.vue';
 

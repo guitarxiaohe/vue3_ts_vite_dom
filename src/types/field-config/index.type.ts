@@ -9,6 +9,7 @@ export interface FieldConfig {
   fieldKey?: string;
   fieldName?: string;
   fieldType?: string | null;
+  fieldRole?: string | null;
   dictCode?: string | null;
   selectEntityKey?: string | null;
   sort?: number;
@@ -30,6 +31,7 @@ export interface FieldConfigQuery
         | 'fieldKey'
         | 'fieldName'
         | 'fieldType'
+        | 'fieldRole'
         | 'dictCode'
         | 'selectEntityKey'
         | 'fixed'

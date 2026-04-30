@@ -56,6 +56,7 @@ function normalizePayload(data: Record<string, unknown>): FieldConfig {
     isFuzzySearch: Number(data.isFuzzySearch ?? 0),
     isVisible: Number(data.isVisible ?? 1),
     fieldType: String(data.fieldType ?? 'input'),
+    fieldRole: String(data.fieldRole ?? '').trim() || null,
     dictCode: String(data.dictCode ?? '').trim() || null,
     selectEntityKey: String(data.selectEntityKey ?? '').trim() || null,
     fixed: fixed ? (fixed as 'left' | 'right') : null,

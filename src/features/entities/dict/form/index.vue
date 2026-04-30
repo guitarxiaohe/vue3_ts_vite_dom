@@ -1,34 +1,35 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { useQuery, useQueryClient } from '@tanstack/vue-query';
+import { computed, ref } from 'vue';
 import { type FormInstance, type FormRules } from 'element-plus';
 import { useI18n } from 'vue-i18n';
-import { getListByEntityKeyApi, saveMockDictBundle } from '@/api/modules/user';
+import DetailDrawer from '@/features/form-shell/components/form-drawer.vue';
 import type {
   EntityFormEmits,
   EntityFormProps,
 } from '@/features/entities/_shared/types';
-import type { DictClassValue, DictFormData, DictItemFormData } from '@/types/dict';
+import type { DictClassValue, DictFormData } from '@/types/dict';
+import { useDictBundleForm } from '../composables/use-dict-bundle-form';
 import DictItemTable from './components/dict-item-table.vue';
-
-/******************************** 常量定义 ********************************/
-
-const DICT_CHILDREN_QUERY_KEY = ['dict-form-items'] as const;
 
 /******************************** 组件入参 ********************************/
 
 const props = defineProps<EntityFormProps>();
 const emit = defineEmits<EntityFormEmits>();
 const { t } = useI18n();
-const queryClient = useQueryClient();
 
 /******************************** 基础状态 ********************************/
 
 const parentFormRef = ref<FormInstance>();
-const saving = ref<boolean>(false);
-const parentForm = ref<DictFormData>(createDefaultParentForm());
-const childItems = ref<DictItemFormData[]>([]);
-const sourceDictType = ref<string>('');
+const {
+  saving,
+  parentForm,
+  childItems,
+  childItemsLoading,
+  syncFormState,
+  clearParentValidation,
+  validateParentForm,
+  handleSave,
+} = useDictBundleForm(props, emit, parentFormRef);
 
 const drawerTitle = computed(() => {
   if (props.isCreate && props.record) {
@@ -69,139 +70,9 @@ const parentRules = computed<FormRules<DictFormData>>(() => ({
   ],
 }));
 
-const childItemsQuery = useQuery({
-  queryKey: computed(
-    () => [...DICT_CHILDREN_QUERY_KEY, sourceDictType.value] as const
-  ),
-  queryFn: async () => {
-    const response = (await getListByEntityKeyApi('dictData', {
-      pageNum: 1,
-      pageSize: 200,
-      dictType: sourceDictType.value,
-      orderByColumn: 'dictSort',
-      isAsc: 'asc',
-    })) as {
-      rows?: Array<Record<string, unknown>>;
-    };
-
-    return (response.rows ?? []).map((item, index) =>
-      normalizeChildItem(item, index)
-    );
-  },
-  enabled: computed(() => props.visible && Boolean(sourceDictType.value)),
-  staleTime: 5 * 60 * 1000,
-  gcTime: 30 * 60 * 1000,
-  retry: 0,
-  refetchOnMount: false,
-  refetchOnReconnect: false,
-  refetchOnWindowFocus: false,
-});
-
-const childItemsLoading = computed(() => childItemsQuery.isFetching.value);
-
-/******************************** 数据方法 ********************************/
-
-// 创建默认主表单
-function createDefaultParentForm(): DictFormData {
-  return {
-    dictId: undefined,
-    dictType: '',
-    dictName: '',
-    dictClass: 'system',
-    status: '0',
-    remark: '',
-  };
-}
-
-// 规范化主表单
-function cloneParentForm(record?: Record<string, unknown>): DictFormData {
-  const source = record ?? {};
-
-  return {
-    ...createDefaultParentForm(),
-    dictId: source.dictId as number | string | undefined,
-    dictType: String(source.dictType ?? '').trim(),
-    dictName: String(source.dictName ?? '').trim(),
-    dictClass: (String(source.dictClass ?? 'system') as DictClassValue) || 'system',
-    status: String(source.status ?? '0') === '1' ? '1' : '0',
-    remark: String(source.remark ?? ''),
-  };
-}
-
-// 规范化子表记录
-function normalizeChildItem(
-  record?: Record<string, unknown>,
-  index = 0
-): DictItemFormData {
-  const source = record ?? {};
-
-  return {
-    localId:
-      String(source.localId ?? source.dictCode ?? '').trim() ||
-      `dict-item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    dictCode: source.dictCode as number | string | undefined,
-    dictSort: Number(source.dictSort ?? index + 1),
-    dictValue: String(source.dictValue ?? '').trim(),
-    dictLabel: String(source.dictLabel ?? '').trim(),
-    color: String(source.color ?? '#b7ebc2'),
-    remark: String(source.remark ?? ''),
-    status: String(source.status ?? '0') === '1' ? '1' : '0',
-  };
-}
-
-// 同步弹窗数据
-function syncFormState() {
-  parentForm.value = cloneParentForm(props.record);
-  sourceDictType.value = String(props.record?.dictType ?? '').trim();
-  childItems.value = [];
-}
-
-// 提交主表单
-async function handleSave() {
-  try {
-    await parentFormRef.value?.validate();
-  } catch {
-    return;
-  }
-
-  saving.value = true;
-
-  try {
-    const payload = {
-      dictId: parentForm.value.dictId,
-      dictType: parentForm.value.dictType.trim(),
-      dictName: parentForm.value.dictName.trim(),
-      dictClass: parentForm.value.dictClass,
-      status: String(parentForm.value.status ?? '0') === '1' ? '1' : '0',
-      remark: String(parentForm.value.remark ?? '').trim(),
-    };
-
-    const items = childItems.value.map((item, index) => ({
-      dictCode: item.dictCode,
-      dictSort: index + 1,
-      dictValue: item.dictValue.trim(),
-      dictLabel: item.dictLabel.trim(),
-      dictType: payload.dictType,
-      color: item.color,
-      status: String(item.status ?? '0') === '1' ? '1' : '0',
-      remark: String(item.remark ?? '').trim(),
-    }));
-
-    await saveMockDictBundle({
-      previousDictType: sourceDictType.value,
-      dict: payload,
-      items,
-    });
-
-    await queryClient.invalidateQueries({
-      queryKey: DICT_CHILDREN_QUERY_KEY,
-    });
-
-    emit('save', payload);
-    emit('update:visible', false);
-  } finally {
-    saving.value = false;
-  }
+function handleIndexChange(index: number) {
+  const record = props.recordList?.[index] ?? props.record;
+  syncFormState(record);
 }
 
 // 关闭主抽屉
@@ -209,49 +80,27 @@ function handleCancel() {
   emit('update:visible', false);
   emit('cancel');
 }
-
-/******************************** 监听 ********************************/
-
-watch(
-  () => props.visible,
-  (visible) => {
-    if (!visible) {
-      return;
-    }
-
-    syncFormState();
-  },
-  { immediate: true }
-);
-
-watch(
-  () => childItemsQuery.data.value,
-  (value) => {
-    if (!props.visible) {
-      return;
-    }
-
-    if (!sourceDictType.value) {
-      childItems.value = [];
-      return;
-    }
-
-    childItems.value = value?.map((item) => ({ ...item })) ?? [];
-  },
-  { immediate: true }
-);
 </script>
 
 <template>
-  <el-drawer
-    :model-value="props.visible"
+  <DetailDrawer
+    v-model:form-data="parentForm"
+    :visible="props.visible"
+    :record="props.record"
+    :record-list="props.recordList"
+    :initial-index="props.initialIndex"
+    :is-create="props.isCreate"
     :title="drawerTitle"
+    :saving="saving"
     size="1120px"
-    direction="rtl"
-    @update:model-value="emit('update:visible', $event)"
+    :custom-validate="validateParentForm"
+    :custom-clear-validate="clearParentValidation"
+    @save="handleSave"
+    @cancel="handleCancel"
+    @index-change="handleIndexChange"
+    @update:visible="emit('update:visible', $event)"
   >
-    <div class="dict-form">
-      <!-------------------------- 主内容 -------------------------->
+    <template #content>
       <div class="dict-form__content">
         <!-------------------------- 主表信息 -------------------------->
         <section class="dict-form__card">
@@ -308,40 +157,23 @@ watch(
             </el-form-item>
           </el-form>
         </section>
-
-        <!-------------------------- 子表信息 -------------------------->
-        <section class="dict-form__card">
-          <DictItemTable
-            :items="childItems"
-            :loading="childItemsLoading"
-            @update:items="childItems = $event"
-          />
-        </section>
       </div>
+    </template>
 
-      <!-------------------------- 底部操作 -------------------------->
-      <div class="dict-form__footer">
-        <el-button @click="handleCancel">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">
-          {{ t('common.save') }}
-        </el-button>
-      </div>
-    </div>
-  </el-drawer>
+    <template #extra>
+      <section class="dict-form__card">
+        <DictItemTable
+          :items="childItems"
+          :loading="childItemsLoading"
+          @update:items="childItems = $event"
+        />
+      </section>
+    </template>
+  </DetailDrawer>
 </template>
 
 <style scoped lang="scss">
-.dict-form {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
 .dict-form__content {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -369,13 +201,6 @@ watch(
 
 .dict-form__switch-cell {
   min-width: 160px;
-}
-
-.dict-form__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 4px;
 }
 
 @media (max-width: 960px) {

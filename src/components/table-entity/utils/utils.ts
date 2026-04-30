@@ -1,11 +1,9 @@
-import type { TableDataFetcher, TableEntlty } from './index.type';
+import type { TableDataFetcher, TableEntlty } from '../index.type';
 
 /******************************** 数据源判断 ********************************/
 
 // 判断 props.data 是否为异步拉取函数
-export function isDataFetcher(
-  d: TableEntlty['data']
-): d is TableDataFetcher {
+export function isDataFetcher(d: TableEntlty['data']): d is TableDataFetcher {
   return typeof d === 'function';
 }
 

@@ -8,8 +8,8 @@ import {
 } from '@/api/modules/user';
 import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
 import { getEntityTableConfig } from '@/utils/entity-config';
-import { mapFieldConfigRowsToColumns } from './use-table-columns';
-import { formatCellText } from './column-utils';
+import { mapFieldConfigRowsToColumns } from './composables/use-table-columns';
+import { formatCellText } from './utils/column-utils';
 import type { ColumnsItem, TableListQuery } from './index.type';
 import type {
   EntityTableChildConfig,

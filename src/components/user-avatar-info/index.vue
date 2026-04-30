@@ -225,13 +225,14 @@ const mergedAvatarProps = computed(() => ({
 }));
 
 /** 抽屉内 descriptions 的头像（与列表区头像同源，尺寸可单独调大） */
-const drawerAvatarBind = computed(() => ({
-  ...props.avatarProps,
-  size: props.drawerAvatarSize,
-  url: displaySrc.value,
-  name: '',
-}));
-
+const drawerAvatarBind = computed(() => [
+  {
+    ...props.avatarProps,
+    size: props.drawerAvatarSize,
+    fileUrl: displaySrc.value,
+    fileOriginName: '',
+  },
+]);
 const drawerTitleText = computed(
   () => props.drawerTitle ?? t('components.userAvatarInfo.drawerTitle')
 );
@@ -489,7 +490,8 @@ defineExpose({
             >
               <slot name="drawer-avatar">
                 <div class="user-avatar-info__avatar-wrap">
-                  <FileCell :attachments="[drawerAvatarBind]" />
+                  {{ drawerAvatarBind.url }}
+                  <FileCell :attachments="drawerAvatarBind" />
                 </div>
               </slot>
             </div>

@@ -150,18 +150,31 @@ const filterForm = reactive({
   fieldKey: '',
   fieldName: '',
   fieldType: '',
+  fieldRole: '',
 });
 
 /******************************** 字典选项 ********************************/
 
 const fieldTypeOptions = computed(() => [
   { label: t('fieldConfig.typeInput'), value: 'input' },
+  { label: t('fieldConfig.typeText'), value: 'text' },
   { label: t('fieldConfig.typeSelect'), value: 'select' },
+  { label: t('fieldConfig.dictSelect'), value: 'dict' },
   { label: t('fieldConfig.typeDate'), value: 'date' },
   { label: t('fieldConfig.typeDatetime'), value: 'datetime' },
   { label: t('fieldConfig.typeTextarea'), value: 'textarea' },
   { label: t('fieldConfig.typeNumber'), value: 'number' },
   { label: t('fieldConfig.typeSwitch'), value: 'switch' },
+  { label: t('fieldConfig.typeFile'), value: 'file' },
+  { label: t('fieldConfig.typeBy'), value: 'by' },
+  { label: t('fieldConfig.typeUser'), value: 'user' },
+]);
+
+const fieldRoleOptions = computed(() => [
+  { label: t('fieldConfig.roleNone'), value: '' },
+  { label: t('fieldConfig.roleCreateUser'), value: 'createUser' },
+  { label: t('fieldConfig.roleUpdateUser'), value: 'updateUser' },
+  { label: t('fieldConfig.roleFileInfo'), value: 'fileInfo' },
 ]);
 
 /******************************** 展示映射 ********************************/
@@ -171,12 +184,17 @@ function formatFieldType(value: unknown) {
   const text = String(value ?? '');
   const map: Record<string, string> = {
     input: t('fieldConfig.typeInput'),
+    text: t('fieldConfig.typeText'),
     select: t('fieldConfig.typeSelect'),
+    dict: t('fieldConfig.dictSelect'),
     date: t('fieldConfig.typeDate'),
     datetime: t('fieldConfig.typeDatetime'),
     textarea: t('fieldConfig.typeTextarea'),
     number: t('fieldConfig.typeNumber'),
     switch: t('fieldConfig.typeSwitch'),
+    file: t('fieldConfig.typeFile'),
+    by: t('fieldConfig.typeBy'),
+    user: t('fieldConfig.typeUser'),
   };
   return map[text] ?? text ?? '--';
 }
@@ -184,6 +202,18 @@ function formatFieldType(value: unknown) {
 // 是否值文案映射
 function formatBooleanText(value: unknown) {
   return Number(value ?? 0) === 1 ? t('common.yes') : t('common.no');
+}
+
+// 字段角色文案映射
+function formatFieldRole(value: unknown) {
+  const text = String(value ?? '');
+  const map: Record<string, string> = {
+    createUser: t('fieldConfig.roleCreateUser'),
+    updateUser: t('fieldConfig.roleUpdateUser'),
+    fileInfo: t('fieldConfig.roleFileInfo'),
+  };
+  if (!text) return t('fieldConfig.roleNone');
+  return map[text] ?? text;
 }
 
 // 固定列文案映射
@@ -253,6 +283,18 @@ const columns = computed<ColumnsItem[]>(() => [
       ),
   },
   {
+    key: 'fieldRole',
+    dataKey: 'fieldRole',
+    title: t('fieldConfig.fieldRole'),
+    width: 140,
+    cellRenderer: ({ cellData }) =>
+      h(
+        ElTag,
+        { size: 'small', type: 'warning' },
+        () => formatFieldRole(cellData)
+      ),
+  },
+  {
     key: 'dictCode',
     dataKey: 'dictCode',
     title: t('fieldConfig.dictCode'),
@@ -302,6 +344,7 @@ const columns = computed<ColumnsItem[]>(() => [
 
 const detailRenderMap = computed<DetailRenderMap>(() => ({
   fieldType: ({ row }) => h('span', formatFieldType(row.fieldType)),
+  fieldRole: ({ row }) => h('span', formatFieldRole(row.fieldRole)),
   isFuzzySearch: ({ row }) => h('span', formatBooleanText(row.isFuzzySearch)),
   isVisible: ({ row }) => h('span', formatBooleanText(row.isVisible)),
   fixed: ({ row }) => h('span', formatFixedText(row.fixed)),
@@ -371,6 +414,7 @@ function buildQuery(query: TableListQuery): FieldConfigQuery {
     fieldKey: filterForm.fieldKey || undefined,
     fieldName: filterForm.fieldName || undefined,
     fieldType: filterForm.fieldType || undefined,
+    fieldRole: filterForm.fieldRole || undefined,
   };
 }
 
@@ -405,6 +449,7 @@ function resetFilters() {
   filterForm.fieldKey = '';
   filterForm.fieldName = '';
   filterForm.fieldType = '';
+  filterForm.fieldRole = '';
   reloadTable();
 }
 
