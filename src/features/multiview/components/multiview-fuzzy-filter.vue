@@ -27,6 +27,13 @@ const { t } = useI18n();
 const formModel = defineModel<Record<string, FilterFormValue>>({
   required: true,
 });
+
+/******************************** 事件方法 ********************************/
+
+// 同步自定义组件的筛选值
+function updateCustomFieldValue(key: string, value: unknown) {
+  formModel.value[key] = value as FilterFormValue;
+}
 </script>
 
 <template>
@@ -50,18 +57,33 @@ const formModel = defineModel<Record<string, FilterFormValue>>({
           v-model="formModel[field.key]"
           :placeholder="field.placeholder || t('common.enterKeyword')"
           clearable
+          v-bind="field.componentProps"
         />
 
-        
+        <el-select
+          v-else-if="field.component === 'select'"
+          v-model="formModel[field.key]"
+          :placeholder="field.placeholder || t('common.pleaseSelect')"
+          clearable
+          v-bind="field.componentProps"
+        >
+          <el-option
+            v-for="option in field.options ?? []"
+            :key="String(option.value)"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
 
         <AsyncSelect
-          v-else-if="field.component === 'select'"
+          v-else-if="field.component === 'async-select'"
           :model-value="(formModel[field.key] ?? null) as any"
           :entity-config="field.entityConfig"
           :value-key="field.valueKey || 'value'"
           :label-key="field.labelKey || 'label'"
           :drag-key="field.dragKey"
           :placeholder="field.placeholder || t('common.pleaseSelect')"
+          v-bind="field.componentProps"
           @update:model-value="
             (value) => (formModel[field.key] = value as FilterFormValue)
           "
@@ -73,6 +95,15 @@ const formModel = defineModel<Record<string, FilterFormValue>>({
           type="date"
           :placeholder="field.placeholder || t('common.pleaseSelect')"
           clearable
+          v-bind="field.componentProps"
+        />
+
+        <component
+          :is="field.renderComponent"
+          v-else-if="field.component === 'custom' && field.renderComponent"
+          :model-value="(formModel[field.key] ?? null) as any"
+          v-bind="field.componentProps"
+          @update:model-value="updateCustomFieldValue(field.key, $event)"
         />
       </el-form-item>
     </el-form>

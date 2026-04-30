@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, toRef, watch } from 'vue';
+import { computed, isProxy, nextTick, ref, toRaw, useSlots, watch } from 'vue';
 import { ArrowUp, ArrowDown } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
@@ -25,6 +25,8 @@ interface FormDrawerProps {
   formData?: DetailRecord;
   saveText?: string;
   childTables?: EntityTableChildConfig[];
+  customValidate?: () => Promise<boolean | void> | boolean | void;
+  customClearValidate?: () => void;
 }
 
 interface FormDrawerFormInstance {
@@ -50,6 +52,8 @@ const props = withDefaults(defineProps<FormDrawerProps>(), {
   formData: undefined,
   saveText: '',
   childTables: () => [],
+  customValidate: undefined,
+  customClearValidate: undefined,
 });
 
 const emits = defineEmits<{
@@ -61,6 +65,7 @@ const emits = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const slots = useSlots();
 
 /******************************** 基础状态 ********************************/
 
@@ -74,6 +79,8 @@ const activeChildTab = ref<string>('');
 const total = computed(() => props.recordList?.length ?? 0);
 const isFirst = computed(() => currentIndex.value <= 0);
 const isLast = computed(() => currentIndex.value >= total.value - 1);
+const hasCustomContent = computed(() => Boolean(slots.content));
+const hasExtraContent = computed(() => Boolean(slots.extra));
 const showNavigation = computed(() => {
   return props.showNavigation && !props.isCreate && total.value > 1;
 });
@@ -95,11 +102,106 @@ const resolvedChildTables = computed(() => {
   }));
 });
 const showChildTabs = computed(() => resolvedChildTables.value.length > 1);
+const activeRecord = computed<DetailRecord | undefined>(() =>
+  getCurrentRecord()
+);
 
 /******************************** 数据方法 ********************************/
 
+// 判断是否为普通对象
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (Object.prototype.toString.call(value) !== '[object Object]') {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+// 递归复制可安全克隆的数据
+function cloneCloneableValue<T>(value: T, seen = new WeakMap<object, unknown>()): T {
+  if (value == null || typeof value !== 'object') {
+    return value;
+  }
+
+  const rawValue = isProxy(value) ? toRaw(value) : value;
+
+  if (seen.has(rawValue)) {
+    return seen.get(rawValue) as T;
+  }
+
+  if (rawValue instanceof Date) {
+    return new Date(rawValue.getTime()) as T;
+  }
+
+  if (rawValue instanceof RegExp) {
+    return new RegExp(rawValue) as T;
+  }
+
+  if (
+    rawValue instanceof File ||
+    rawValue instanceof Blob ||
+    rawValue instanceof ArrayBuffer
+  ) {
+    return rawValue;
+  }
+
+  if (Array.isArray(rawValue)) {
+    const result: unknown[] = [];
+    seen.set(rawValue, result);
+    rawValue.forEach((item) => {
+      result.push(cloneCloneableValue(item, seen));
+    });
+    return result as T;
+  }
+
+  if (rawValue instanceof Map) {
+    const result = new Map();
+    seen.set(rawValue, result);
+    rawValue.forEach((item, key) => {
+      result.set(
+        cloneCloneableValue(key, seen),
+        cloneCloneableValue(item, seen)
+      );
+    });
+    return result as T;
+  }
+
+  if (rawValue instanceof Set) {
+    const result = new Set();
+    seen.set(rawValue, result);
+    rawValue.forEach((item) => {
+      result.add(cloneCloneableValue(item, seen));
+    });
+    return result as T;
+  }
+
+  if (!isPlainObject(rawValue)) {
+    return rawValue;
+  }
+
+  const result: Record<string, unknown> = {};
+  seen.set(rawValue, result);
+
+  Object.entries(rawValue).forEach(([key, item]) => {
+    result[key] = cloneCloneableValue(item, seen);
+  });
+
+  return result as T;
+}
+
+// 复制记录数据，避免直接克隆响应式对象失败
+function cloneRecord<T>(value: T): T {
+  if (value == null) {
+    return value;
+  }
+
+  return cloneCloneableValue(value);
+}
+
 // 清除表单校验
 function clearFormValidation() {
+  props.customClearValidate?.();
   formComp.value?.formRef?.clearValidate();
 }
 
@@ -148,10 +250,22 @@ function extractFormFields(
 
     const value = record[field.prop];
     result[field.prop] =
-      value !== undefined ? value : getInitialValueByField(field);
+      value !== undefined ? cloneRecord(value) : getInitialValueByField(field);
   });
 
   return result;
+}
+
+function extractCustomFormData(record: DetailRecord | undefined) {
+  if (record) {
+    return cloneRecord(record);
+  }
+
+  if (props.formData) {
+    return cloneRecord(props.formData);
+  }
+
+  return {};
 }
 
 // 获取当前编辑记录
@@ -168,7 +282,9 @@ function getCurrentRecord() {
 async function loadCurrent() {
   const record = getCurrentRecord();
 
-  if (props.isCreate) {
+  if (hasCustomContent.value) {
+    internalFormData.value = extractCustomFormData(record);
+  } else if (props.isCreate) {
     internalFormData.value = extractFormFields(record);
   } else {
     internalFormData.value = extractFormFields(record, true);
@@ -180,7 +296,13 @@ async function loadCurrent() {
 
 // 保存表单
 async function handleSave() {
-  if (formComp.value) {
+  if (props.customValidate) {
+    try {
+      await props.customValidate();
+    } catch {
+      return;
+    }
+  } else if (formComp.value) {
     try {
       await formComp.value.validate();
     } catch {
@@ -189,7 +311,11 @@ async function handleSave() {
     }
   }
 
-  emits('save', { ...internalFormData.value }, props.isCreate ? -1 : currentIndex.value);
+  emits(
+    'save',
+    cloneRecord(internalFormData.value),
+    props.isCreate ? -1 : currentIndex.value
+  );
 }
 
 // 取消编辑
@@ -217,7 +343,7 @@ watch(
   () => props.formData,
   (value) => {
     if (!value || syncingFromOuter.value) return;
-    internalFormData.value = { ...value };
+    internalFormData.value = cloneRecord(value);
   },
   { deep: true }
 );
@@ -226,7 +352,7 @@ watch(
   internalFormData,
   (value) => {
     syncingFromOuter.value = true;
-    emits('update:form-data', value);
+    emits('update:form-data', cloneRecord(value));
     nextTick(() => {
       syncingFromOuter.value = false;
     });
@@ -274,25 +400,22 @@ watch(currentIndex, async (value) => {
     @close="() => emits('update:visible', false)"
   >
     <div class="form-drawer">
-      <!-------------------------- 记录切换 -------------------------->
-      <div v-if="showNavigation" class="form-drawer__nav">
-        <el-button :icon="ArrowUp" circle :disabled="isFirst" @click="handlePrev" />
-        <el-button
-          :icon="ArrowDown"
-          circle
-          :disabled="isLast"
-          @click="handleNext"
-        />
-      </div>
-
       <!-------------------------- 表单内容 -------------------------->
-      <FormDrawerForm
-        ref="formComp"
-        v-model:form-data="internalFormData"
-        :fields="props.fields"
-        :columns="props.columns"
+      <slot
+        name="content"
+        :form-data="internalFormData"
+        :current-index="currentIndex"
+        :active-record="activeRecord"
         :is-create="props.isCreate"
-      />
+      >
+        <FormDrawerForm
+          ref="formComp"
+          v-model:form-data="internalFormData"
+          :fields="props.fields"
+          :columns="props.columns"
+          :is-create="props.isCreate"
+        />
+      </slot>
 
       <!-------------------------- 子表区域 -------------------------->
       <div v-if="hasChildTables" class="form-drawer__children">
@@ -319,6 +442,16 @@ watch(currentIndex, async (value) => {
           v-else-if="resolvedChildTables[0]"
           :config="resolvedChildTables[0].config"
           :row="internalFormData"
+        />
+      </div>
+
+      <div v-if="hasExtraContent" class="form-drawer__extra">
+        <slot
+          name="extra"
+          :form-data="internalFormData"
+          :current-index="currentIndex"
+          :active-record="activeRecord"
+          :is-create="props.isCreate"
         />
       </div>
 
@@ -358,7 +491,8 @@ watch(currentIndex, async (value) => {
   padding-top: 16px;
 }
 
-.form-drawer__children {
+.form-drawer__children,
+.form-drawer__extra {
   margin-top: 8px;
   padding-top: 8px;
 }

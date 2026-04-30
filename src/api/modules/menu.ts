@@ -3,6 +3,7 @@ import type { SysMenu, SysMenuQuery, SysRouter } from '@/types/menu';
 import type { TableListQuery } from '@/components/table-entity/index.type';
 import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
 import { isMockEnabled } from '@/utils/is-mock';
+import { getMockRoleKeysByToken } from './mock-auth';
 
 /******************************** Query Key ********************************/
 
@@ -14,7 +15,7 @@ export const MENU_TREESELECT_QUERY_KEY = ['system', 'menu', 'treeselect'] as con
 
 /******************************** Mock 数据 ********************************/
 
-type MenuNode = SysMenu & { children?: MenuNode[] };
+type MenuNode = SysMenu & { children?: MenuNode[]; roleKeys?: string[] };
 
 const nowText = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
 
@@ -43,6 +44,7 @@ let mockMenus: MenuNode[] = [
     ],
     createTime: nowText(),
     updateTime: nowText(),
+    roleKeys: ['admin', 'operator', 'auditor'],
   },
   {
     menuId: 2,
@@ -61,6 +63,7 @@ let mockMenus: MenuNode[] = [
     localeNames: [{ locale: 'zh-CN', label: '整车生产' }],
     createTime: nowText(),
     updateTime: nowText(),
+    roleKeys: ['admin', 'operator'],
     children: [
       {
         menuId: 3,
@@ -79,6 +82,7 @@ let mockMenus: MenuNode[] = [
         localeNames: [{ locale: 'zh-CN', label: '整车断点' }],
         createTime: nowText(),
         updateTime: nowText(),
+        roleKeys: ['admin', 'operator'],
       },
       {
         menuId: 4,
@@ -97,6 +101,7 @@ let mockMenus: MenuNode[] = [
         localeNames: [{ locale: 'zh-CN', label: '整车报交' }],
         createTime: nowText(),
         updateTime: nowText(),
+        roleKeys: ['admin', 'operator'],
       },
       {
         menuId: 5,
@@ -115,6 +120,7 @@ let mockMenus: MenuNode[] = [
         localeNames: [{ locale: 'zh-CN', label: '车身工单信息' }],
         createTime: nowText(),
         updateTime: nowText(),
+        roleKeys: ['admin', 'operator'],
       },
     ],
   },
@@ -135,6 +141,7 @@ let mockMenus: MenuNode[] = [
     localeNames: [{ locale: 'zh-CN', label: '系统DVP' }],
     createTime: nowText(),
     updateTime: nowText(),
+    roleKeys: ['admin', 'auditor'],
   },
   {
     menuId: 10,
@@ -153,6 +160,7 @@ let mockMenus: MenuNode[] = [
     localeNames: [{ locale: 'zh-CN', label: '工厂建模' }],
     createTime: nowText(),
     updateTime: nowText(),
+    roleKeys: ['admin', 'operator'],
   },
   {
     menuId: 14,
@@ -174,6 +182,7 @@ let mockMenus: MenuNode[] = [
     ],
     createTime: nowText(),
     updateTime: nowText(),
+    roleKeys: ['admin'],
     children: [
       {
         menuId: 15,
@@ -195,6 +204,7 @@ let mockMenus: MenuNode[] = [
         ],
         createTime: nowText(),
         updateTime: nowText(),
+        roleKeys: ['admin'],
       },
     ],
   },
@@ -207,9 +217,53 @@ function cloneMenus() {
   return JSON.parse(JSON.stringify(mockMenus)) as MenuNode[];
 }
 
-// 深拷贝路由树
-function cloneRouters() {
-  return JSON.parse(JSON.stringify(buildMockRouters(cloneMenus()))) as SysRouter[];
+// 获取当前 mock 菜单角色
+function getCurrentMockRoleKeys() {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  return getMockRoleKeysByToken(window.localStorage.getItem('token'));
+}
+
+// 按角色过滤菜单树
+function filterMenusByRoles(menus: MenuNode[], roleKeys: string[]): MenuNode[] {
+  const hasAdminRole = roleKeys.includes('admin');
+  const hasMatchedRole = (menu: MenuNode) => {
+    if (hasAdminRole) {
+      return true;
+    }
+
+    if (!menu.roleKeys?.length) {
+      return true;
+    }
+
+    return menu.roleKeys.some((roleKey) => roleKeys.includes(roleKey));
+  };
+
+  const result: MenuNode[] = [];
+
+  for (const menu of menus) {
+    const children = menu.children?.length
+      ? filterMenusByRoles(menu.children, roleKeys)
+      : [];
+
+    if (!hasMatchedRole(menu) && !children.length) {
+      continue;
+    }
+
+    result.push({
+      ...menu,
+      children,
+    });
+  }
+
+  return result;
+}
+
+// 获取当前 token 可见的 mock 菜单树
+function getCurrentMockMenus() {
+  return filterMenusByRoles(cloneMenus(), getCurrentMockRoleKeys());
 }
 
 // 深度遍历菜单树
@@ -255,18 +309,21 @@ function filterMenuTree(menus: MenuNode[], params: SysMenuQuery) {
   };
 
   const loop = (items: MenuNode[]): MenuNode[] => {
-    return items
-      .map((item) => {
-        const children = item.children?.length ? loop(item.children) : [];
-        if (matchMenu(item) || children.length) {
-          return {
-            ...item,
-            children,
-          };
-        }
-        return null;
-      })
-      .filter((item): item is MenuNode => item != null);
+    const result: MenuNode[] = [];
+
+    for (const item of items) {
+      const children = item.children?.length ? loop(item.children) : [];
+      if (!(matchMenu(item) || children.length)) {
+        continue;
+      }
+
+      result.push({
+        ...item,
+        children,
+      });
+    }
+
+    return result;
   };
 
   return loop(menus);
@@ -309,7 +366,7 @@ function buildMockRouters(menus: MenuNode[]): SysRouter[] {
 }
 
 // 根据 ID 查找菜单
-function findMenuById(menuId: number) {
+function findMenuById(menuId: number): MenuNode | null {
   let target: MenuNode | null = null;
   walkMenus(mockMenus, (menu) => {
     if (Number(menu.menuId) === Number(menuId)) {
@@ -321,7 +378,7 @@ function findMenuById(menuId: number) {
 }
 
 // 根据 ID 查找菜单所在同级列表
-function findMenuSiblings(menuId: number) {
+function findMenuSiblings(menuId: number): MenuNode[] | null {
   let siblings: MenuNode[] | null = null;
   walkMenus(mockMenus, (menu, currentSiblings) => {
     if (Number(menu.menuId) === Number(menuId)) {
@@ -333,7 +390,7 @@ function findMenuSiblings(menuId: number) {
 }
 
 // 获取父级 children 容器
-function resolveChildrenContainer(parentId: number) {
+function resolveChildrenContainer(parentId: number): MenuNode[] | null {
   if (parentId === 0) {
     return mockMenus;
   }
@@ -405,7 +462,7 @@ function normalizeMenuPayload(data: SysMenu) {
 // 查询菜单列表
 export function listMenu(params: SysMenuQuery = {}) {
   if (isMockEnabled()) {
-    const rows = filterMenuTree(cloneMenus(), params);
+    const rows = filterMenuTree(getCurrentMockMenus(), params);
     return Promise.resolve({
       code: 200,
       msg: '操作成功',
@@ -472,7 +529,7 @@ export function listMenuTreeSelect() {
     return Promise.resolve({
       code: 200,
       msg: '操作成功',
-      data: cloneMenus(),
+      data: getCurrentMockMenus(),
     } as any);
   }
 
@@ -498,7 +555,7 @@ export function listRouterTree() {
     return Promise.resolve({
       code: 200,
       msg: '操作成功',
-      data: cloneRouters(),
+      data: JSON.parse(JSON.stringify(buildMockRouters(getCurrentMockMenus()))),
     } as any);
   }
 

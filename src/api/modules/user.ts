@@ -9,6 +9,11 @@ import type {
 } from '@/types/user';
 import type { SysRouter } from '@/types/menu';
 import { isMockEnabled } from '@/utils/is-mock';
+import { listRouterTree } from './menu';
+import {
+  findMockAuthUserByCredentials,
+  listMockAuthUsers,
+} from './mock-auth';
 
 const nowTs = () => new Date().toISOString();
 
@@ -282,25 +287,45 @@ const mockEntityFields: Record<string, Array<FieldConfig & Record<string, unknow
   ],
 };
 
-const mockUserRows: SysUser[] = Array.from({ length: 26 }, (_, i) => ({
-  userId: i + 1,
-  userName: `user_${i + 1}`,
-  nickName: `用户${i + 1}`,
-  email: `user${i + 1}@mock.com`,
-  status: i % 2 === 0 ? '0' : '1',
-  sex: String(i % 3),
-  dept: {
-    deptId: 100 + (i % 4),
-    deptName: ['研发部', '产品部', '运营部', '测试部'][i % 4],
-  },
-  roles: [
-    {
-      roleId: 1,
-      roleName: '普通角色',
-      roleKey: 'common',
+const mockUserRows: SysUser[] = [
+  ...listMockAuthUsers().map((user) => ({
+    userId: user.userId,
+    deptId: user.deptId,
+    userName: user.userName,
+    nickName: user.nickName,
+    email: user.email,
+    status: user.status,
+    sex: user.sex,
+    avatar: user.avatar,
+    dept: user.dept ? { ...user.dept } : undefined,
+    roles: user.roles?.map((role) => ({ ...role })),
+    roleIds: user.roleIds ? [...user.roleIds] : undefined,
+    roleId: user.roleId,
+    createBy: user.createBy,
+    createTime: user.createTime,
+    remark: user.remark,
+    admin: user.admin,
+  })),
+  ...Array.from({ length: 23 }, (_, i) => ({
+    userId: i + 11,
+    userName: `user_${i + 1}`,
+    nickName: `用户${i + 1}`,
+    email: `user${i + 1}@mock.com`,
+    status: i % 2 === 0 ? '0' : '1',
+    sex: String(i % 3),
+    dept: {
+      deptId: 100 + (i % 4),
+      deptName: ['研发部', '产品部', '运营部', '测试部'][i % 4],
     },
-  ],
-}));
+    roles: [
+      {
+        roleId: 9,
+        roleName: '普通角色',
+        roleKey: 'common',
+      },
+    ],
+  })),
+];
 
 const mockDeptRows = Array.from({ length: 8 }, (_, i) => ({
   deptId: i + 1,
@@ -435,10 +460,35 @@ const filterMockRows = (
 };
 
 export const login = (data: LoginParams) => {
+  if (isMockEnabled()) {
+    const matched = findMockAuthUserByCredentials(
+      String(data.username ?? '').trim(),
+      String(data.password ?? '')
+    );
+
+    if (!matched) {
+      return Promise.resolve({
+        code: 500,
+        msg: '账号或密码错误',
+        token: '',
+      } as LoginResponse);
+    }
+
+    return Promise.resolve({
+      code: 200,
+      msg: '登录成功',
+      token: matched.token,
+    } as LoginResponse);
+  }
+
   return httpClient.post<LoginResponse>('/login', data);
 };
 
 export const getRoutersApi = () => {
+  if (isMockEnabled()) {
+    return listRouterTree() as Promise<any>;
+  }
+
   return httpClient.get<SysRouter[]>('/getRouters');
 };
 

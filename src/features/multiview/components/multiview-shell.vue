@@ -57,7 +57,9 @@
         v-model:current-page="currentPage"
         v-model:hidden-column-keys="hiddenColumnKeys"
         :entity-key="entityKey"
-        :field-config-rows="backendFieldConfigs as unknown as Record<string, any>[]"
+        :field-config-rows="
+          backendFieldConfigs as unknown as Record<string, any>[]
+        "
         :data="fetchTableData"
         :data-params="requestParams"
         :row-key="tableConfig.rowKey || rowKey"
@@ -104,14 +106,18 @@ import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import TableEntlty from '@/components/table-entity/index.vue';
-import { mapFieldConfigRowsToColumns } from '@/components/table-entity/use-table-columns';
+import { mapFieldConfigRowsToColumns } from '@/components/table-entity/composables/use-table-columns';
 import ImportDialog from '@/components/import-dialog';
 import MultiviewFuzzyFilter from '@/features/multiview/components/multiview-fuzzy-filter.vue';
-import { getByEntityKeyAndFieldKeyApi, getListByEntityKeyApi } from '@/api/modules/user';
+import {
+  getByEntityKeyAndFieldKeyApi,
+  getListByEntityKeyApi,
+} from '@/api/modules/user';
 import { snakeToCamel } from '@/utils/value';
 import {
   getEntityActionsConfig,
   getEntityConfig,
+  getEntityFilterComponentRegistrations,
   getEntityTableConfig,
 } from '@/utils/entity-config';
 import type {
@@ -131,6 +137,10 @@ import type {
 } from '@/components/import-dialog';
 import type { FilterFormValue } from '@/features/multiview/types';
 import { useMultiviewActions } from '@/features/multiview/composables/use-multiview-actions';
+import {
+  resolveBackendFilterFields,
+  resolveFallbackFilterFields,
+} from '@/features/entities/_shared/resolve-entity-filters';
 
 /******************************** 类型 ********************************/
 
@@ -239,78 +249,13 @@ const pageTitle = computed<string>(
   () => props.title || entityConfig.value?.title || props.entityKey
 );
 
-const importDialogTitle = computed(() => `${pageTitle.value}${t('common.import')}`);
+const importDialogTitle = computed(
+  () => `${pageTitle.value}${t('common.import')}`
+);
 
 const effectiveShowSelection = computed(
   () => hasEntityConfig.value && props.showSelection
 );
-
-// 判断字段是否启用模糊查询
-function isFuzzyField(field: FieldConfig) {
-  return (
-    field.isFuzzySearch === true ||
-    Number(field.isFuzzySearch ?? 0) === 1
-  );
-}
-
-// 将后端字段配置转换为筛选项
-function mapBackendFieldToFilter(field: FieldConfig): EntityFilterFieldConfig {
-  const fieldType = String(field.fieldType ?? 'input').toLowerCase();
-
-  if (fieldType === 'select') {
-    return {
-      key: field.fieldKey,
-      label: field.fieldName,
-      component: 'async-select',
-      placeholder: t('common.pleaseSelect'),
-      order: field.sort ?? 999,
-      entityConfig: {
-        entityKey: field.selectEntityKey ?? '',
-      },
-    };
-  }
-
-  if (fieldType === 'dict') {
-    return {
-      key: field.fieldKey,
-      label: field.fieldName,
-      component: 'async-select',
-      placeholder: t('common.pleaseSelect'),
-      order: field.sort ?? 999,
-      entityConfig: {
-        entityKey: field.selectEntityKey ?? '',
-      },
-    };
-  }
-
-  if (fieldType === 'text') {
-    return {
-      key: field.fieldKey,
-      label: field.fieldName,
-      component: 'input',
-      placeholder: t('common.enterKeyword'),
-      order: field.sort ?? 999,
-    };
-  }
-
-  if (fieldType === 'date' || fieldType === 'datetime') {
-    return {
-      key: field.fieldKey,
-      label: field.fieldName,
-      component: 'date',
-      placeholder: t('common.pleaseSelect'),
-      order: field.sort ?? 999,
-    };
-  }
-
-  return {
-    key: field.fieldKey,
-    label: field.fieldName,
-    component: 'input',
-    placeholder: t('common.enterKeyword'),
-    order: field.sort ?? 999,
-  };
-}
 
 // 判断字段是否为时间类型（用于默认排序推断）
 function isTimeField(field: FieldConfig) {
@@ -381,7 +326,11 @@ function resolveCommonDefaultSort() {
 // 默认排序优先级：模块 defaultSort > 字段接口时间字段 > 通用时间字段
 const resolvedDefaultSort = computed(() => {
   const moduleDefaultSort = tableConfig.value.defaultSort;
-  if (moduleDefaultSort && !Array.isArray(moduleDefaultSort) && moduleDefaultSort.field) {
+  if (
+    moduleDefaultSort &&
+    !Array.isArray(moduleDefaultSort) &&
+    moduleDefaultSort.field
+  ) {
     return {
       field: moduleDefaultSort.field,
       order: normalizeSortOrder(moduleDefaultSort.order),
@@ -411,35 +360,25 @@ const resolvedTableColumns = computed(() => {
 const activeSort = ref<{ field: string; order: 'asc' | 'desc' } | null>(null);
 
 const filterFields = computed<EntityFilterFieldConfig[]>(() => {
-  const backendFilters = backendFieldConfigs.value
-    .filter((field) => isFuzzyField(field))
-    .map((field) => mapBackendFieldToFilter(field));
+  const backendFilters = resolveBackendFilterFields({
+    entityKey: props.entityKey,
+    backendFields: backendFieldConfigs.value,
+    registrations: getEntityFilterComponentRegistrations(props.entityKey),
+    t,
+  });
 
   if (backendFilters.length) {
-    return backendFilters.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+    return backendFilters;
   }
 
-  if (!hasEntityConfig.value) {
-    return [
-      {
-        key: 'keyword',
-        label: t('common.keyword'),
-        component: 'input',
-        placeholder: t('common.enterKeyword'),
-        order: 1,
-      },
-    ];
-  }
-
-  const fields = entityConfig.value?.filters?.fields ?? {};
-
-  return Object.values(fields)
-    .filter((field) => !field.hidden)
-    .map((field) => ({
-      ...field,
-      component: field.component ?? 'input',
-    }))
-    .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  return resolveFallbackFilterFields(
+    !hasEntityConfig.value
+      ? {}
+      : Array.isArray(entityConfig.value?.filters)
+        ? {}
+        : entityConfig.value?.filters?.fields ?? {},
+    t
+  );
 });
 
 const requestParams = computed<
@@ -659,7 +598,8 @@ function readImportFileText(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(reader.error ?? new Error('read file failed'));
+    reader.onerror = () =>
+      reject(reader.error ?? new Error('read file failed'));
     reader.readAsText(file);
   });
 }
@@ -705,10 +645,13 @@ async function parseImportFile(
   }));
   const previewRows = lines.slice(1, 21).map((line) => {
     const cells = splitCsvLine(line);
-    return previewColumns.reduce<Record<string, unknown>>((row, column, index) => {
-      row[column.prop] = cells[index] ?? '';
-      return row;
-    }, {});
+    return previewColumns.reduce<Record<string, unknown>>(
+      (row, column, index) => {
+        row[column.prop] = cells[index] ?? '';
+        return row;
+      },
+      {}
+    );
   });
   const mappings = buildImportMappings(headers);
 
@@ -727,7 +670,9 @@ async function parseImportFile(
 function buildImportMappings(headers: string[]): ImportDialogMappingItem[] {
   return importTargetFields.value.map((field) => {
     const sourceColumn =
-      headers.find((header) => header === field.label || header === field.field) ?? '';
+      headers.find(
+        (header) => header === field.label || header === field.field
+      ) ?? '';
 
     return {
       targetField: field.field,
@@ -758,7 +703,9 @@ async function submitImportData(
 
 // 下载模板占位
 function onDownloadTemplate() {
-  ElMessage.info(`${pageTitle.value}${t('components.importDialog.downloadTemplate')}`);
+  ElMessage.info(
+    `${pageTitle.value}${t('components.importDialog.downloadTemplate')}`
+  );
 }
 
 // 导入成功后刷新列表

@@ -1,9 +1,12 @@
+import type { Component } from 'vue';
 import type { ColumnsItem } from '@/components/table-entity/index.type';
 import type {
   ExternalFilterDefinition,
+  MultiviewFilterComponent,
   MultiviewFilterField,
 } from '@/features/multiview/types';
 import type { TableListQuery } from '@/components/table-entity/index.type';
+import type { FieldConfig } from '@/types/user';
 
 /******************************** 操作配置 ********************************/
 
@@ -76,10 +79,33 @@ export interface EntityTableConfig {
 // 实体筛选项配置
 export interface EntityFilterFieldConfig extends MultiviewFilterField {}
 
+// 实体筛选组件注册上下文
+export interface EntityFilterComponentContext {
+  entityKey: string;
+  field: FieldConfig;
+  t: (key: string, params?: Record<string, unknown>) => string;
+}
+
+// 实体筛选组件注册
+export interface EntityFilterComponentRegistration {
+  key: string;
+  component: MultiviewFilterComponent | Component;
+  fieldKeys?: string[];
+  fieldTypes?: string[];
+  matcher?: (context: EntityFilterComponentContext) => boolean;
+  mapField?: (
+    context: EntityFilterComponentContext
+  ) => Partial<EntityFilterFieldConfig>;
+  props?: (
+    context: EntityFilterComponentContext
+  ) => Record<string, unknown> | undefined;
+}
+
 // 实体筛选配置
 export interface EntityFiltersConfig {
   fields?: Record<string, EntityFilterFieldConfig>;
   externalFilters?: ExternalFilterDefinition[];
+  components?: EntityFilterComponentRegistration[];
 }
 
 /******************************** 详情配置 ********************************/
@@ -99,7 +125,7 @@ export interface EntityConfig {
   entityKey: string;
   title?: string;
   actions?: EntityActionsConfig;
-  filters?: EntityFiltersConfig;
+  filters?: EntityFiltersConfig | EntityFilterComponentRegistration[];
   table?: EntityTableConfig;
   detail?: EntityDetailConfig;
 }

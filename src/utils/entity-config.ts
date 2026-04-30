@@ -3,6 +3,7 @@ import type {
   EntityActionsConfig,
   EntityTableConfig,
   EntityConfig,
+  EntityFilterComponentRegistration,
   EntityFilterFieldConfig,
 } from '@/types/entity-config';
 import { i18n } from '@/i18n';
@@ -75,6 +76,10 @@ export const getEntityFiltersConfig = (
   entityKey: string
 ): Record<string, EntityFilterFieldConfig> => {
   const config = getEntityModuleConfig(entityKey);
+  if (Array.isArray(config?.filters)) {
+    return {};
+  }
+
   return config?.filters?.fields ?? {};
 };
 
@@ -85,5 +90,23 @@ export const getEntityExternalFilters = (
   entityKey: string
 ): import('@/features/multiview/types').ExternalFilterDefinition[] => {
   const config = getEntityModuleConfig(entityKey);
+  if (Array.isArray(config?.filters)) {
+    return [];
+  }
+
   return config?.filters?.externalFilters ?? [];
+};
+
+/**
+ * 获取实体的筛选组件注册
+ */
+export const getEntityFilterComponentRegistrations = (
+  entityKey: string
+): EntityFilterComponentRegistration[] => {
+  const config = getEntityModuleConfig(entityKey);
+  if (Array.isArray(config?.filters)) {
+    return config.filters;
+  }
+
+  return config?.filters?.components ?? [];
 };

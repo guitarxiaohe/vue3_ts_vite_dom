@@ -1,3 +1,4 @@
+import type { Component } from 'vue';
 import type { AsyncSelectEntityConfig } from '@/components/async-select';
 
 /******************************** 筛选类型 ********************************/
@@ -24,7 +25,8 @@ export type MultiviewFilterComponent =
   | 'input'
   | 'select'
   | 'async-select'
-  | 'date';
+  | 'date'
+  | 'custom';
 
 // 筛选选项
 export interface MultiviewFilterOption {
@@ -46,4 +48,6 @@ export interface MultiviewFilterField {
   labelKey?: string;
   dragKey?: string;
   entityConfig?: AsyncSelectEntityConfig;
+  renderComponent?: Component;
+  componentProps?: Record<string, unknown>;
 }
