@@ -87,7 +87,9 @@ const dialogQueryKey = computed(() => [
   keyword.value || '',
 ]);
 
-const resolvedGcTime = computed(() => Math.max(props.staleTime, 10 * 60 * 1000));
+const resolvedGcTime = computed(() =>
+  Math.max(props.staleTime, 10 * 60 * 1000)
+);
 
 const { data: queryData, isFetching: loading } = useQuery({
   queryKey: dialogQueryKey,

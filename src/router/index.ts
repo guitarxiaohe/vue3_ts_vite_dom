@@ -67,7 +67,7 @@ const router = createRouter({
 
 const whiteList = ['/login', '/NotFound'];
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const token = localStorage.getItem('token');
   const { t } = i18n.global;
 

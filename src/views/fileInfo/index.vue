@@ -19,7 +19,9 @@
         </el-form-item>
       </el-form>
       <div class="file-info__actions">
-        <el-button type="primary" @click="openAdd">{{ t('common.add') }}</el-button>
+        <el-button type="primary" @click="openAdd">{{
+          t('common.add')
+        }}</el-button>
         <el-button :disabled="selectedKeys.length !== 1" @click="openEdit">
           {{ t('common.edit') }}
         </el-button>
@@ -65,16 +67,28 @@
         <el-form-item v-if="isEdit" :label="t('fileInfo.column.fileId')">
           <el-input v-model.number="form.fileId" disabled />
         </el-form-item>
-        <el-form-item :label="t('fileInfo.column.fileOriginName')" prop="fileOriginName">
+        <el-form-item
+          :label="t('fileInfo.column.fileOriginName')"
+          prop="fileOriginName"
+        >
           <el-input v-model="form.fileOriginName" />
         </el-form-item>
-        <el-form-item :label="t('fileInfo.column.fileSuffix')" prop="fileSuffix">
+        <el-form-item
+          :label="t('fileInfo.column.fileSuffix')"
+          prop="fileSuffix"
+        >
           <el-input v-model="form.fileSuffix" />
         </el-form-item>
-        <el-form-item :label="t('fileInfo.column.fileSizeInfo')" prop="fileSizeInfo">
+        <el-form-item
+          :label="t('fileInfo.column.fileSizeInfo')"
+          prop="fileSizeInfo"
+        >
           <el-input v-model="form.fileSizeInfo" />
         </el-form-item>
-        <el-form-item :label="t('fileInfo.column.fileObjectName')" prop="fileObjectName">
+        <el-form-item
+          :label="t('fileInfo.column.fileObjectName')"
+          prop="fileObjectName"
+        >
           <el-input v-model="form.fileObjectName" />
         </el-form-item>
         <el-form-item :label="t('fileInfo.column.filePath')" prop="filePath">
@@ -88,7 +102,9 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button @click="dialogVisible = false">{{
+          t('common.cancel')
+        }}</el-button>
         <el-button type="primary" :loading="submitLoading" @click="submitForm">
           {{ t('common.save') }}
         </el-button>
@@ -100,9 +116,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
+import {
+  ElMessage,
+  ElMessageBox,
+  type FormInstance,
+  type FormRules,
+} from 'element-plus';
 import TableEntity from '@/components/table-entity/index.vue';
-import type { ColumnsItem, TableListQuery } from '@/components/table-entity/index.type';
+import type {
+  ColumnsItem,
+  TableListQuery,
+} from '@/components/table-entity/index.type';
 import type { SysFileInfo } from '@/types/fileInfo';
 import {
   addFileInfo,
@@ -211,7 +235,13 @@ const dialogTitle = computed(() =>
 
 const formRules = computed<FormRules<SysFileInfo>>(() => ({
   fileOriginName: [
-    { required: true, message: t('validation.required', { field: t('fileInfo.column.fileOriginName') }), trigger: 'blur' },
+    {
+      required: true,
+      message: t('validation.required', {
+        field: t('fileInfo.column.fileOriginName'),
+      }),
+      trigger: 'blur',
+    },
   ],
 }));
 

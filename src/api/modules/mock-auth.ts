@@ -152,5 +152,8 @@ export function findMockAuthUserByToken(
 // 获取当前 token 对应的角色标识列表
 export function getMockRoleKeysByToken(token?: string | null): string[] {
   const matched = findMockAuthUserByToken(token);
-  return matched?.roles?.map((role) => String(role.roleKey ?? '')).filter(Boolean) ?? [];
+  return (
+    matched?.roles?.map((role) => String(role.roleKey ?? '')).filter(Boolean) ??
+    []
+  );
 }

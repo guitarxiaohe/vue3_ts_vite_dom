@@ -177,13 +177,16 @@ async function fetchEntityNodes(
   const parentKey = config.parentKey ?? 'parentId';
   const rootParentValue =
     config.rootParentValue === undefined ? 0 : config.rootParentValue;
-  query[parentKey] = params.parentValue ?? rootParentValue;
+  const parentQueryValue = params.parentValue ?? rootParentValue ?? undefined;
+  query[parentKey] = parentQueryValue === null ? undefined : parentQueryValue;
 
   const rows = config.fetcher
-    ? (await config.fetcher(query)).rows ?? []
-    : ((await getListByEntityKeyApi(config.entityKey, query)) as unknown as {
-        rows?: Record<string, any>[];
-      }).rows ?? [];
+    ? ((await config.fetcher(query)).rows ?? [])
+    : ((
+        (await getListByEntityKeyApi(config.entityKey, query)) as unknown as {
+          rows?: Record<string, any>[];
+        }
+      ).rows ?? []);
 
   return rows.map((row) => normalizeNode(row));
 }
@@ -234,10 +237,13 @@ async function ensurePathLoaded(pathValues: CascaderVal) {
 /******************************** 事件方法 ********************************/
 
 // 懒加载节点
-async function onLazyLoad(node: any, resolve: (data: AsyncCascaderNode[]) => void) {
+async function onLazyLoad(
+  node: any,
+  resolve: (data: AsyncCascaderNode[]) => void
+) {
   const level = Number(node?.level ?? 0);
   const parentValue =
-    level === 0 ? null : (node.value as string | number | null);
+    level === 0 ? null : ((node.value as string | number | undefined) ?? null);
   const pathValues = Array.isArray(node?.pathValues) ? node.pathValues : [];
   const cacheKey = getCacheKey(parentValue);
   const cached = loadedMap.value.get(cacheKey);

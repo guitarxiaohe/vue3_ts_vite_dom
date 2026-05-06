@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, isProxy, nextTick, ref, toRaw, useSlots, watch } from 'vue';
-import { ArrowUp, ArrowDown } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import FormDrawerForm from './form-drawer-form.vue';
@@ -76,14 +75,8 @@ const syncingFromOuter = ref<boolean>(false);
 
 const resolvedTitle = computed(() => props.title || t('common.detail'));
 const activeChildTab = ref<string>('');
-const total = computed(() => props.recordList?.length ?? 0);
-const isFirst = computed(() => currentIndex.value <= 0);
-const isLast = computed(() => currentIndex.value >= total.value - 1);
 const hasCustomContent = computed(() => Boolean(slots.content));
 const hasExtraContent = computed(() => Boolean(slots.extra));
-const showNavigation = computed(() => {
-  return props.showNavigation && !props.isCreate && total.value > 1;
-});
 const hasChildTables = computed(() => (props.childTables?.length ?? 0) > 0);
 const resolvedSize = computed(() => {
   if (hasChildTables.value && props.size === '456px') {
@@ -119,7 +112,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 // 递归复制可安全克隆的数据
-function cloneCloneableValue<T>(value: T, seen = new WeakMap<object, unknown>()): T {
+function cloneCloneableValue<T>(
+  value: T,
+  seen = new WeakMap<object, unknown>()
+): T {
   if (value == null || typeof value !== 'object') {
     return value;
   }
@@ -323,18 +319,6 @@ function handleCancel() {
   clearFormValidation();
   emits('update:visible', false);
   emits('cancel');
-}
-
-// 切换上一条
-function handlePrev() {
-  if (isFirst.value) return;
-  currentIndex.value -= 1;
-}
-
-// 切换下一条
-function handleNext() {
-  if (isLast.value) return;
-  currentIndex.value += 1;
 }
 
 /******************************** 监听 ********************************/

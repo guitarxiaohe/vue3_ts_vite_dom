@@ -1,17 +1,5 @@
-import { defineAsyncComponent, h } from 'vue';
-import { ElTag } from 'element-plus';
+import { defineAsyncComponent } from 'vue';
 import type { EntityModule } from '@/features/entities/types';
-import type { ColumnsItem, TableListQuery } from '@/components/table-entity/index.type';
-import { listMenuRows } from '@/api/modules/menu';
-import { resolveMenuIcon } from './form/menu-icons';
-
-/******************************** 菜单列配置 ********************************/
-
-
-// 菜单列表请求
-async function menuTableFetcher(query: TableListQuery) {
-  return listMenuRows(query as TableListQuery & { menuId?: number; menuName?: string; path?: string });
-}
 
 /******************************** 菜单实体 ********************************/
 

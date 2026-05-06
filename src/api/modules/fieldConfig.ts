@@ -1,5 +1,8 @@
 import { httpClient } from '../client';
-import type { FieldConfig, FieldConfigQuery } from '@/types/field-config';
+import type {
+  FieldConfig,
+  FieldConfigQuery,
+} from '@/types/field-config/index.type';
 import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
 import { isMockEnabled } from '@/utils/is-mock';
 
@@ -180,7 +183,11 @@ export function deleteFieldConfig(ids: Array<number | string>) {
 }
 
 // 统一校验 AjaxResult 风格响应
-export function assertAjaxOk(res: { code?: number; msg?: string; message?: string }) {
+export function assertAjaxOk(res: {
+  code?: number;
+  msg?: string;
+  message?: string;
+}) {
   if (!isApiSuccess(res.code ?? 0)) {
     throw new Error(getApiErrorText(res));
   }

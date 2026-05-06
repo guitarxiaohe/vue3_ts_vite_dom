@@ -1,5 +1,15 @@
-import type { SidebarMenuSection } from '@/features/menu/types';
+import type { SysRouter } from '@/types/menu';
 import { i18n } from '@/i18n';
+
+type SidebarMenuSection = SysRouter & {
+  label?: string;
+  items?: Array<
+    SysRouter & {
+      label?: string;
+      items?: Array<SysRouter & { label?: string }>;
+    }
+  >;
+};
 
 /**
  * 根据路由路径从菜单配置中获取标题
@@ -13,18 +23,20 @@ export const getTitleFromMenu = (
   for (const section of menuSections) {
     // 情况1：一级菜单（直接路由）
     if (section.path === path) {
-      return section.label;
+      return section.label || fallbackTitle;
     }
 
     // 情况2：二级菜单（有子菜单）
     if (section.items) {
       for (const group of section.items) {
         if (group.path === path) {
-          return group.label;
+          return group.label || fallbackTitle;
         }
-        const matchedItem = group.items?.find((item) => item.path === path);
+        const matchedItem = group.items?.find(
+          (item: SysRouter & { label?: string }) => item.path === path
+        );
         if (matchedItem) {
-          return matchedItem.label;
+          return matchedItem.label || fallbackTitle;
         }
       }
     }

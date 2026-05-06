@@ -39,6 +39,7 @@ export const MENU_ICON_OPTIONS: Array<{
 // 根据图标名称获取组件
 export function resolveMenuIcon(iconName?: string) {
   return (
-    MENU_ICON_OPTIONS.find((item) => item.value === iconName)?.component ?? House
+    MENU_ICON_OPTIONS.find((item) => item.value === iconName)?.component ??
+    House
   );
 }

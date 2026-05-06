@@ -24,7 +24,8 @@ export interface FieldConfig {
 
 // 字段配置列表查询参数
 export interface FieldConfigQuery
-  extends Partial<
+  extends
+    Partial<
       Pick<
         FieldConfig,
         | 'entityKey'

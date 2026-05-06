@@ -161,7 +161,7 @@ export function useMultiviewActions(
       key: '__ops__',
       dataKey: '__ops__',
       title: t('common.operation'),
-      width: actionColumnWidth.value ,
+      width: actionColumnWidth.value,
       align: 'right' as const,
       fixed: TableV2FixedDir.RIGHT,
       cellRenderer: ({ rowData }) =>

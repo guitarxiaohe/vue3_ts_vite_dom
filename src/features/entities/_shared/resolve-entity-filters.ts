@@ -17,7 +17,9 @@ function buildBaseBackendFilterField(
   field: FieldConfig,
   t: EntityFilterComponentContext['t']
 ): EntityFilterFieldConfig {
-  const fieldType = String(field.fieldType ?? 'input').trim().toLowerCase();
+  const fieldType = String(field.fieldType ?? 'input')
+    .trim()
+    .toLowerCase();
   const dynamicField = field as unknown as Record<string, unknown>;
   const staticOptions = Array.isArray(dynamicField.options)
     ? (dynamicField.options as EntityFilterFieldConfig['options'])
@@ -30,7 +32,10 @@ function buildBaseBackendFilterField(
     order: field.sort ?? 999,
   };
 
-  if ((fieldType === 'select' || fieldType === 'dict') && staticOptions?.length) {
+  if (
+    (fieldType === 'select' || fieldType === 'dict') &&
+    staticOptions?.length
+  ) {
     return {
       ...baseField,
       component: 'select',
@@ -57,7 +62,8 @@ export function createDefaultFilterComponentRegistrations(): EntityFilterCompone
       key: 'select-entity-async-select',
       component: 'async-select',
       fieldTypes: ['select', 'dict'],
-      matcher: ({ field }) => Boolean(String(field.selectEntityKey ?? '').trim()),
+      matcher: ({ field }) =>
+        Boolean(String(field.selectEntityKey ?? '').trim()),
       mapField: ({ field, t }) => ({
         placeholder: t('common.pleaseSelect'),
         entityConfig: {
@@ -74,15 +80,22 @@ function isMatchedFilterRegistration(
   context: EntityFilterComponentContext
 ) {
   const fieldKey = String(context.field.fieldKey ?? '').trim();
-  const fieldType = String(context.field.fieldType ?? '').trim().toLowerCase();
+  const fieldType = String(context.field.fieldType ?? '')
+    .trim()
+    .toLowerCase();
 
-  if (registration.fieldKeys?.length && !registration.fieldKeys.includes(fieldKey)) {
+  if (
+    registration.fieldKeys?.length &&
+    !registration.fieldKeys.includes(fieldKey)
+  ) {
     return false;
   }
 
   if (
     registration.fieldTypes?.length &&
-    !registration.fieldTypes.map((item) => item.toLowerCase()).includes(fieldType)
+    !registration.fieldTypes
+      .map((item) => item.toLowerCase())
+      .includes(fieldType)
   ) {
     return false;
   }

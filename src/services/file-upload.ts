@@ -15,7 +15,10 @@ export interface UploadFileResponse {
 export const uploadFile = async (file: File): Promise<UploadFileResponse> => {
   const formData = new FormData();
   formData.append('file', file, file.name);
-  return await httpClient.postUpload<UploadFileResponse>('/common/upload', formData);
+  return await httpClient.postUpload<UploadFileResponse>(
+    '/common/upload',
+    formData
+  );
 };
 
 export const toAttachmentData = (
@@ -23,9 +26,13 @@ export const toAttachmentData = (
   response: UploadFileResponse
 ): AttachmentData => {
   return {
+    fileOriginName: response.fileOriginName || file.name,
     name: response.fileOriginName || file.name,
+    fileSuffix: file.type || response.fileSuffix,
     type: file.type || response.fileSuffix,
+    fileUrl: response.url || response.fileName,
     url: response.url || response.fileName,
+    fileSizeInfo: file.size,
     size: file.size,
   };
 };

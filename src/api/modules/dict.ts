@@ -5,7 +5,12 @@ import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
 /******************************** Query Key ********************************/
 
 // 字典值全量缓存键
-export const DICT_DATA_ALL_QUERY_KEY = ['system', 'dict', 'data', 'all'] as const;
+export const DICT_DATA_ALL_QUERY_KEY = [
+  'system',
+  'dict',
+  'data',
+  'all',
+] as const;
 
 /******************************** 接口方法 ********************************/
 

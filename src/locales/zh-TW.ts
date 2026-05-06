@@ -125,10 +125,8 @@ export default {
       featurePreview: '資料預覽',
       featureMapping: '欄位對應',
       featureProgress: '匯入進度',
-      templateDownloaded:
-        '模板下載事件已觸發，可以在這裡接入真實模板介面。',
-      templateIdle:
-        '點擊彈窗內的「下載匯入模板」即可觸發模板下載事件。',
+      templateDownloaded: '模板下載事件已觸發，可以在這裡接入真實模板介面。',
+      templateIdle: '點擊彈窗內的「下載匯入模板」即可觸發模板下載事件。',
       successDetail: '本次模擬匯入成功 {success} 筆資料。',
       progress: {
         validating: '正在校驗 Excel 檔案結構...',
@@ -228,8 +226,7 @@ export default {
       errorTitle: '匯入失敗',
       errorDescription: '請檢查匯入檔案與欄位對應後重新匯入',
       tipSize: '匯入檔案大小不得超過{size}MB，單次最多匯入5000筆資料',
-      tipHeader:
-        '匯入的sheet表頭欄位中不能有空白儲存格，否則將匯入失敗',
+      tipHeader: '匯入的sheet表頭欄位中不能有空白儲存格，否則將匯入失敗',
       tipFormula: '匯入檔案不支援Excel公式計算，如+-*/SUM等',
       tipArea: '不支援匯入選單來源、國家地區、地理位置',
       tipRelation:

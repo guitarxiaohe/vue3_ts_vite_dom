@@ -1,6 +1,6 @@
 import { h } from 'vue';
 import type { Slots } from 'vue';
-import type { ColumnsItem } from './index.type';
+import type { ColumnsItem } from '../index.type';
 import { colSlotName, formatCellText } from './column-utils';
 
 /******************************** 列 cell 与插槽合并 ********************************/

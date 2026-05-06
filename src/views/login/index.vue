@@ -279,13 +279,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { Sparkles, Eye, EyeOff, Mail } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import Pupil from '@/components/login/Pupil.vue';
 import EyeBall from '@/components/login/EyeBall.vue';
-import { useAppQuery } from '@/composables/useQuery';
-import { httpClient } from '@/api/client';
 import { useUserStore } from '@/stores';
 import router from '@/router';
 

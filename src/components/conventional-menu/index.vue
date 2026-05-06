@@ -5,10 +5,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import SettingsPanel from '@/components/settings-panel/index.vue';
-import {
-  fetchRouterTree,
-  ROUTER_TREE_QUERY_KEY,
-} from '@/api/modules/menu';
+import { fetchRouterTree, ROUTER_TREE_QUERY_KEY } from '@/api/modules/menu';
 import type { SysRouter } from '@/types/menu';
 import { resolveMenuIcon } from '@/features/entities/menu/form/menu-icons';
 import type { ConventionalMenuItem } from './index.type';
@@ -68,12 +65,7 @@ function handleSelect(index: string): void {
 
 // 解析菜单展示名称
 function resolveMenuTitle(routeItem: SysRouter): string {
-  return (
-    routeItem.meta?.title ||
-    routeItem.parentName ||
-    routeItem.name ||
-    ''
-  );
+  return routeItem.meta?.title || routeItem.parentName || routeItem.name || '';
 }
 
 // 规范化菜单路径
@@ -139,7 +131,7 @@ function buildMenuItems(menus: SysRouter[]): ConventionalMenuItem[] {
 </script>
 
 <template>
-  <el-aside class="aside" :class="{ 'is-collapse': isCollapse } ">
+  <el-aside class="aside" :class="{ 'is-collapse': isCollapse }">
     <div class="conventional-menu" :class="{ 'is-collapse': isCollapse }">
       <!-------------------------- 品牌区 -------------------------->
       <div class="conventional-menu__logo">
@@ -185,7 +177,7 @@ function buildMenuItems(menus: SysRouter[]): ConventionalMenuItem[] {
 </template>
 
 <style lang="scss" scoped>
-.aside{
+.aside {
   width: 200px;
   &.is-collapse {
     width: 64px;

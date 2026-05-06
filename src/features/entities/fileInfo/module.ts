@@ -33,16 +33,16 @@ const entityModule: EntityModule = {
       showImport: true,
       showExport: true,
     },
-  
+
     table: {
       rowKey: 'fileId',
       height: 520,
       pageSize: 20,
       showColumnSettings: true,
-      defaultSort:{
+      defaultSort: {
         field: 'createdTime',
         order: 'asc',
-      }
+      },
     },
     detail: {
       title: '文件详情',

@@ -44,7 +44,20 @@ export const usePermission = () => {
 
   const hasPermission = (permissionId?: string) => {
     if (!permissionId) return true;
-    return userStore.hasPermission(permissionId);
+    const routers = userStore.treeRouters ?? [];
+    const normalizedPermission = permissionId.toUpperCase();
+
+    const walkRouters = (items: typeof routers): boolean => {
+      return items.some((item) => {
+        const currentPermission = String(item.meta?.title ?? '').toUpperCase();
+        if (currentPermission === normalizedPermission) {
+          return true;
+        }
+        return item.children ? walkRouters(item.children) : false;
+      });
+    };
+
+    return walkRouters(routers);
   };
 
   return {

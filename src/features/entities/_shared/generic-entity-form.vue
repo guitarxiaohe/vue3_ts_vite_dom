@@ -265,17 +265,22 @@ const drawerTitle = computed(() => {
     : `${title}${t('common.edit')}`;
 });
 
-const visibleFields = computed<GenericEntityField[]>(() =>
-  rawFieldRows.value
+const visibleFields = computed<GenericEntityField[]>(() => {
+  return rawFieldRows.value
     .slice()
     .sort(
       (a, b) =>
         Number(resolveFieldValue(a, 'sort', 'sort') ?? 0) -
         Number(resolveFieldValue(b, 'sort', 'sort') ?? 0)
     )
-    .map((field) => normalizeField(field))
-    .filter((field): field is GenericEntityField => field != null)
-);
+    .reduce<GenericEntityField[]>((result, field) => {
+      const normalizedField = normalizeField(field);
+      if (normalizedField) {
+        result.push(normalizedField);
+      }
+      return result;
+    }, []);
+});
 
 const formRules = computed<FormRules<Record<string, any>>>(() => {
   return visibleFields.value.reduce<FormRules<Record<string, any>>>(
@@ -462,7 +467,7 @@ function buildStaticColumns(field: Record<string, any>) {
 }
 
 // 规范化字段配置
-function normalizeField(field: Record<string, any>) {
+function normalizeField(field: Record<string, any>): GenericEntityField | null {
   const key = resolveFieldKey(field);
   if (!key) return null;
   const visibleValue = resolveFieldValue(field, 'isVisible', 'is_visible');
@@ -672,5 +677,4 @@ watch(
 .generic-entity-form__tabs:deep(.el-tabs__header) {
   margin-bottom: 8px;
 }
-
 </style>

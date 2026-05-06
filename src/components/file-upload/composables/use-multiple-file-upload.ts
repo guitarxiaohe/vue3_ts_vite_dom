@@ -13,7 +13,7 @@ import { useFileType } from './use-file-type';
 import { useImageUrl } from '@/composables/use-image-url';
 
 /**
- * 单个文件上传状态 
+ * 单个文件上传状态
  */
 export interface FileUploadItem {
   /** 文件对象 */

@@ -376,7 +376,7 @@ const filterFields = computed<EntityFilterFieldConfig[]>(() => {
       ? {}
       : Array.isArray(entityConfig.value?.filters)
         ? {}
-        : entityConfig.value?.filters?.fields ?? {},
+        : (entityConfig.value?.filters?.fields ?? {}),
     t
   );
 });

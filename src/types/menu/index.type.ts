@@ -38,7 +38,8 @@ export interface SysMenu {
 
 // 菜单列表查询参数
 export interface SysMenuQuery
-  extends Partial<Pick<SysMenu, 'menuId' | 'menuName' | 'path' | 'status'>>,
+  extends
+    Partial<Pick<SysMenu, 'menuId' | 'menuName' | 'path' | 'status'>>,
     Partial<PaginationParams> {
   pageNum?: number;
   pageSize?: number;

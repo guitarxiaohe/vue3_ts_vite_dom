@@ -14,7 +14,7 @@ import {
   assertAjaxOk,
   updateFieldConfig,
 } from '@/api/modules/fieldConfig';
-import type { FieldConfig } from '@/types/field-config';
+import type { FieldConfig } from '@/types/field-config/index.type';
 
 /******************************** 组件入参 ********************************/
 
@@ -78,7 +78,7 @@ async function handleSave(data: Record<string, unknown>) {
       assertAjaxOk(response as { code?: number; msg?: string });
     }
 
-    emit('save', payload);
+    emit('save', payload as unknown as Record<string, unknown>);
     emit('update:visible', false);
   } finally {
     submitLoading.value = false;

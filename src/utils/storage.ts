@@ -1,5 +1,3 @@
-import { isDayjs } from 'dayjs';
-import type { Dayjs } from 'dayjs';
 import type { FilterFormValue } from '@/features/multiview/types';
 import { isEmptyValue } from '@/utils/value';
 
@@ -35,19 +33,45 @@ type ListFilterCacheValue =
   | { __type: 'date'; value: number }
   | ListFilterCacheValue[];
 
+type DayjsLike = {
+  $isDayjsObject: true;
+  valueOf: () => number;
+};
+
 const isDateCacheValue = (
   value: unknown
 ): value is { __type: 'date'; value: number } =>
   Boolean(
     value &&
-      typeof value === 'object' &&
-      (value as { __type?: string }).__type === 'date' &&
-      typeof (value as { value?: number }).value === 'number'
+    typeof value === 'object' &&
+    (value as { __type?: string }).__type === 'date' &&
+    typeof (value as { value?: number }).value === 'number'
   );
 
-const isDayjsValue = (value: unknown): value is Dayjs => isDayjs(value);
+const isDayjsValue = (value: unknown): value is DayjsLike =>
+  Boolean(
+    value &&
+    typeof value === 'object' &&
+    (value as { $isDayjsObject?: boolean }).$isDayjsObject === true &&
+    typeof (value as { valueOf?: unknown }).valueOf === 'function'
+  );
+const isFilterFormArrayValue = (
+  value: FilterFormValue
+): value is FilterFormValue[] => Array.isArray(value);
 
 const normalizeFilterValue = (value: FilterFormValue): ListFilterCacheValue => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (isFilterFormArrayValue(value)) {
+    if (value.length === 0) {
+      return null;
+    }
+
+    return value.map((item: FilterFormValue) => normalizeFilterValue(item));
+  }
+
   if (isEmptyValue(value)) {
     return null;
   }
@@ -57,11 +81,7 @@ const normalizeFilterValue = (value: FilterFormValue): ListFilterCacheValue => {
   }
 
   if (isDayjsValue(value)) {
-    return { __type: 'date', value: value.valueOf() };
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => normalizeFilterValue(item as FilterFormValue));
+    return { __type: 'date', value: Number(value.valueOf()) };
   }
 
   return value as string | number | boolean;

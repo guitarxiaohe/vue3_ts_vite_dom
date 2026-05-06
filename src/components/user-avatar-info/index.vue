@@ -213,10 +213,6 @@ const genderIconSize = computed(() =>
   Math.max(10, Math.min(16, Math.round(props.size * 0.36)))
 );
 
-const drawerGenderIconSize = computed(() =>
-  Math.max(12, Math.min(22, Math.round(props.drawerAvatarSize * 0.32)))
-);
-
 const mergedAvatarProps = computed(() => ({
   ...props.avatarProps,
   size: props.size,
@@ -490,7 +486,6 @@ defineExpose({
             >
               <slot name="drawer-avatar">
                 <div class="user-avatar-info__avatar-wrap">
-                  {{ drawerAvatarBind.url }}
                   <FileCell :attachments="drawerAvatarBind" />
                 </div>
               </slot>

@@ -29,7 +29,9 @@ const { t } = useI18n();
 
 const submitLoading = ref<boolean>(false);
 const formData = ref<Record<string, unknown>>({});
-const formFields = computed(() => mapEntityFormFields(getFileInfoFormFields(t)));
+const formFields = computed(() =>
+  mapEntityFormFields(getFileInfoFormFields(t))
+);
 const formChildren = computed(
   () => getEntityTableConfig(props.entityKey ?? 'fileInfo').children ?? []
 );
@@ -38,9 +40,7 @@ const drawerTitle = computed(() => {
   if (props.isCreate && props.record) {
     return t('fileInfo.dialog.copy');
   }
-  return props.isCreate
-    ? t('fileInfo.dialog.add')
-    : t('fileInfo.dialog.edit');
+  return props.isCreate ? t('fileInfo.dialog.add') : t('fileInfo.dialog.edit');
 });
 
 /******************************** 数据方法 ********************************/

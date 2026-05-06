@@ -1,6 +1,5 @@
 import type { DetailField } from '@/features/form-shell/types/detail';
 import type { EntityFormField } from './types';
-import fileUpload from '../../../components/file-upload/index';
 
 /******************************** 字段适配 ********************************/
 

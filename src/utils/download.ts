@@ -1,5 +1,4 @@
 import { i18n } from '@/i18n';
-import { handleBusinessError } from '@/services/request';
 
 /**
  * 下载配置
@@ -19,6 +18,15 @@ export interface DownloadResult {
   blob: Blob;
   /** 文件名 */
   fileName: string;
+}
+
+// 统一抛出下载接口返回的业务错误
+function handleBusinessError(data: unknown, url: string): never {
+  const message =
+    typeof data === 'object' && data && 'msg' in data
+      ? String((data as { msg?: unknown }).msg ?? '')
+      : '';
+  throw new Error(message || `Download request failed: ${url}`);
 }
 
 /**

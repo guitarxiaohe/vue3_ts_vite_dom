@@ -148,11 +148,15 @@ const isError = computed(() => currentUpload.value.isError.value);
 const acceptAttr = computed(() => currentUpload.value.acceptAttr.value);
 
 // 方法
-const beforeUpload = (...args: Parameters<NonNullable<typeof singleFileUpload.beforeUpload>>) => {
+const beforeUpload = (
+  ...args: Parameters<NonNullable<typeof singleFileUpload.beforeUpload>>
+) => {
   return currentUpload.value.beforeUpload?.(...args);
 };
 
-const handleUpload = (...args: Parameters<typeof singleFileUpload.handleUpload>) => {
+const handleUpload = (
+  ...args: Parameters<typeof singleFileUpload.handleUpload>
+) => {
   return currentUpload.value.handleUpload(...args);
 };
 // 多文件模式下，判断是否还可以继续上传

@@ -11,7 +11,9 @@ const props = defineProps<{
 
 // 下载当前文件
 function onDownload() {
-  ElMessage.info(`下载文件：${props.row.fileOriginName ?? props.row.fileId ?? ''}`);
+  ElMessage.info(
+    `下载文件：${props.row.fileOriginName ?? props.row.fileId ?? ''}`
+  );
 }
 </script>
 

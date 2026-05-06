@@ -361,14 +361,6 @@ function fillColumnsToViewport(columns: ColumnsItem[], tableWidth: number) {
 
 /******************************** 列设置 ********************************/
 
-// 判断当前列是否必须保持可见
-function isColumnVisibleLocked(column: ColumnsItem) {
-  const visibleCount = visibleBusinessColumns.value.length;
-  return (
-    visibleCount <= 1 && !hiddenColumnKeySet.value.has(String(column.dataKey))
-  );
-}
-
 // 同步隐藏列并对外抛出
 function updateHiddenColumnKeys(keys: string[]) {
   hiddenColumnKeysState.value = keys;

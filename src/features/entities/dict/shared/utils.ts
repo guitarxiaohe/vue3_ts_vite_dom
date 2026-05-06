@@ -61,7 +61,9 @@ export function createDefaultParentForm(): DictFormData {
   };
 }
 
-export function cloneParentForm(record?: Record<string, unknown>): DictFormData {
+export function cloneParentForm(
+  record?: Record<string, unknown>
+): DictFormData {
   const source = record ?? {};
 
   return {
@@ -69,7 +71,8 @@ export function cloneParentForm(record?: Record<string, unknown>): DictFormData 
     dictId: source.dictId as number | string | undefined,
     dictType: String(source.dictType ?? '').trim(),
     dictName: String(source.dictName ?? '').trim(),
-    dictClass: (String(source.dictClass ?? 'system') as DictClassValue) || 'system',
+    dictClass:
+      (String(source.dictClass ?? 'system') as DictClassValue) || 'system',
     status: normalizeStatus(source.status),
     remark: String(source.remark ?? ''),
   };

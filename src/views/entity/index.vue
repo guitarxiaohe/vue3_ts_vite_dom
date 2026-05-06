@@ -13,10 +13,17 @@
         <el-button type="primary" @click="openCreate">
           {{ t('common.add') }}
         </el-button>
-        <el-button :disabled="selectedKeys.length !== 1" @click="openEditBySelection">
+        <el-button
+          :disabled="selectedKeys.length !== 1"
+          @click="openEditBySelection"
+        >
           {{ t('common.edit') }}
         </el-button>
-        <el-button type="danger" :disabled="selectedKeys.length === 0" @click="deleteSelected">
+        <el-button
+          type="danger"
+          :disabled="selectedKeys.length === 0"
+          @click="deleteSelected"
+        >
           {{ t('common.delete') }}
         </el-button>
       </div>
@@ -24,12 +31,18 @@
 
     <!-------------------------- 查询区域 -------------------------->
     <section class="field-config-page__filter">
-      <el-form :model="filterForm" label-position="top" class="field-config-page__filter-form">
+      <el-form
+        :model="filterForm"
+        label-position="top"
+        class="field-config-page__filter-form"
+      >
         <el-form-item :label="t('fieldConfig.entityKey')">
           <el-input
             v-model="filterForm.entityKey"
             clearable
-            :placeholder="t('validation.enterField', { field: t('fieldConfig.entityKey') })"
+            :placeholder="
+              t('validation.enterField', { field: t('fieldConfig.entityKey') })
+            "
             @keyup.enter="reloadTable"
           />
         </el-form-item>
@@ -38,7 +51,9 @@
           <el-input
             v-model="filterForm.fieldKey"
             clearable
-            :placeholder="t('validation.enterField', { field: t('fieldConfig.fieldKey') })"
+            :placeholder="
+              t('validation.enterField', { field: t('fieldConfig.fieldKey') })
+            "
             @keyup.enter="reloadTable"
           />
         </el-form-item>
@@ -47,7 +62,9 @@
           <el-input
             v-model="filterForm.fieldName"
             clearable
-            :placeholder="t('validation.enterField', { field: t('fieldConfig.fieldName') })"
+            :placeholder="
+              t('validation.enterField', { field: t('fieldConfig.fieldName') })
+            "
             @keyup.enter="reloadTable"
           />
         </el-form-item>
@@ -56,7 +73,9 @@
           <el-select
             v-model="filterForm.fieldType"
             clearable
-            :placeholder="t('validation.selectField', { field: t('fieldConfig.fieldType') })"
+            :placeholder="
+              t('validation.selectField', { field: t('fieldConfig.fieldType') })
+            "
           >
             <el-option
               v-for="option in fieldTypeOptions"
@@ -120,6 +139,7 @@ import type {
   DetailRenderMap,
   TableListQuery,
 } from '@/components/table-entity/index.type';
+import type { RowActionRenderConfig } from '@/features/entities/_shared/row-actions-types';
 import ActionColumn from '@/features/multiview/components/action-column.vue';
 import FieldConfigForm from '@/features/entities/fieldConfig/form/index.vue';
 import {
@@ -128,7 +148,10 @@ import {
   getFieldConfig,
   listFieldConfig,
 } from '@/api/modules/fieldConfig';
-import type { FieldConfig, FieldConfigQuery } from '@/types/field-config';
+import type {
+  FieldConfig,
+  FieldConfigQuery,
+} from '@/types/field-config/index.type';
 
 /******************************** 基础状态 ********************************/
 
@@ -142,7 +165,7 @@ const selectedRows = ref<FieldConfig[]>([]);
 const tableRows = ref<FieldConfig[]>([]);
 const formVisible = ref<boolean>(false);
 const isCreate = ref<boolean>(true);
-const currentRecord = ref<Record<string, unknown>>();
+const currentRecord = ref<Record<string, unknown> | undefined>();
 const currentRecordIndex = ref<number>(0);
 
 const filterForm = reactive({
@@ -168,13 +191,6 @@ const fieldTypeOptions = computed(() => [
   { label: t('fieldConfig.typeFile'), value: 'file' },
   { label: t('fieldConfig.typeBy'), value: 'by' },
   { label: t('fieldConfig.typeUser'), value: 'user' },
-]);
-
-const fieldRoleOptions = computed(() => [
-  { label: t('fieldConfig.roleNone'), value: '' },
-  { label: t('fieldConfig.roleCreateUser'), value: 'createUser' },
-  { label: t('fieldConfig.roleUpdateUser'), value: 'updateUser' },
-  { label: t('fieldConfig.roleFileInfo'), value: 'fileInfo' },
 ]);
 
 /******************************** 展示映射 ********************************/
@@ -245,102 +261,102 @@ function formatTimestamp(value: unknown) {
 
 /******************************** 表格列 ********************************/
 
-const columns = computed<ColumnsItem[]>(() => [
-  {
-    key: 'id',
-    dataKey: 'id',
-    title: t('fieldConfig.id'),
-    width: 90,
-  },
-  {
-    key: 'entityKey',
-    dataKey: 'entityKey',
-    title: t('fieldConfig.entityKey'),
-    width: 140,
-  },
-  {
-    key: 'fieldKey',
-    dataKey: 'fieldKey',
-    title: t('fieldConfig.fieldKey'),
-    width: 160,
-  },
-  {
-    key: 'fieldName',
-    dataKey: 'fieldName',
-    title: t('fieldConfig.fieldName'),
-    width: 160,
-  },
-  {
-    key: 'fieldType',
-    dataKey: 'fieldType',
-    title: t('fieldConfig.fieldType'),
-    width: 120,
-    cellRenderer: ({ cellData }) =>
-      h(
-        ElTag,
-        { size: 'small', type: 'info' },
-        () => formatFieldType(cellData)
-      ),
-  },
-  {
-    key: 'fieldRole',
-    dataKey: 'fieldRole',
-    title: t('fieldConfig.fieldRole'),
-    width: 140,
-    cellRenderer: ({ cellData }) =>
-      h(
-        ElTag,
-        { size: 'small', type: 'warning' },
-        () => formatFieldRole(cellData)
-      ),
-  },
-  {
-    key: 'dictCode',
-    dataKey: 'dictCode',
-    title: t('fieldConfig.dictCode'),
-    width: 140,
-  },
-  {
-    key: 'selectEntityKey',
-    dataKey: 'selectEntityKey',
-    title: t('fieldConfig.selectEntityKey'),
-    width: 150,
-  },
-  {
-    key: 'sort',
-    dataKey: 'sort',
-    title: t('fieldConfig.sort'),
-    width: 90,
-  },
-  {
-    key: 'isFuzzySearch',
-    dataKey: 'isFuzzySearch',
-    title: t('fieldConfig.isFuzzySearch'),
-    width: 110,
-    cellRenderer: ({ cellData }) => formatBooleanText(cellData),
-  },
-  {
-    key: 'isVisible',
-    dataKey: 'isVisible',
-    title: t('fieldConfig.isVisible'),
-    width: 90,
-    cellRenderer: ({ cellData }) => formatBooleanText(cellData),
-  },
-  {
-    key: 'fixed',
-    dataKey: 'fixed',
-    title: t('fieldConfig.fixed'),
-    width: 100,
-    cellRenderer: ({ cellData }) => formatFixedText(cellData),
-  },
-  {
-    key: 'updatedTime',
-    dataKey: 'updatedTime',
-    title: t('fieldConfig.updatedTime'),
-    width: 180,
-    cellRenderer: ({ cellData }) => formatTimestamp(cellData),
-  },
-]);
+const columns = computed<ColumnsItem[]>(() => {
+  const tableColumns: ColumnsItem[] = [
+    {
+      key: 'id',
+      dataKey: 'id',
+      title: t('fieldConfig.id'),
+      width: 90,
+    },
+    {
+      key: 'entityKey',
+      dataKey: 'entityKey',
+      title: t('fieldConfig.entityKey'),
+      width: 140,
+    },
+    {
+      key: 'fieldKey',
+      dataKey: 'fieldKey',
+      title: t('fieldConfig.fieldKey'),
+      width: 160,
+    },
+    {
+      key: 'fieldName',
+      dataKey: 'fieldName',
+      title: t('fieldConfig.fieldName'),
+      width: 160,
+    },
+    {
+      key: 'fieldType',
+      dataKey: 'fieldType',
+      title: t('fieldConfig.fieldType'),
+      width: 120,
+      cellRenderer: ({ cellData }) =>
+        h(ElTag, { size: 'small', type: 'info' }, () =>
+          formatFieldType(cellData)
+        ),
+    },
+    {
+      key: 'fieldRole',
+      dataKey: 'fieldRole',
+      title: t('fieldConfig.fieldRole'),
+      width: 140,
+      cellRenderer: ({ cellData }) =>
+        h(ElTag, { size: 'small', type: 'warning' }, () =>
+          formatFieldRole(cellData)
+        ),
+    },
+    {
+      key: 'dictCode',
+      dataKey: 'dictCode',
+      title: t('fieldConfig.dictCode'),
+      width: 140,
+    },
+    {
+      key: 'selectEntityKey',
+      dataKey: 'selectEntityKey',
+      title: t('fieldConfig.selectEntityKey'),
+      width: 150,
+    },
+    {
+      key: 'sort',
+      dataKey: 'sort',
+      title: t('fieldConfig.sort'),
+      width: 90,
+    },
+    {
+      key: 'isFuzzySearch',
+      dataKey: 'isFuzzySearch',
+      title: t('fieldConfig.isFuzzySearch'),
+      width: 110,
+      cellRenderer: ({ cellData }) => h('span', formatBooleanText(cellData)),
+    },
+    {
+      key: 'isVisible',
+      dataKey: 'isVisible',
+      title: t('fieldConfig.isVisible'),
+      width: 90,
+      cellRenderer: ({ cellData }) => h('span', formatBooleanText(cellData)),
+    },
+    {
+      key: 'fixed',
+      dataKey: 'fixed',
+      title: t('fieldConfig.fixed'),
+      width: 100,
+      cellRenderer: ({ cellData }) => h('span', formatFixedText(cellData)),
+    },
+    {
+      key: 'updatedTime',
+      dataKey: 'updatedTime',
+      title: t('fieldConfig.updatedTime'),
+      width: 180,
+      cellRenderer: ({ cellData }) => h('span', formatTimestamp(cellData)),
+    },
+  ];
+
+  return tableColumns;
+});
 
 const detailRenderMap = computed<DetailRenderMap>(() => ({
   fieldType: ({ row }) => h('span', formatFieldType(row.fieldType)),
@@ -374,7 +390,7 @@ const rowActions = {
   refresh: () => reloadTable(),
 };
 
-const primaryRowActions = computed(() => [
+const primaryRowActions = computed<RowActionRenderConfig[]>(() => [
   { key: 'view', label: t('common.view'), actionKey: 'view', order: 10 },
   { key: 'edit', label: t('common.edit'), actionKey: 'edit', order: 20 },
   { key: 'copy', label: t('common.copy'), actionKey: 'copy', order: 30 },
@@ -454,7 +470,9 @@ function resetFilters() {
 }
 
 // 获取完整记录详情
-async function loadRecord(id: number | string) {
+async function loadRecord(
+  id: number | string
+): Promise<Record<string, unknown>> {
   const response = (await getFieldConfig(id)) as {
     code?: number;
     msg?: string;
@@ -462,7 +480,7 @@ async function loadRecord(id: number | string) {
   };
 
   assertAjaxOk(response);
-  return response.data ?? {};
+  return (response.data as unknown as Record<string, unknown>) ?? {};
 }
 
 /******************************** 操作方法 ********************************/
@@ -490,7 +508,7 @@ async function openEdit(row?: Record<string, any>) {
 
   isCreate.value = false;
   currentRecordIndex.value = tableRows.value.findIndex(
-    (item) => Number(item.id) === Number(target.id)
+    (item: FieldConfig) => Number(item.id) === Number(target.id)
   );
   currentRecord.value = await loadRecord(target.id);
   formVisible.value = true;
@@ -511,7 +529,7 @@ async function openCopy(row: Record<string, any>) {
 
   isCreate.value = true;
   currentRecordIndex.value = tableRows.value.findIndex(
-    (item) => Number(item.id) === Number(row.id)
+    (item: FieldConfig) => Number(item.id) === Number(row.id)
   );
   currentRecord.value = copiedRecord;
   formVisible.value = true;
@@ -544,13 +562,13 @@ async function deleteSelected() {
 }
 
 // 保存成功后刷新
-function handleSaveSuccess(data: Record<string, unknown>) {
+function handleSaveSuccess(data?: Record<string, unknown>) {
   formVisible.value = false;
   ElMessage.success(
     isCreate.value ? t('fieldConfig.addSuccess') : t('fieldConfig.editSuccess')
   );
 
-  if (data.id) {
+  if (data?.id) {
     currentRecord.value = data;
   }
 

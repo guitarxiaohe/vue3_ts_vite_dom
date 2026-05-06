@@ -37,10 +37,7 @@ function updateCustomFieldValue(key: string, value: unknown) {
 </script>
 
 <template>
-  <section
-    v-if="props.fields.length"
-    class="multiview-fuzzy-filter"
-  >
+  <section v-if="props.fields.length" class="multiview-fuzzy-filter">
     <el-form
       :model="formModel"
       label-position="top"
@@ -116,10 +113,7 @@ function updateCustomFieldValue(key: string, value: unknown) {
       >
         {{ t('common.search') }}
       </el-button>
-      <el-button
-        v-if="props.showResetButton"
-        @click="emit('reset')"
-      >
+      <el-button v-if="props.showResetButton" @click="emit('reset')">
         {{ t('common.reset') }}
       </el-button>
     </div>

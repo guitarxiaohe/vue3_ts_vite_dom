@@ -6,7 +6,6 @@ import { AsyncCascader } from '@/components/async-cascader';
 import { useFormValidation } from '../composables/use-form-validation';
 import type { DetailField, DetailRecord } from '../types/detail';
 import FileUpload from '@/components/file-upload/file-upload.vue';
-import type { EntityFormField } from '@/features/entities/_shared/types';
 
 /******************************** 类型定义 ********************************/
 
@@ -115,7 +114,8 @@ defineExpose({ validate, formRef });
 
               <FileUpload
                 v-else-if="field.type === 'fileUpload'"
-                v-bind="fileConfig"
+                v-bind="field.fileConfig"
+                v-model="formData[field.prop]"
               />
               <AsyncCascader
                 v-else-if="

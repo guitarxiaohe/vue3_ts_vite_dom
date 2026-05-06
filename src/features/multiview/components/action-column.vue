@@ -66,12 +66,7 @@ function runBuiltinAction(action: RowActionRenderConfig) {
       trigger="hover"
       class="action-column__more"
     >
-      <el-button
-        type="primary"
-        link
-        size="small"
-        :icon="MoreFilled"
-      />
+      <el-button type="primary" link size="small" :icon="MoreFilled" />
       <template #dropdown>
         <el-dropdown-menu>
           <el-dropdown-item

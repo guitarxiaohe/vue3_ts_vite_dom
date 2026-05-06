@@ -1,9 +1,6 @@
 import { useQuery } from '@tanstack/vue-query';
 import { computed } from 'vue';
-import {
-  DICT_DATA_ALL_QUERY_KEY,
-  fetchAllDictData,
-} from '@/api/modules/dict';
+import { DICT_DATA_ALL_QUERY_KEY, fetchAllDictData } from '@/api/modules/dict';
 
 /******************************** 字典缓存查询 ********************************/
 

@@ -104,7 +104,11 @@ export const deleteFileInfo = (fileIds: (number | string)[]) => {
 };
 
 /** 校验 AjaxResult 风格响应 */
-export function assertAjaxOk(res: { code?: number; msg?: string; message?: string }) {
+export function assertAjaxOk(res: {
+  code?: number;
+  msg?: string;
+  message?: string;
+}) {
   if (!isApiSuccess(res.code ?? 0)) {
     throw new Error(getApiErrorText(res));
   }

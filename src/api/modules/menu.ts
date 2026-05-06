@@ -11,7 +11,11 @@ import { getMockRoleKeysByToken } from './mock-auth';
 export const ROUTER_TREE_QUERY_KEY = ['system', 'router', 'tree'] as const;
 
 // 菜单树下拉缓存键
-export const MENU_TREESELECT_QUERY_KEY = ['system', 'menu', 'treeselect'] as const;
+export const MENU_TREESELECT_QUERY_KEY = [
+  'system',
+  'menu',
+  'treeselect',
+] as const;
 
 /******************************** Mock 数据 ********************************/
 
@@ -289,11 +293,16 @@ function walkMenus(
 // 过滤菜单树
 function filterMenuTree(menus: MenuNode[], params: SysMenuQuery) {
   const menuIdText = String(params.menuId ?? '').trim();
-  const menuNameText = String(params.menuName ?? '').trim().toLowerCase();
-  const pathText = String(params.path ?? '').trim().toLowerCase();
+  const menuNameText = String(params.menuName ?? '')
+    .trim()
+    .toLowerCase();
+  const pathText = String(params.path ?? '')
+    .trim()
+    .toLowerCase();
 
   const matchMenu = (menu: MenuNode) => {
-    const hitMenuId = !menuIdText || String(menu.menuId ?? '').includes(menuIdText);
+    const hitMenuId =
+      !menuIdText || String(menu.menuId ?? '').includes(menuIdText);
     const hitName =
       !menuNameText ||
       String(menu.menuName ?? '')
@@ -484,7 +493,9 @@ export async function listMenuRows(
   };
 
   const rows = Array.isArray(response.rows) ? response.rows : [];
-  const flatRows: Array<SysMenu & { menuLevel: number; localeDisplay: string }> = [];
+  const flatRows: Array<
+    SysMenu & { menuLevel: number; localeDisplay: string }
+  > = [];
 
   const walk = (menus: SysMenu[], level = 1) => {
     menus.forEach((menu) => {
@@ -595,9 +606,7 @@ export function addMenu(data: SysMenu) {
       createTime: nowText(),
       updateTime: nowText(),
     });
-    container.sort(
-      (a, b) => Number(a.orderNum ?? 0) - Number(b.orderNum ?? 0)
-    );
+    container.sort((a, b) => Number(a.orderNum ?? 0) - Number(b.orderNum ?? 0));
 
     return Promise.resolve({
       code: 200,
@@ -648,8 +657,9 @@ export function updateMenu(data: SysMenu) {
         ...payload,
         updateTime: nowText(),
       });
-      findMenuSiblings(Number(payload.menuId))
-        ?.sort((a, b) => Number(a.orderNum ?? 0) - Number(b.orderNum ?? 0));
+      findMenuSiblings(Number(payload.menuId))?.sort(
+        (a, b) => Number(a.orderNum ?? 0) - Number(b.orderNum ?? 0)
+      );
     }
 
     return Promise.resolve({
@@ -690,7 +700,11 @@ export function deleteMenu(menuId: number | string) {
 }
 
 // 统一校验 AjaxResult 风格响应
-export function assertAjaxOk(res: { code?: number; msg?: string; message?: string }) {
+export function assertAjaxOk(res: {
+  code?: number;
+  msg?: string;
+  message?: string;
+}) {
   if (!isApiSuccess(res.code ?? 0)) {
     throw new Error(getApiErrorText(res));
   }

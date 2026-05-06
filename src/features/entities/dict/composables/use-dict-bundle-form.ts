@@ -3,7 +3,10 @@ import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import type { FormInstance } from 'element-plus';
 import { getListByEntityKeyApi, saveMockDictBundle } from '@/api/modules/user';
 import type { DictFormData, DictItemFormData } from '@/types/dict';
-import type { EntityFormEmits, EntityFormProps } from '@/features/entities/_shared/types';
+import type {
+  EntityFormEmits,
+  EntityFormProps,
+} from '@/features/entities/_shared/types';
 import {
   buildDictBundlePayload,
   cloneParentForm,
@@ -76,7 +79,10 @@ export function useDictBundleForm(
     saving.value = true;
 
     try {
-      const payload = buildDictBundlePayload(parentForm.value, childItems.value);
+      const payload = buildDictBundlePayload(
+        parentForm.value,
+        childItems.value
+      );
 
       await saveMockDictBundle({
         previousDictType: previousDictType.value,
@@ -87,7 +93,7 @@ export function useDictBundleForm(
         queryKey: DICT_CHILDREN_QUERY_KEY,
       });
 
-      emit('save', payload.dict);
+      emit('save', payload.dict as unknown as Record<string, unknown>);
       emit('update:visible', false);
     } finally {
       saving.value = false;

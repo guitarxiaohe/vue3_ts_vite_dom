@@ -22,10 +22,7 @@ export interface ColumnsItem extends Column {
   select?: SelectColumns;
   isSearch?: boolean;
   fieldType?: string;
-  detailTextFormatter?: (
-    row: Record<string, any>,
-    cellData: unknown
-  ) => string;
+  detailTextFormatter?: (row: Record<string, any>, cellData: unknown) => string;
 }
 
 export type DetailRenderContext = {

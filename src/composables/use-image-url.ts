@@ -1,6 +1,7 @@
 export const useImageUrl = () => {
   return {
-    ensureImageBaseUrl: (args?: any) => 'http://localhost:8002',
-    resolveImageUrl: (args?: any) => 'http://localhost:8002' + args,
+    ensureImageBaseUrl: (_args?: unknown) => 'http://localhost:8002',
+    resolveImageUrl: (path?: unknown) =>
+      `http://localhost:8002${String(path ?? '')}`,
   };
 };

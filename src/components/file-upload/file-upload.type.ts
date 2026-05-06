@@ -4,12 +4,20 @@
 export interface AttachmentData {
   /** 文件名称 */
   fileOriginName?: string;
+  /** 兼容前端组件使用的文件名称 */
+  name?: string;
   /** 文件类型 */
   fileSuffix?: string;
+  /** 兼容前端组件使用的文件类型 */
+  type?: string;
   /** 文件URL 或 key */
   fileUrl?: string;
+  /** 兼容前端组件使用的文件地址 */
+  url?: string;
   /** 文件大小 */
   fileSizeInfo?: number;
+  /** 兼容前端组件使用的文件大小 */
+  size?: number;
 }
 
 /**

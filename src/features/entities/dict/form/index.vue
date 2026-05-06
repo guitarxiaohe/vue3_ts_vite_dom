@@ -118,7 +118,9 @@ function handleCancel() {
             <el-form-item :label="t('dictPage.dictType')" prop="dictType">
               <el-input
                 v-model="parentForm.dictType"
-                :placeholder="t('validation.enterField', { field: t('dictPage.dictType') })"
+                :placeholder="
+                  t('validation.enterField', { field: t('dictPage.dictType') })
+                "
                 clearable
               />
             </el-form-item>
@@ -126,7 +128,9 @@ function handleCancel() {
             <el-form-item :label="t('dictPage.dictName')" prop="dictName">
               <el-input
                 v-model="parentForm.dictName"
-                :placeholder="t('validation.enterField', { field: t('dictPage.dictName') })"
+                :placeholder="
+                  t('validation.enterField', { field: t('dictPage.dictName') })
+                "
                 clearable
               />
             </el-form-item>
@@ -134,7 +138,11 @@ function handleCancel() {
             <el-form-item :label="t('dictPage.dictClass')" prop="dictClass">
               <el-select
                 v-model="parentForm.dictClass"
-                :placeholder="t('validation.selectField', { field: t('dictPage.dictClass') })"
+                :placeholder="
+                  t('validation.selectField', {
+                    field: t('dictPage.dictClass'),
+                  })
+                "
               >
                 <el-option
                   v-for="item in dictClassOptions"

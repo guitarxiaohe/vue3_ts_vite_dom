@@ -73,9 +73,10 @@ class HttpClient {
 
   async request<T = any>(config: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
-      const response = await this.instance.request<ApiResponse<T>, ApiResponse<T>>(
-        config
-      );
+      const response = await this.instance.request<
+        ApiResponse<T>,
+        ApiResponse<T>
+      >(config);
       return response;
     } catch (error: any) {
       // 返回统一的错误格式

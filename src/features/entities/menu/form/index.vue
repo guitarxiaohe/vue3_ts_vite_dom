@@ -48,15 +48,13 @@ const drawerTitle = computed(() => {
     return t('menuPage.createChildTitle');
   }
 
-  return props.isCreate
-    ? t('menuPage.createTitle')
-    : t('menuPage.editTitle');
+  return props.isCreate ? t('menuPage.createTitle') : t('menuPage.editTitle');
 });
 
 const localeOptions = computed(() => [
-  { label: t('locale.zhCN'), value: 'zh-CN' },
-  { label: t('locale.enUS'), value: 'en-US' },
-  { label: t('menuPage.localeJaJP'), value: 'ja-JP' },
+  { label: t('locale.zhCN'), value: 'zh-CN' as const },
+  { label: t('locale.enUS'), value: 'en-US' as const },
+  { label: t('menuPage.localeJaJP'), value: 'ja-JP' as const },
 ]);
 
 const menuTypeOptions = computed(() => [
@@ -91,24 +89,24 @@ const filteredParentOptions = computed(() => {
   collectChildren(parentOptions.value);
 
   const filterTree = (menus: SysMenu[]): SysMenu[] => {
-    return menus
-      .map((menu) => {
-        if (blockedIds.has(Number(menu.menuId))) {
-          return null;
-        }
+    return menus.flatMap((menu) => {
+      if (blockedIds.has(Number(menu.menuId))) {
+        return [];
+      }
 
-        return {
+      return [
+        {
           ...menu,
           children: menu.children?.length ? filterTree(menu.children) : [],
-        };
-      })
-      .filter((item): item is SysMenu => item != null);
+        },
+      ];
+    });
   };
 
   return filterTree(parentOptions.value);
 });
 
-const formRules = computed<FormRules<SysMenuFormData>>(() => ({
+const formRules = computed<FormRules>(() => ({
   orderNum: [
     {
       required: true,
@@ -158,25 +156,29 @@ function cloneFormData(record?: Record<string, unknown>) {
     ...source,
     parentId: Number(source.parentId ?? 0),
     orderNum: Number(source.orderNum ?? 1),
-    localeNames:
-      source.localeNames?.length
-        ? source.localeNames.map((item) => ({ ...item }))
-        : [{ locale: 'zh-CN', label: String(source.menuName ?? '') }],
+    localeNames: source.localeNames?.length
+      ? source.localeNames.map((item) => ({ ...item }))
+      : [{ locale: 'zh-CN', label: String(source.menuName ?? '') }],
   } as SysMenuFormData;
 }
 
 // 同步中文主名称
 function syncMenuName() {
-  const zhRow = formData.value.localeNames.find((item) => item.locale === 'zh-CN');
+  const zhRow = formData.value.localeNames.find(
+    (item) => item.locale === 'zh-CN'
+  );
   const fallback = formData.value.localeNames.find((item) => item.label.trim());
-  formData.value.menuName =
-    zhRow?.label.trim() || fallback?.label.trim() || '';
+  formData.value.menuName = zhRow?.label.trim() || fallback?.label.trim() || '';
 }
 
 // 新增语言行
 function addLocaleRow() {
-  const usedLocales = new Set(formData.value.localeNames.map((item) => item.locale));
-  const nextLocale = localeOptions.value.find((item) => !usedLocales.has(item.value));
+  const usedLocales = new Set(
+    formData.value.localeNames.map((item) => item.locale)
+  );
+  const nextLocale = localeOptions.value.find(
+    (item) => !usedLocales.has(item.value)
+  );
 
   if (!nextLocale) {
     ElMessage.warning(t('menuPage.localeFull'));
@@ -184,7 +186,7 @@ function addLocaleRow() {
   }
 
   formData.value.localeNames.push({
-    locale: nextLocale.value as 'zh-CN' | 'en-US' | 'ja-JP',
+    locale: nextLocale.value,
     label: '',
   });
 }
@@ -240,7 +242,9 @@ async function handleSave() {
       assertAjaxOk(response as { code?: number; msg?: string });
     }
 
-    await queryClient.invalidateQueries({ queryKey: MENU_TREESELECT_QUERY_KEY });
+    await queryClient.invalidateQueries({
+      queryKey: MENU_TREESELECT_QUERY_KEY,
+    });
     emit('save', payload);
     emit('update:visible', false);
   } finally {
@@ -346,7 +350,9 @@ watch(
               </el-select>
               <el-input
                 v-model="item.label"
-                :placeholder="t('validation.enterField', { field: t('menuPage.menuName') })"
+                :placeholder="
+                  t('validation.enterField', { field: t('menuPage.menuName') })
+                "
                 @blur="syncMenuName"
               />
               <el-button
@@ -449,11 +455,7 @@ watch(
           </div>
 
           <el-form-item :label="t('menuPage.remark')">
-            <el-input
-              v-model="formData.remark"
-              type="textarea"
-              :rows="4"
-            />
+            <el-input v-model="formData.remark" type="textarea" :rows="4" />
           </el-form-item>
         </el-form>
       </div>

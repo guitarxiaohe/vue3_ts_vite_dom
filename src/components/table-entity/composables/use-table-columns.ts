@@ -144,9 +144,6 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
   const fieldType = String(
     resolveFieldValue(field, 'fieldType') ?? ''
   ).toLowerCase();
-  const fieldKey = String(
-    resolveFieldValue(field, 'fieldKey') ?? ''
-  ).toLowerCase();
 
   if (fieldType === 'file') {
     return ({

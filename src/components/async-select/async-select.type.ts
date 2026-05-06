@@ -1,4 +1,7 @@
-import type { ColumnsItem, TableListQuery } from '@/components/table-entity/index.type';
+import type {
+  ColumnsItem,
+  TableListQuery,
+} from '@/components/table-entity/index.type';
 
 export interface AsyncSelectColumn {
   prop: string;

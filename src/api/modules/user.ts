@@ -10,10 +10,7 @@ import type {
 import type { SysRouter } from '@/types/menu';
 import { isMockEnabled } from '@/utils/is-mock';
 import { listRouterTree } from './menu';
-import {
-  findMockAuthUserByCredentials,
-  listMockAuthUsers,
-} from './mock-auth';
+import { findMockAuthUserByCredentials, listMockAuthUsers } from './mock-auth';
 
 const nowTs = () => new Date().toISOString();
 
@@ -26,8 +23,7 @@ const createMockField = (
   fieldName: String(field.fieldName ?? field.fieldKey ?? ''),
   fieldType: (field.fieldType as string | null | undefined) ?? 'input',
   dictCode: (field.dictCode as string | null | undefined) ?? null,
-  selectEntityKey:
-    (field.selectEntityKey as string | null | undefined) ?? null,
+  selectEntityKey: (field.selectEntityKey as string | null | undefined) ?? null,
   sort: Number(field.sort ?? 0),
   isFuzzySearch: Boolean(field.isFuzzySearch ?? false),
   isVisible: Boolean(field.isVisible ?? true),
@@ -39,7 +35,10 @@ const createMockField = (
   ...field,
 });
 
-const mockEntityFields: Record<string, Array<FieldConfig & Record<string, unknown>>> = {
+const mockEntityFields: Record<
+  string,
+  Array<FieldConfig & Record<string, unknown>>
+> = {
   dept: [
     createMockField({
       id: 1,
@@ -627,6 +626,9 @@ export type MockDictPayload = {
   remark?: string;
 };
 
+type MockDictRow = (typeof mockDictRows)[number];
+type MockDictDataRow = (typeof mockDictDataRows)[number];
+
 // 保存字典及字典值示例数据
 export async function saveMockDictBundle(payload: {
   previousDictType?: string;
@@ -644,22 +646,29 @@ export async function saveMockDictBundle(payload: {
   if (isCreate) {
     const nextId =
       Math.max(0, ...mockDictRows.map((item) => Number(item.dictId ?? 0))) + 1;
-    mockDictRows.unshift({
-      ...payload.dict,
+    const nextDictRow: MockDictRow = {
       dictId: nextId,
+      dictName: String(payload.dict.dictName ?? ''),
+      dictType: nextDictType,
+      remark: String(payload.dict.remark ?? ''),
       status: String(payload.dict.status ?? '0'),
       dictClass: String(payload.dict.dictClass ?? 'system'),
       createdTime: nowTs().slice(0, 19).replace('T', ' '),
-    });
+    };
+    mockDictRows.unshift(nextDictRow);
   } else {
     const targetIndex = mockDictRows.findIndex(
       (item) => String(item.dictId) === String(payload.dict.dictId)
     );
 
     if (targetIndex >= 0) {
+      const currentRow = mockDictRows[targetIndex];
       mockDictRows[targetIndex] = {
         ...mockDictRows[targetIndex],
-        ...payload.dict,
+        dictId: Number(payload.dict.dictId ?? currentRow.dictId),
+        dictName: String(payload.dict.dictName ?? currentRow.dictName),
+        dictType: nextDictType,
+        remark: String(payload.dict.remark ?? currentRow.remark ?? ''),
         status: String(payload.dict.status ?? '0'),
         dictClass: String(payload.dict.dictClass ?? 'system'),
       };
@@ -682,7 +691,7 @@ export async function saveMockDictBundle(payload: {
   );
 
   let dictCodeSeed = maxDictCode;
-  const nextItems = payload.items.map((item, index) => {
+  const nextItems: MockDictDataRow[] = payload.items.map((item, index) => {
     const rawCode = item.dictCode;
     const normalizedCode =
       rawCode == null || rawCode === ''
@@ -690,12 +699,13 @@ export async function saveMockDictBundle(payload: {
             dictCodeSeed += 1;
             return dictCodeSeed;
           })()
-        : rawCode;
+        : Number(rawCode);
 
     return {
-      ...item,
       dictCode: normalizedCode,
       dictSort: Number(item.dictSort ?? index + 1),
+      dictLabel: String(item.dictLabel ?? ''),
+      dictValue: String(item.dictValue ?? ''),
       dictType: nextDictType,
       color: String(item.color ?? '#b7ebc2'),
       status: String(item.status ?? '0'),

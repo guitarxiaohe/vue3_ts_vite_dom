@@ -16,4 +16,3 @@ export type {
   ImportDialogSubmitResult,
   ImportDialogTargetField,
 } from './index.type';
-
