@@ -2,4 +2,4 @@
 
 pnpm pre-commit:check
 
-pnpm prettier --write .
+pnpm format
