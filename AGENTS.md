@@ -2,7 +2,7 @@
 
 本 Agent 是 Vue3 前端中台项目的核心智能体。负责生成、维护和优化前端代码，确保系统架构统一、可扩展、易维护。
 
-**补充规范（注释与分块）**：新增或修改仓库代码时，须同时遵循项目内 [`.skill/SKILL.md`](.skill/SKILL.md)（`comment-rules`）中的约定。
+> 📖 **重要：** 每次任务前请先阅读以下技能文件——[`.skills/entity-framework/SKILL.md`](.skills/entity-framework/SKILL.md) 提供实体模块注册与配置化开发指南，[`.skills/SKILL.md`](.skills/SKILL.md) 提供代码注释规范，[`.skills/I18N/SKILL.md`](.skills/I18N/SKILL.md) 提供国际化规范，[`.skills/UI/SKILL.md`](.skills/UI/SKILL.md) 提供 UI 开发规范。
 
 ---
 

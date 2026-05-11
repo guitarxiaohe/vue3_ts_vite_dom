@@ -9,7 +9,12 @@ import type {
   EntityFormEmits,
   EntityFormProps,
 } from '@/features/entities/_shared/types';
-import { createUser, type CreateUserPayload } from './service';
+import {
+  createUser,
+  editUser,
+  type CreateUserPayload,
+  type EditUserPayload,
+} from './service';
 
 /******************************** 类型定义 ********************************/
 
@@ -43,30 +48,52 @@ async function handleSave(data: Record<string, unknown>) {
   submitLoading.value = true;
 
   try {
-    if (props.isCreate) {
-      const payload: CreateUserPayload = {
-        deptId: data.deptId as number | string,
-        userName: String(data.userName ?? '').trim(),
-        nickName: String(data.nickName ?? '').trim(),
-        email: String(data.email ?? '').trim() || undefined,
-        phonenumber: String(data.phonenumber ?? '').trim() || undefined,
-        sex: String(data.sex ?? '').trim() || undefined,
-        avatar: String(data.avatar ?? '').trim() || undefined,
-      };
-      await createUser(payload);
-      emit('save');
-      emit('update:visible', false);
-    }
+    const payload: CreateUserPayload = {
+      deptId: data.deptId as number | string,
+      userName: String(data.userName ?? '').trim(),
+      nickName: String(data.nickName ?? '').trim(),
+      email: String(data.email ?? '').trim() || undefined,
+      phonenumber: String(data.phonenumber ?? '').trim() || undefined,
+      sex: String(data.sex ?? '').trim() || undefined,
+      avatar: String(data.avatar ?? '').trim() || undefined,
+    };
+    await createUser(payload);
+    emit('save');
+    emit('update:visible', false);
   } finally {
     submitLoading.value = false;
   }
 }
+
+const handEdit = async (data: Record<string, unknown>) => {
+  try {
+    const payload: EditUserPayload = {
+      userId: String(data.userId),
+      deptId: data.deptId as number | string,
+      userName: String(data.userName ?? '').trim(),
+      nickName: String(data.nickName ?? '').trim(),
+      email: String(data.email ?? '').trim() || undefined,
+      phonenumber: String(data.phonenumber ?? '').trim() || undefined,
+      sex: String(data.sex ?? '').trim() || undefined,
+      avatar: String(data.avatar ?? '').trim() || undefined,
+    };
+    await editUser(payload);
+    emit('save');
+    emit('update:visible', false);
+  } finally {
+    submitLoading.value = false;
+  }
+};
 
 // 关闭抽屉
 function onCancel() {
   emit('update:visible', false);
   emit('cancel');
 }
+
+const save = (data: Record<string, unknown>) => {
+  props.isCreate ? handleSave(data) : handEdit(data);
+};
 </script>
 
 <template>
@@ -82,7 +109,7 @@ function onCancel() {
     :saving="submitLoading"
     :title="drawerTitle"
     :child-tables="formChildren"
-    @save="handleSave"
+    @save="save"
     @cancel="onCancel"
     @update:visible="emit('update:visible', $event)"
   />

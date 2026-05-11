@@ -13,7 +13,22 @@ export interface CreateUserPayload {
   avatar?: string;
 }
 
+export interface EditUserPayload {
+  userId: string;
+  deptId: number | string;
+  userName: string;
+  nickName: string;
+  email?: string;
+  phonenumber?: string;
+  sex?: string;
+  avatar?: string;
+}
+
 // 新增用户（POST /system/user）
 export function createUser(payload: CreateUserPayload) {
   return httpClient.post('/system/user', payload);
+}
+
+export function editUser(payload: EditUserPayload) {
+  return httpClient.put('/system/user', payload);
 }

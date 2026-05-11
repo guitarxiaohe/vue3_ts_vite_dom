@@ -187,7 +187,7 @@ export const useMultipleFileUpload = (
     } catch (error) {
       const err = error as Error;
       item.status = 'error';
-      item.error = err.message || t('upload.uploadRetryFailed');
+      item.error = err.message || t('fileUpload.uploadRetryFailed');
       throw err;
     }
   };
@@ -217,11 +217,11 @@ export const useMultipleFileUpload = (
       options.onUpdate(currentList);
       options.onUploadSuccess?.(attachmentData);
 
-      ElMessage.success(t('upload.uploadSuccess'));
+      ElMessage.success(t('fileUpload.uploadSuccess'));
     } catch (error) {
       const err = error as Error;
       options.onUploadError?.(err, file);
-      ElMessage.error(err.message || t('upload.uploadRetryFailed'));
+      ElMessage.error(err.message || t('fileUpload.uploadRetryFailed'));
     } finally {
       // 延迟清理上传项，以便显示最终状态
       setTimeout(() => {

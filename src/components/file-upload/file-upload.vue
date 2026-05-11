@@ -13,7 +13,7 @@
  * - 支持选中状态
  * - 多文件模式下支持并发上传
  */
-import { computed, toRefs } from 'vue';
+import { computed, ref, toRefs } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Upload } from '@element-plus/icons-vue';
 import type {
@@ -24,6 +24,7 @@ import type {
 import { useFileUpload } from './composables/use-file-upload';
 import { useMultipleFileUpload } from './composables/use-multiple-file-upload';
 import FileStatus from './components/file-status.vue';
+import { useImageUrl } from '@/composables/use-image-url';
 
 const props = withDefaults(defineProps<FileUploadProps>(), {
   modelValue: '',
@@ -44,6 +45,7 @@ const props = withDefaults(defineProps<FileUploadProps>(), {
 
 const emit = defineEmits<FileUploadEmits>();
 const { t } = useI18n();
+const { resolveImageUrl } = useImageUrl();
 
 // 将 props 转换为 refs
 const { maxSize, accept, fileName, errorMessage, maxCount } = toRefs(props);
@@ -140,6 +142,11 @@ const currentUpload = computed(() =>
   isMultiple.value ? multipleFileUpload : singleFileUpload
 );
 
+// 视频预览状态
+const videoPreviewVisible = ref<boolean>(false);
+const videoPreviewUrl = ref<string>('');
+const videoPreviewName = ref<string>('');
+
 // 状态使用计算属性（模板中需要响应式）
 const loading = computed(() => currentUpload.value.loading.value);
 const isEmpty = computed(() => currentUpload.value.isEmpty.value);
@@ -203,8 +210,59 @@ const getMultiFileStatus = (
   return 'success';
 };
 
+/******************************** 预览处理 ********************************/
+
+// 获取当前要预览的文件
+const getPreviewTargetFile = (
+  file?: AttachmentData
+): AttachmentData | undefined => {
+  if (file) return file;
+  return singleFileUpload.fileData.value || undefined;
+};
+
+// 获取附件预览地址
+const getPreviewFileUrl = (file: AttachmentData): string => {
+  return resolveImageUrl(
+    file.url || file.fileUrl || file.name || file.fileOriginName || ''
+  );
+};
+
+// 判断是否为可播放的视频文件
+const isPlayableVideoFile = (file: AttachmentData): boolean => {
+  const fileType = (file.type || file.fileSuffix || '').toLowerCase();
+  const fileText = (
+    file.name ||
+    file.fileOriginName ||
+    file.url ||
+    file.fileUrl ||
+    ''
+  ).toLowerCase();
+
+  if (fileType.startsWith('video/')) return true;
+
+  return /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(fileText);
+};
+
+// 关闭视频预览
+const handleVideoPreviewClosed = () => {
+  videoPreviewVisible.value = false;
+  videoPreviewUrl.value = '';
+  videoPreviewName.value = '';
+};
+
 // 统一的操作方法
 const handleFilePreview = (file?: AttachmentData) => {
+  const targetFile = getPreviewTargetFile(file);
+
+  if (targetFile && isPlayableVideoFile(targetFile)) {
+    videoPreviewUrl.value = getPreviewFileUrl(targetFile);
+    videoPreviewName.value =
+      targetFile.name || targetFile.fileOriginName || '';
+    videoPreviewVisible.value = Boolean(videoPreviewUrl.value);
+    emit('preview', targetFile);
+    return;
+  }
+
   if (isMultiple.value && file) {
     multipleFileUpload.handlePreview(file);
   } else {
@@ -318,6 +376,29 @@ const handleFileRemove = (file?: AttachmentData) => {
         />
       </div>
     </div>
+
+    <!-------------------------- 视频预览 -------------------------->
+    <el-dialog
+      v-model="videoPreviewVisible"
+      :title="videoPreviewName || t('fileUpload.videoPreviewTitle')"
+      width="720px"
+      destroy-on-close
+      append-to-body
+      @closed="handleVideoPreviewClosed"
+    >
+      <div class="file-upload__video-preview">
+        <video
+          v-if="videoPreviewUrl"
+          class="file-upload__video-player"
+          :src="videoPreviewUrl"
+          controls
+          autoplay
+          playsinline
+        >
+          {{ t('fileUpload.videoPreviewUnsupported') }}
+        </video>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -623,6 +704,19 @@ const handleFileRemove = (file?: AttachmentData) => {
       color: #f56c6c;
       white-space: nowrap;
     }
+  }
+
+  .file-upload__video-preview {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .file-upload__video-player {
+    width: 100%;
+    max-height: 70vh;
+    border-radius: 8px;
+    background-color: #000;
   }
 
   // 禁用状态

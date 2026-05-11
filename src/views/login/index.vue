@@ -576,17 +576,20 @@ watch(
   }
 );
 const userStore = useUserStore();
+console.log(
+  'userStore.loginAction(formData.value) ==>',
+  userStore.loginAction(formData.value)
+);
 // 表单提交
 const handleSubmit = async () => {
   error.value = '';
   isLoading.value = true;
   try {
-    await userStore.logout();
-
+    userStore.logout();
     await userStore.loginAction(formData.value);
     router.push('/components');
   } catch (error: any) {
-    error.value = error.message || t('user.loginFailed');
+    // error.value = error.message || t('user.loginFailed');
   } finally {
     isLoading.value = false;
   }

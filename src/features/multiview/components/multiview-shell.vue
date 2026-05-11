@@ -30,7 +30,7 @@
         </el-button>
         <el-button
           v-if="resolvedActions.showExport"
-          @click="emit('export', { entityKey, params: requestParams })"
+          @click="handleExport"
         >
           {{ t('common.export') }}
         </el-button>

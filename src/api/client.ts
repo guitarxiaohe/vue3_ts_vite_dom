@@ -61,10 +61,11 @@ class HttpClient {
         console.error(`[Error] ${error.config?.url}`, error);
 
         // 统一错误处理
-        if (error.response?.code === 401) {
-          // 未授权，跳转登录
-          window.location.href = '/login';
-        }
+        // if (error.response?.code === 401) {
+        //   // 未授权，跳转登录
+        //   window.location.href = '/login';
+        // }
+        console.log('error ==>', error);
 
         return Promise.reject(error);
       }

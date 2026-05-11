@@ -66,20 +66,7 @@ const entityModule = createEntityModule({
     actions: {
       showExport: true,
     },
-    filters: [
-      {
-        key: 'user-select-replacer',
-        fieldTypes: ['select'],
-        fieldKeys: ['userId', 'deptId'],
-        component: 'async-select',
-        mapField: ({ field, t }) => ({
-          placeholder: t('common.pleaseSelect'),
-          entityConfig: {
-            entityKey: String(field.selectEntityKey ?? '').trim(),
-          },
-        }),
-      },
-    ],
+
     table: {
       rowKey: 'orderId',
       height: 560,

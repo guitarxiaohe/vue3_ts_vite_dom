@@ -98,7 +98,7 @@ async function fetchSystemUserList(query: TableListQuery) {
   <div class="demo-page">
     <h2 class="demo-title">{{ t('demo.title') }}</h2>
     <section>
-      <FileUpload />
+      <FileUpload :maxSize="1000" />
     </section>
     <!-- ════════════ UserAvatarInfo ════════════ -->
     <section class="demo-section">

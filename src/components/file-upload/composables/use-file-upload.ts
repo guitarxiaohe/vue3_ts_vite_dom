@@ -292,10 +292,10 @@ export const useFileUpload = (options: UseFileUploadOptions) => {
       options.onUpdate(attachmentData);
       options.onUploadSuccess?.(attachmentData);
 
-      ElMessage.success(t('upload.uploadSuccess'));
+      ElMessage.success(t('fileUpload.uploadSuccess'));
     } catch (error) {
       const err = error as Error;
-      uploadError.value = err.message || t('upload.uploadRetryFailed');
+      uploadError.value = err.message || t('fileUpload.uploadRetryFailed');
       options.onUploadError?.(err);
       ElMessage.error(uploadError.value);
     } finally {
