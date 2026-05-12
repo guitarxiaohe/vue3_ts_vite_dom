@@ -195,16 +195,13 @@ export function useTableSelection(
     })
   );
 
-  // 行 hover 与点击行触发选择
+  // 行 hover 效果（仅通过复选框/单选框选择）
   const rowEventHandlers = {
     onMouseenter: ({ rowIndex }: { rowIndex: number }) => {
       hoveredIndex.value = rowIndex;
     },
     onMouseleave: () => {
       hoveredIndex.value = -1;
-    },
-    onClick: ({ rowData }: { rowData: Record<string, any> }) => {
-      toggleRow(rowData);
     },
   };
 
