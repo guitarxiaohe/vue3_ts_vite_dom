@@ -65,11 +65,18 @@ const drawerTitle = computed(() =>
 );
 
 const colorOptions = computed<DictColorOption[]>(() => [
-  { label: t('dictPage.colorGreen'), value: '#b7ebc2' },
-  { label: t('dictPage.colorRed'), value: '#ffccc7' },
-  { label: t('dictPage.colorOrange'), value: '#ffe58f' },
-  { label: t('dictPage.colorBlue'), value: '#91d5ff' },
-  { label: t('dictPage.colorPurple'), value: '#d3adf7' },
+  // 标准色（与 sys_dict_data 中常用颜色一致）
+  { label: `● ${t('dictPage.colorBlue')}`, value: '#409eff' },
+  { label: `● ${t('dictPage.colorRed')}`, value: '#f56c6c' },
+  { label: `● ${t('dictPage.colorGreen')}`, value: '#67c23a' },
+  { label: `● ${t('dictPage.colorOrange')}`, value: '#e6a23c' },
+  { label: `● ${t('dictPage.colorGray')}`, value: '#909399' },
+  // 柔和色
+  { label: `◉ ${t('dictPage.colorGreen')}`, value: '#b7ebc2' },
+  { label: `◉ ${t('dictPage.colorRed')}`, value: '#ffccc7' },
+  { label: `◉ ${t('dictPage.colorOrange')}`, value: '#ffe58f' },
+  { label: `◉ ${t('dictPage.colorBlue')}`, value: '#91d5ff' },
+  { label: `◉ ${t('dictPage.colorPurple')}`, value: '#d3adf7' },
 ]);
 
 const formFields = computed<DetailField[]>(() => [

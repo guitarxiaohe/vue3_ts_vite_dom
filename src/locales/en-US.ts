@@ -404,6 +404,7 @@ export default {
     colorOrange: 'Orange',
     colorBlue: 'Blue',
     colorPurple: 'Purple',
+    colorGray: 'Gray',
   },
   fileInfo: {
     typeImage: 'Image',

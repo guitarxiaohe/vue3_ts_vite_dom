@@ -389,6 +389,7 @@ export default {
     colorOrange: '橙色',
     colorBlue: '藍色',
     colorPurple: '紫色',
+    colorGray: '灰色',
   },
   fileInfo: {
     typeImage: '圖片',
