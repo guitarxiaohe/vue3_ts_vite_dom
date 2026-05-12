@@ -91,7 +91,16 @@ function normalizeMenuIndex(routeItem: SysRouter): string {
     return `menu-${routeItem.menuId ?? routeItem.name ?? Date.now()}`;
   }
 
-  if (normalizedPath.startsWith('multiview/')) {
+  // 独立页面路径（不以 /multiview/ 包装）
+  if (
+    normalizedPath.startsWith('multiview/') ||
+    normalizedPath.startsWith('monitor/') ||
+    normalizedPath.startsWith('tool/') ||
+    normalizedPath.startsWith('entity/') ||
+    normalizedPath.startsWith('fileInfo/') ||
+    normalizedPath.startsWith('components/') ||
+    normalizedPath.startsWith('three/')
+  ) {
     return `/${normalizedPath}`;
   }
 

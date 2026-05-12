@@ -1,5 +1,6 @@
 import type { DetailField } from '@/features/form-shell/types/detail';
 import type { EntityFormField } from './types';
+import { createDictDataFetcher } from '@/utils/dict-fetcher';
 
 /******************************** 字段适配 ********************************/
 
@@ -40,35 +41,50 @@ export function mapEntityFormFields(fields: EntityFormField[]): DetailField[] {
       field.apiOptions
     ) {
       nextField.type = 'async-select';
-      nextField.asyncSelectConfig = {
-        fetcher: field.apiOptions.fetcher
-          ? async (params) => {
-              const result = await field.apiOptions!.fetcher!({
-                pageNum: params.page,
-                pageSize: params.pageSize,
-                keyword: params.keyword,
-                ...(field.apiOptions?.dataParams ?? {}),
-              });
 
-              return {
-                items: result.rows ?? [],
-                total: Number(result.total) || 0,
-              };
-            }
-          : undefined,
-        entityConfig: field.apiOptions.entityKey
-          ? {
-              entityKey: field.apiOptions.entityKey,
-              columns: field.apiOptions.columns,
-              queryKey: field.apiOptions.queryKey,
-              dataParams: field.apiOptions.dataParams,
-            }
-          : undefined,
-        columns: field.apiOptions.columns,
-        valueKey: field.apiOptions.valueKey,
-        labelKey: field.apiOptions.labelKey,
-        dragKey: field.apiOptions.dragKey,
-      };
+      // 字典数据源：使用 dictCode 创建 fetcher
+      const dictCode = field.apiOptions.dictCode?.trim();
+      if (dictCode) {
+        nextField.asyncSelectConfig = {
+          entityConfig: {
+            entityKey: `__dict__:${dictCode}`,
+            fetcher: createDictDataFetcher(dictCode),
+          },
+          valueKey: field.apiOptions.valueKey ?? 'dictValue',
+          labelKey: field.apiOptions.labelKey ?? 'dictLabel',
+          dragKey: field.apiOptions.dragKey,
+        };
+      } else {
+        nextField.asyncSelectConfig = {
+          fetcher: field.apiOptions.fetcher
+            ? async (params) => {
+                const result = await field.apiOptions!.fetcher!({
+                  pageNum: params.page,
+                  pageSize: params.pageSize,
+                  keyword: params.keyword,
+                  ...(field.apiOptions?.dataParams ?? {}),
+                });
+
+                return {
+                  items: result.rows ?? [],
+                  total: Number(result.total) || 0,
+                };
+              }
+            : undefined,
+          entityConfig: field.apiOptions.entityKey
+            ? {
+                entityKey: field.apiOptions.entityKey,
+                columns: field.apiOptions.columns,
+                queryKey: field.apiOptions.queryKey,
+                dataParams: field.apiOptions.dataParams,
+              }
+            : undefined,
+          columns: field.apiOptions.columns,
+          valueKey: field.apiOptions.valueKey,
+          labelKey: field.apiOptions.labelKey,
+          dragKey: field.apiOptions.dragKey,
+        };
+      }
     }
 
     if (

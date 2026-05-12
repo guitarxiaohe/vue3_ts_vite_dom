@@ -4,6 +4,7 @@ import {
   type EntityFilterFieldConfig,
 } from '@/types/entity-config';
 import type { FieldConfig } from '@/types/user';
+import { createDictDataFetcher } from '@/utils/dict-fetcher';
 
 /******************************** 工具方法 ********************************/
 
@@ -58,6 +59,7 @@ function buildBaseBackendFilterField(
 // 默认组件替换规则
 export function createDefaultFilterComponentRegistrations(): EntityFilterComponentRegistration[] {
   return [
+    // select/dict 有 selectEntityKey → async-select（走实体 API）
     {
       key: 'select-entity-async-select',
       component: 'async-select',
@@ -70,6 +72,31 @@ export function createDefaultFilterComponentRegistrations(): EntityFilterCompone
           entityKey: String(field.selectEntityKey ?? '').trim(),
         },
       }),
+    },
+    // dict 有 dictCode 但无 selectEntityKey → async-select（走字典缓存数据）
+    {
+      key: 'dict-code-async-select',
+      component: 'async-select',
+      fieldTypes: ['dict'],
+      matcher: ({ field }) => {
+        const hasSelectEntityKey = Boolean(
+          String(field.selectEntityKey ?? '').trim()
+        );
+        const hasDictCode = Boolean(String(field.dictCode ?? '').trim());
+        return !hasSelectEntityKey && hasDictCode;
+      },
+      mapField: ({ field, t }) => {
+        const dictCode = String(field.dictCode ?? '').trim();
+        return {
+          placeholder: t('common.pleaseSelect'),
+          entityConfig: {
+            entityKey: `__dict__:${dictCode}`,
+            fetcher: createDictDataFetcher(dictCode),
+          },
+          valueKey: 'dictValue',
+          labelKey: 'dictLabel',
+        };
+      },
     },
   ];
 }

@@ -5,11 +5,15 @@ import type { Component } from 'vue';
 export type BuiltinRowActionKey = 'view' | 'edit' | 'copy' | 'delete';
 
 export interface RowActionRuntimeActions {
-  view: (row?: Record<string, any>) => void;
-  edit: (row?: Record<string, any>) => void;
-  copy: (row?: Record<string, any>) => void;
-  delete: (row?: Record<string, any>) => Promise<void> | void;
+  view?: (row?: Record<string, any>) => void;
+  edit?: (row?: Record<string, any>) => void;
+  copy?: (row?: Record<string, any>) => void;
+  delete?: (row?: Record<string, any>) => Promise<void> | void;
   refresh: () => void;
+  [key: string]:
+    | ((row?: Record<string, any>) => void | Promise<void>)
+    | (() => void)
+    | undefined;
 }
 
 // 行内操作按钮组件配置
@@ -32,7 +36,7 @@ export interface RowActionRenderConfig {
   key: string;
   label?: string;
   component?: Component;
-  actionKey?: BuiltinRowActionKey;
+  actionKey?: BuiltinRowActionKey | string;
   order?: number;
   danger?: boolean;
 }

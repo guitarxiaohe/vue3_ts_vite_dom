@@ -15,14 +15,14 @@ metadata:
 
 ## 技术栈
 
-| 类别 | 方案 |
-| --- | --- |
-| 组件库 | Element Plus（`el-*`） |
-| 图标 | `lucide-vue-next`（首选）、`@element-plus/icons-vue`（Element Plus 内置场景） |
-| 样式 | SCSS + Tailwind CSS v4 |
-| 主题 | CSS 变量（`src/styles/variables.scss`），支持 `light` / `dark` |
+| 类别   | 方案                                                                                      |
+| ------ | ----------------------------------------------------------------------------------------- |
+| 组件库 | Element Plus（`el-*`）                                                                    |
+| 图标   | `lucide-vue-next`（首选）、`@element-plus/icons-vue`（Element Plus 内置场景）             |
+| 样式   | SCSS + Tailwind CSS v4                                                                    |
+| 主题   | CSS 变量（`src/styles/variables.scss`），支持 `light` / `dark`                            |
 | 响应式 | Tailwind 断点：`mobile`（<768px）、`tablet`（≥768px）、`pc`（≥1024px）、`wide`（≥1920px） |
-| 国际化 | `vue-i18n`，所有可见文本用 `t()` / `$t()` |
+| 国际化 | `vue-i18n`，所有可见文本用 `t()` / `$t()`                                                 |
 
 ## 组件文件结构
 

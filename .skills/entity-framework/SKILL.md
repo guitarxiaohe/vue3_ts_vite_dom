@@ -38,17 +38,17 @@ metadata:
 
 ### TableEntity 包装了哪些配置
 
-| 配置项 | 说明 | 来源 |
-|--------|------|------|
-| 表格列 | 字段名/类型/宽度的列定义 | `field_config` 自动转 `ColumnsItem[]` |
-| 筛选条件 | 根据 field_type 推断渲染 input/select/date/dict 等 | `resolveBackendFilterFields()` |
-| 翻页 | pageNum/pageSize 自动管理和同步 | `TableEntity` 内置 |
-| 排序 | 时间字段默认可排序、列拖拽排序持久化 | 后端 `fieldConfig/sort` |
-| 列显隐 | 工具栏控制列显隐 + 设置持久化 | `TableEntity` 内置 |
-| 数据接口 | 统一走 `getListByEntityKeyApi` | `MultiviewShell` 的 `fetchTableData` |
-| 操作人填充 | 通过 `field_role` 识别 createUser/updateUser | 后端 `enrichDynamicRows` |
-| 文件信息 | 自动关联 SysFileInfo 填充 `{fieldKey}Info` | 后端 `attachFileInfos` |
-| 行操作 | 查看/编辑/复制/删除 + 自定义按钮 | `EntityModule.rowActions` |
+| 配置项     | 说明                                               | 来源                                  |
+| ---------- | -------------------------------------------------- | ------------------------------------- |
+| 表格列     | 字段名/类型/宽度的列定义                           | `field_config` 自动转 `ColumnsItem[]` |
+| 筛选条件   | 根据 field_type 推断渲染 input/select/date/dict 等 | `resolveBackendFilterFields()`        |
+| 翻页       | pageNum/pageSize 自动管理和同步                    | `TableEntity` 内置                    |
+| 排序       | 时间字段默认可排序、列拖拽排序持久化               | 后端 `fieldConfig/sort`               |
+| 列显隐     | 工具栏控制列显隐 + 设置持久化                      | `TableEntity` 内置                    |
+| 数据接口   | 统一走 `getListByEntityKeyApi`                     | `MultiviewShell` 的 `fetchTableData`  |
+| 操作人填充 | 通过 `field_role` 识别 createUser/updateUser       | 后端 `enrichDynamicRows`              |
+| 文件信息   | 自动关联 SysFileInfo 填充 `{fieldKey}Info`         | 后端 `attachFileInfos`                |
+| 行操作     | 查看/编辑/复制/删除 + 自定义按钮                   | `EntityModule.rowActions`             |
 
 **这就是你所说的本质上这个框架后端就是做了一层数据字段描述（field_config），前端做了一层消费渲染（MultiviewShell + TableEntity），两端通过一套通用接口把所有实体的列表页统一掉。新增实体根本不用写前端 CRUD 代码。**
 
@@ -142,7 +142,9 @@ const entityModule: EntityModule = {
         key: 'resetPassword',
         label: '重置密码',
         order: 40,
-        component: defineAsyncComponent(() => import('./row-actions/reset-button.vue')),
+        component: defineAsyncComponent(
+          () => import('./row-actions/reset-button.vue')
+        ),
       },
     ],
   },
@@ -153,18 +155,28 @@ const entityModule: EntityModule = {
     filters: {
       fields: {
         userName: {
-          key: 'userName', label: '用户名', component: 'input',
-          placeholder: '请输入用户名', order: 1,
+          key: 'userName',
+          label: '用户名',
+          component: 'input',
+          placeholder: '请输入用户名',
+          order: 1,
         },
         status: {
-          key: 'status', label: '状态', component: 'select',
-          options: [{ label: '启用', value: '0' }, { label: '停用', value: '1' }],
+          key: 'status',
+          label: '状态',
+          component: 'select',
+          options: [
+            { label: '启用', value: '0' },
+            { label: '停用', value: '1' },
+          ],
           order: 2,
         },
       },
     },
     table: {
-      rowKey: 'userId', height: 520, pageSize: 20,
+      rowKey: 'userId',
+      height: 520,
+      pageSize: 20,
       defaultSort: { field: 'userId', order: 'asc' },
       showColumnSettings: true,
     },
@@ -185,18 +197,19 @@ export default entityModule;
 
 封装了 `ElTableV2`（虚拟表格），核心能力：
 
-| 功能 | 说明 |
-|------|------|
-| **数据源** | 支持 `:data`（静态数组）或 `:data`（异步函数） |
-| **异步数据** | `:data="fetchFn"` 自动处理分页参数 |
-| **列自动适配** | `autoFitBusinessColumns` 根据内容动态计算列宽 |
-| **列设置** | 工具栏可显隐/排序/拖拽列 |
-| **选择态** | 支持单选/多选，`v-model:selected-keys` 双向绑定 |
-| **行操作** | `row-action-column` 注入操作列 |
-| **分页** | `show-pagination` 控制显隐 |
-| **详情抽屉** | `openDetail(row)` 打开行详情 |
+| 功能           | 说明                                            |
+| -------------- | ----------------------------------------------- |
+| **数据源**     | 支持 `:data`（静态数组）或 `:data`（异步函数）  |
+| **异步数据**   | `:data="fetchFn"` 自动处理分页参数              |
+| **列自动适配** | `autoFitBusinessColumns` 根据内容动态计算列宽   |
+| **列设置**     | 工具栏可显隐/排序/拖拽列                        |
+| **选择态**     | 支持单选/多选，`v-model:selected-keys` 双向绑定 |
+| **行操作**     | `row-action-column` 注入操作列                  |
+| **分页**       | `show-pagination` 控制显隐                      |
+| **详情抽屉**   | `openDetail(row)` 打开行详情                    |
 
 **Props：**
+
 ```
 data          — 静态数组 或 异步函数 (query: TableListQuery) => { total, rows }
 dataParams    — 固定查询参数（筛选条件之外）
@@ -219,15 +232,16 @@ detailChildren — 详情子表配置
 
 筛选字段由 `EntityConfig.filters.fields` 配置驱动，支持以下类型：
 
-| component | 渲染组件 | 说明 |
-|-----------|----------|------|
-| `input` | el-input | 文本输入 |
-| `select` | el-select | 下拉选择（静态 options） |
-| `async-select` | AsyncSelect | 异步数据源下拉 |
-| `date-range` | el-date-picker | 日期范围 |
-| `datetime-range` | el-date-picker type=datetimerange | 日期时间范围 |
+| component        | 渲染组件                          | 说明                     |
+| ---------------- | --------------------------------- | ------------------------ |
+| `input`          | el-input                          | 文本输入                 |
+| `select`         | el-select                         | 下拉选择（静态 options） |
+| `async-select`   | AsyncSelect                       | 异步数据源下拉           |
+| `date-range`     | el-date-picker                    | 日期范围                 |
+| `datetime-range` | el-date-picker type=datetimerange | 日期时间范围             |
 
 **筛选字段配置：**
+
 ```typescript
 filters: {
   fields: {
@@ -254,13 +268,14 @@ filters: {
 
 ## 6. Store（Pinia）规范
 
-| Store | 文件 | 用途 |
-|-------|------|------|
-| system | `stores/modules/system.ts` | 主题/语言/界面模式/面包屑 |
-| user | `stores/modules/user.ts` | 用户登录态/Token/权限 |
-| app | `stores/modules/app.ts` | 应用全局状态（sidebar/菜单展开等） |
+| Store  | 文件                       | 用途                               |
+| ------ | -------------------------- | ---------------------------------- |
+| system | `stores/modules/system.ts` | 主题/语言/界面模式/面包屑          |
+| user   | `stores/modules/user.ts`   | 用户登录态/Token/权限              |
+| app    | `stores/modules/app.ts`    | 应用全局状态（sidebar/菜单展开等） |
 
 新增 store 的规则：
+
 - 统一使用 `defineStore` + Composition API 风格
 - 持久化用 `useStorage`（VueUse）
 - 不要直接在组件内通过 `localStorage` 读写
@@ -279,13 +294,20 @@ export function listUser(query: Record<string, any>) {
 }
 
 // 动态实体列表
-export function getListByEntityKeyApi(entityKey: string, params: Record<string, any>) {
-  return client.get(`/system/fieldConfig/listByEntityKey/${entityKey}`, { params });
+export function getListByEntityKeyApi(
+  entityKey: string,
+  params: Record<string, any>
+) {
+  return client.get(`/system/fieldConfig/listByEntityKey/${entityKey}`, {
+    params,
+  });
 }
 
 // 动态实体字段配置
 export function getByEntityKeyAndFieldKeyApi(entityKey: string) {
-  return client.get(`/system/fieldConfig/getByEntityKeyAndFieldKey/${entityKey}`);
+  return client.get(
+    `/system/fieldConfig/getByEntityKeyAndFieldKey/${entityKey}`
+  );
 }
 ```
 
@@ -296,6 +318,7 @@ export function getByEntityKeyAndFieldKeyApi(entityKey: string) {
 `form-drawer.vue` 是统一的表单抽屉组件，被 `multiview-page.vue` 调用。
 
 支持的模式：
+
 - **自动渲染表单：** 无自定义 slot 时，由 `FormDrawerForm` 根据 `fields` 配置自动渲染
 - **自定义表单：** 通过 `slot name="content"` 完全自定义内容
 - **子表：** 通过 `childTables` 配置在表单底部渲染关联子表
@@ -327,6 +350,7 @@ rowActions: {
 ## 10. 国际化（i18n）
 
 所有用户可见的文字必须支持 i18n：
+
 ```typescript
 import { useI18n } from 'vue-i18n';
 const { t } = useI18n();

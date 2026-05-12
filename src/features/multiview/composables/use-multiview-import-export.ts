@@ -42,7 +42,7 @@ interface GetColumnsRef {
 export function useMultiviewImportExport(
   entityKey: Ref<string>,
   tableRef: Ref<GetColumnsRef | undefined>,
-  tableConfig: Ref<EntityTableConfig>,
+  tableConfig: Ref<EntityTableConfig>
 ) {
   const { t } = useI18n();
   const importDialogVisible = ref(false);
@@ -75,7 +75,7 @@ export function useMultiviewImportExport(
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        },
+        }
       );
 
       if (!response.ok) {
@@ -122,7 +122,7 @@ export function useMultiviewImportExport(
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        },
+        }
       );
 
       if (!response.ok) {
@@ -171,7 +171,7 @@ export function useMultiviewImportExport(
    * 对 CSV 做轻量前端解析，Excel 等复杂格式可替换为后端解析接口。
    */
   async function parseImportFile(
-    payload: ImportDialogParsePayload,
+    payload: ImportDialogParsePayload
   ): Promise<ImportDialogParseResult> {
     const text = await readFileText(payload.file);
     const lines = text
@@ -179,7 +179,9 @@ export function useMultiviewImportExport(
       .map((line) => line.trim())
       .filter(Boolean);
     const headerCells = lines[0] ? splitCsvLine(lines[0]).filter(Boolean) : [];
-    const fallbackHeaders = importTargetFields.value.map((field) => field.label);
+    const fallbackHeaders = importTargetFields.value.map(
+      (field) => field.label
+    );
     const headers = headerCells.length ? headerCells : fallbackHeaders;
     const previewColumns = headers.map((label, index) => ({
       prop: `col_${index}`,
@@ -193,7 +195,7 @@ export function useMultiviewImportExport(
           row[column.prop] = cells[index] ?? '';
           return row;
         },
-        {},
+        {}
       );
     });
     const mappings = buildImportMappings(headers);
@@ -212,13 +214,11 @@ export function useMultiviewImportExport(
   /**
    * 根据导入表头匹配目标字段。
    */
-  function buildImportMappings(
-    headers: string[],
-  ): ImportDialogMappingItem[] {
+  function buildImportMappings(headers: string[]): ImportDialogMappingItem[] {
     return importTargetFields.value.map((field) => {
       const sourceColumn =
         headers.find(
-          (header) => header === field.label || header === field.field,
+          (header) => header === field.label || header === field.field
         ) ?? '';
 
       return {
@@ -237,7 +237,7 @@ export function useMultiviewImportExport(
    * 使用动态实体导入 API（multipart/form-data）。
    */
   async function submitImportData(
-    payload: ImportDialogSubmitPayload,
+    payload: ImportDialogSubmitPayload
   ): Promise<ImportDialogSubmitResult> {
     try {
       const formData = new FormData();
@@ -250,8 +250,8 @@ export function useMultiviewImportExport(
             targetField: m.targetField,
             sourceColumn: m.sourceColumn,
             duplicateCheck: m.duplicateCheck,
-          })),
-        ),
+          }))
+        )
       );
 
       // 构建子表配置
@@ -274,7 +274,7 @@ export function useMultiviewImportExport(
         onUploadProgress: (progressEvent) => {
           if (progressEvent.total) {
             const percent = Math.round(
-              (progressEvent.loaded * 50) / progressEvent.total,
+              (progressEvent.loaded * 50) / progressEvent.total
             );
             payload.onProgress?.(Math.min(percent, 50));
           }
@@ -374,9 +374,10 @@ export function useMultiviewImportExport(
       }));
   }
 
-  function normalizeRelationField(
-    relationField: any,
-  ): { parentKey: string; childKey: string } {
+  function normalizeRelationField(relationField: any): {
+    parentKey: string;
+    childKey: string;
+  } {
     if (!relationField) {
       return { parentKey: 'id', childKey: '' };
     }

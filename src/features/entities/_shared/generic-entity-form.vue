@@ -149,6 +149,7 @@ import {
 } from '@/features/entities/registry';
 import { getEntityTableConfig } from '@/utils/entity-config';
 import { snakeToCamel } from '@/utils/value';
+import { createDictDataFetcher } from '@/utils/dict-fetcher';
 import type { AsyncSelectEntityConfig } from '@/components/async-select';
 import type { ColumnsItem } from '@/components/table-entity/index.type';
 import type {
@@ -439,6 +440,22 @@ function buildStaticAsyncFetcher(options: Record<string, any>[]) {
   };
 }
 
+// 判断字段是否为字典类型（有 dictCode 但无 selectEntityKey）
+function isDictField(field: Record<string, any>) {
+  const hasSelectEntity = Boolean(
+    resolveFieldValue(field, 'selectEntityKey', 'select_entity_key')
+  );
+  const hasDictCode = Boolean(
+    resolveFieldValue(field, 'dictCode', 'dict_code')
+  );
+  return !hasSelectEntity && hasDictCode;
+}
+
+// 获取字典代码
+function resolveDictCode(field: Record<string, any>) {
+  return String(resolveFieldValue(field, 'dictCode', 'dict_code') ?? '').trim();
+}
+
 // 构建静态下拉列
 function buildStaticColumns(field: Record<string, any>) {
   const labelKey = String(field.labelKey ?? field.select?.labelKey ?? 'label');
@@ -477,21 +494,31 @@ function normalizeField(field: Record<string, any>): GenericEntityField | null {
 
   let component = resolveFieldComponent(field, key);
   const label = resolveFieldLabel(field, key);
+  const dictField = isDictField(field);
   const staticOptions = resolveStaticOptions(field);
   const entityConfig =
     component === 'async-select' ? buildAsyncSelectConfig(field) : undefined;
+  // 静态 options 的 fetcher（兜底），字典字段由 entityConfig.fetcher 提供
   const fetcher =
-    component === 'async-select' && staticOptions.length
+    component === 'async-select' && !dictField && staticOptions.length
       ? buildStaticAsyncFetcher(staticOptions)
       : undefined;
   const columns =
-    component === 'async-select' && staticOptions.length
+    component === 'async-select' && !dictField && staticOptions.length
       ? buildStaticColumns(field)
       : undefined;
 
   if (component === 'async-select' && !entityConfig?.entityKey && !fetcher) {
     component = 'input';
   }
+
+  // 字典字段使用 dictValue/dictLabel 作为值/标签键
+  const valueKey = dictField
+    ? 'dictValue'
+    : String(field.valueKey ?? field.select?.valueKey ?? 'value');
+  const labelKey = dictField
+    ? 'dictLabel'
+    : String(field.labelKey ?? field.select?.labelKey ?? 'label');
 
   return {
     key,
@@ -509,8 +536,8 @@ function normalizeField(field: Record<string, any>): GenericEntityField | null {
     multiple: resolveBoolean(
       field.multiple ?? field.isMultiple ?? field.select?.multiple
     ),
-    valueKey: String(field.valueKey ?? field.select?.valueKey ?? 'value'),
-    labelKey: String(field.labelKey ?? field.select?.labelKey ?? 'label'),
+    valueKey,
+    labelKey,
     dragKey: String(field.dragKey ?? field.select?.dragKey ?? ''),
     activeValue: field.activeValue ?? '0',
     inactiveValue: field.inactiveValue ?? '1',
@@ -524,13 +551,27 @@ function normalizeField(field: Record<string, any>): GenericEntityField | null {
 function buildAsyncSelectConfig(
   field: Record<string, any>
 ): AsyncSelectEntityConfig {
-  return {
-    entityKey: String(
-      resolveFieldValue(field, 'selectEntityKey', 'select_entity_key') ??
-        resolveFieldValue(field, 'dictCode', 'dict_code') ??
-        ''
-    ),
-  };
+  const selectEntityKey = String(
+    resolveFieldValue(field, 'selectEntityKey', 'select_entity_key') ?? ''
+  ).trim();
+
+  // 关联实体 → 走实体 API
+  if (selectEntityKey) {
+    return { entityKey: selectEntityKey };
+  }
+
+  // 字典字段 → 走字典缓存数据
+  if (isDictField(field)) {
+    const dictCode = resolveDictCode(field);
+    if (dictCode) {
+      return {
+        entityKey: `__dict__:${dictCode}`,
+        fetcher: createDictDataFetcher(dictCode),
+      };
+    }
+  }
+
+  return { entityKey: '' };
 }
 
 /******************************** 数据方法 ********************************/

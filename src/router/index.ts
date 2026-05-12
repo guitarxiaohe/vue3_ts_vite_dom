@@ -40,6 +40,48 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/fileInfo/index.vue'),
         meta: { requiresAuth: true },
       },
+      {
+        path: '/monitor/online',
+        name: 'MonitorOnline',
+        component: () => import('@/views/monitor/online/index.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: '/monitor/server',
+        name: 'MonitorServer',
+        component: () => import('@/views/monitor/server/index.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: '/monitor/cache',
+        name: 'MonitorCache',
+        component: () => import('@/views/monitor/cache/index.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: '/monitor/druid',
+        name: 'MonitorDruid',
+        component: () => import('@/views/monitor/druid/index.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: '/tool/build',
+        name: 'ToolBuild',
+        component: () => import('@/views/tool/build/index.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: '/tool/gen',
+        name: 'ToolGen',
+        component: () => import('@/views/tool/gen/index.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: '/tool/swagger',
+        name: 'ToolSwagger',
+        component: () => import('@/views/tool/swagger/index.vue'),
+        meta: { requiresAuth: true },
+      },
 
       {
         path: 'multiview/:entityKey(.*)',

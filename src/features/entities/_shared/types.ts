@@ -42,6 +42,8 @@ export interface EntityFormField {
   apiOptions?: {
     queryKey?: string | string[];
     entityKey?: string;
+    /** 字典类型代码，设置后将使用字典缓存数据而非实体 API */
+    dictCode?: string;
     valueKey?: string;
     labelKey?: string;
     dragKey?: string;

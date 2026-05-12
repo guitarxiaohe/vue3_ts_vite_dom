@@ -11,6 +11,7 @@ import router from './router';
 import App from './App.vue';
 import { i18n } from './i18n';
 import { initSystem } from './stores';
+import { queryClient } from '@/api/query-client';
 
 const app = createApp(App);
 
@@ -22,22 +23,7 @@ app.use(router);
 app.use(i18n);
 
 // TanStack Query
-app.use(VueQueryPlugin, {
-  queryClientConfig: {
-    defaultOptions: {
-      queries: {
-        retry: 1,
-        refetchOnWindowFocus: false,
-        staleTime: 5 * 60 * 1000,
-        gcTime: 10 * 60 * 1000,
-        retryDelay: 1000,
-      },
-      mutations: {
-        retry: 0,
-      },
-    },
-  },
-});
+app.use(VueQueryPlugin, { queryClient });
 
 // Element Plus
 app.use(ElementPlus);

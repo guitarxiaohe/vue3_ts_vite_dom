@@ -2,6 +2,9 @@ import { h, ref, watch, type ComputedRef, type Ref } from 'vue';
 import type { Slots } from 'vue';
 import { getByEntityKeyAndFieldKeyApi } from '@/api/modules/user';
 import { isEmptyValue, snakeToCamel } from '@/utils/value';
+import { queryClient } from '@/api/query-client';
+import { DICT_DATA_ALL_QUERY_KEY } from '@/api/modules/dict';
+import type { DictDataItem } from '@/types/dict';
 import type { ColumnsItem, TableEntlty } from '../index.type';
 import { fontWidth, normalizeColumnFixed } from '../utils/column-utils';
 import { applyColumnSlots } from '../utils/column-slots';
@@ -79,22 +82,48 @@ function formatDateTimeText(value: unknown, isDateOnly = false) {
   return `${Y}-${M}-${D} ${h}:${m}:${s}`;
 }
 
-// 解析字典选项文案
+// 从全局字典缓存中解析标签
+function resolveDictLabelFromCache(
+  dictCode: string,
+  value: unknown
+): string | undefined {
+  if (!dictCode || value == null || value === '') return undefined;
+  const allDict = queryClient.getQueryData<DictDataItem[]>(
+    DICT_DATA_ALL_QUERY_KEY
+  );
+  if (!allDict) return undefined;
+  const matched = allDict.find(
+    (item) =>
+      item.dictType === dictCode && String(item.dictValue) === String(value)
+  );
+  return matched ? String(matched.dictLabel ?? value) : undefined;
+}
+
+// 解析字典选项文案（静态 options 优先，fallback 到字典缓存）
 function resolveDictLabel(
   field: Record<string, any>,
   value: unknown
 ): string | undefined {
   if (value == null || value === '') return undefined;
+
+  // 1. 静态 options 数组
   const options = field.options;
-  if (!Array.isArray(options)) return undefined;
+  if (Array.isArray(options)) {
+    const matched = options.find((item) => {
+      if (!item || typeof item !== 'object') return false;
+      return String((item as Record<string, any>).value) === String(value);
+    }) as Record<string, any> | undefined;
+    if (matched) return String(matched.label ?? value);
+  }
 
-  const matched = options.find((item) => {
-    if (!item || typeof item !== 'object') return false;
-    return String((item as Record<string, any>).value) === String(value);
-  }) as Record<string, any> | undefined;
+  // 2. dictCode → 全局字典缓存
+  const dictCode = field.dictCode || field.dict_code;
+  if (dictCode) {
+    const label = resolveDictLabelFromCache(String(dictCode), value);
+    if (label) return label;
+  }
 
-  if (!matched) return undefined;
-  return String(matched.label ?? value);
+  return undefined;
 }
 
 // 根据字段类型解析详情抽屉文本

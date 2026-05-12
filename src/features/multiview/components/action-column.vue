@@ -34,7 +34,7 @@ function onRefresh() {
 // 执行内置行操作
 function runBuiltinAction(action: RowActionRenderConfig) {
   if (!action.actionKey) return;
-  void props.actions[action.actionKey](props.row);
+  void props.actions[action.actionKey]?.(props.row);
 }
 </script>
 

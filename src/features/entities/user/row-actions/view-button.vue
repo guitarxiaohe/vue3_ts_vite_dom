@@ -12,7 +12,7 @@ const props = defineProps<{
 
 // 调用表格内置详情
 function onView() {
-  props.actions.view(props.row);
+  props.actions.view?.(props.row);
 }
 </script>
 

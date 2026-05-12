@@ -256,8 +256,7 @@ const handleFilePreview = (file?: AttachmentData) => {
 
   if (targetFile && isPlayableVideoFile(targetFile)) {
     videoPreviewUrl.value = getPreviewFileUrl(targetFile);
-    videoPreviewName.value =
-      targetFile.name || targetFile.fileOriginName || '';
+    videoPreviewName.value = targetFile.name || targetFile.fileOriginName || '';
     videoPreviewVisible.value = Boolean(videoPreviewUrl.value);
     emit('preview', targetFile);
     return;

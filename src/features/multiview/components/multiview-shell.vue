@@ -28,10 +28,7 @@
         <el-button v-if="resolvedActions.showImport" @click="openImportDialog">
           {{ t('common.import') }}
         </el-button>
-        <el-button
-          v-if="resolvedActions.showExport"
-          @click="handleExport"
-        >
+        <el-button v-if="resolvedActions.showExport" @click="handleExport">
           {{ t('common.export') }}
         </el-button>
       </div>
@@ -105,6 +102,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
+import { useAllDictDataQuery } from '@/composables/use-dict-data';
 import TableEntlty from '@/components/table-entity/index.vue';
 import { mapFieldConfigRowsToColumns } from '@/components/table-entity/composables/use-table-columns';
 import ImportDialog from '@/components/import-dialog';
@@ -188,6 +186,14 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+// 确保字典数据缓存已填充（TableEntity 的 dict 字段标签解析依赖此缓存）
+useAllDictDataQuery();
+
+// 导出
+function handleExport() {
+  ElMessage.info(t('multiview.exporting', { entity: props.entityKey }));
+}
 
 /******************************** 基础状态 ********************************/
 

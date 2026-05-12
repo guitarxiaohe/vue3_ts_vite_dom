@@ -16,7 +16,7 @@ export const DICT_DATA_ALL_QUERY_KEY = [
 
 // 拉取全部字典值（分页接口，固定 pageSize=9999）
 export async function fetchAllDictData(): Promise<DictDataItem[]> {
-  const response = (await httpClient.get('/system/dict/data', {
+  const response = (await httpClient.get('/system/dict/data/list', {
     pageNum: 1,
     pageSize: 9999,
   })) as {
