@@ -1,8 +1,19 @@
-# 🧠 Vue3 Frontend Platform Agent
+# 🧠 XiaoHe Frontend — AI Agent 上下文
 
-本 Agent 是 Vue3 前端中台项目的核心智能体。负责生成、维护和优化前端代码，确保系统架构统一、可扩展、易维护。
+本文件为 AI 编码助手提供项目的完整上下文。架构细节见 `docs/` 目录。
 
-> 📖 **重要：** 每次任务前请先阅读以下技能文件——[`.skills/entity-framework/SKILL.md`](.skills/entity-framework/SKILL.md) 提供实体模块注册与配置化开发指南，[`.skills/SKILL.md`](.skills/SKILL.md) 提供代码注释规范，[`.skills/I18N/SKILL.md`](.skills/I18N/SKILL.md) 提供国际化规范，[`.skills/UI/SKILL.md`](.skills/UI/SKILL.md) 提供 UI 开发规范。
+> 📖 **核心文档：**
+>
+> - [docs/framework-overview.md](docs/framework-overview.md) — 框架架构总览、字段类型体系、字典系统、独立页面
+> - [docs/entity-system.md](docs/entity-system.md) — EntityModule 注册、表单开发、筛选/表格配置、现有实体清单
+> - [docs/dict-system.md](docs/dict-system.md) — 字典数据系统、缓存机制、颜色渲染
+>
+> 📖 **技能文件：**
+>
+> - [`.skills/entity-framework/SKILL.md`](.skills/entity-framework/SKILL.md) — 配置化实体框架开发指南
+> - [`.skills/I18N/SKILL.md`](.skills/I18N/SKILL.md) — 国际化规范 (zh-CN/en-US/zh-TW)
+> - [`.skills/UI/SKILL.md`](.skills/UI/SKILL.md) — UI 开发规范 (CSS变量/Element Plus/SCSS)
+> - [`.skills/SKILL.md`](.skills/SKILL.md) — 代码注释规范
 
 ---
 
@@ -480,18 +491,49 @@ export default entityModule;
 
 ---
 
-## 📝 使用说明
+## 📝 快速参考
 
-将此文档保存为 `AGENTS.md`，放置在项目根目录下。AI Agent 会自动读取并遵循这些规范。
+### 新增实体 — 最小步骤
 
-当需要生成新模块时，只需描述需求，例如:
+```
+1. features/entities/<entityKey>/module.ts   → createEntityModule({...})
+2. features/entities/<entityKey>/form/index.vue  → GenericEntityForm 包装 (可选)
+3. 后端 entity_config + field_config 已配好
+4. 访问 /multiview/<entityKey>
+```
 
-> "生成一个订单管理模块，包含列表、详情、状态流转功能"
+### 独立页面路由
 
-Agent 会自动生成所有必要的文件和代码，包括:
+| 路由              | 页面           |
+| ----------------- | -------------- |
+| `/entity`         | 字段配置管理   |
+| `/fileInfo`       | 文件管理       |
+| `/monitor/server` | 服务监控仪表盘 |
+| `/monitor/cache`  | 缓存监控       |
+| `/monitor/online` | 在线用户       |
+| `/monitor/druid`  | Druid 连接池   |
+| `/tool/gen`       | 代码生成器     |
+| `/tool/build`     | 表单构建器     |
+| `/tool/swagger`   | API 文档       |
 
-- 类型定义 (`/src/types/order/index.type.ts`)
-- API 接口 (`/src/api/modules/order.ts`)
-- Store 状态管理 (`/src/stores/modules/order.ts`)
-- 页面组件 (`/src/views/order/`)
-- 国际化文本 (`/src/locales/*.ts`)
+### 新增独立页面
+
+1. `src/views/<path>/index.vue` — 页面组件
+2. `src/router/index.ts` — 添加路由
+3. `src/locales/*.ts` — 三语翻译
+4. `src/components/conventional-menu/index.vue` — 添加 normalizeMenuIndex 路径前缀
+5. 数据库 `sys_menu` — 更新 path 字段
+
+### 核心原则
+
+1. **新需求优先走动态实体 API** — 建表 + 配 entity_config + field_config
+2. **表单优先用 GenericEntityForm** — 从 field_config 自动渲染
+3. **新增字段类型需同步**:
+   - `types/entity-config.ts` — EntityFormField.type 联合类型
+   - `use-table-columns.ts` — 表格 cellRenderer 分支
+   - `form-drawer-form.vue` — 表单渲染分支
+   - 后端 `field_config.field_type` 约定
+4. **字典字段** — field_type='dict', dict_code 指向字典类型
+5. **关联实体下拉** — field_type='select', select_entity_key 指向目标实体
+6. **所有可见文字国际化** — 三语 (zh-CN/en-US/zh-TW)
+7. **所有颜色用 CSS 变量** — 支持亮色/暗色主题切换

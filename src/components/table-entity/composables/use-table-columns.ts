@@ -99,6 +99,26 @@ function resolveDictLabelFromCache(
   return matched ? String(matched.dictLabel ?? value) : undefined;
 }
 
+// 从字典缓存中解析标签颜色（tag_color）
+function resolveDictColor(
+  field: Record<string, any>,
+  value: unknown
+): string | undefined {
+  if (value == null || value === '') return undefined;
+  const dictCode = field.dictCode || field.dict_code;
+  if (!dictCode) return undefined;
+  const allDict = queryClient.getQueryData<DictDataItem[]>(
+    DICT_DATA_ALL_QUERY_KEY
+  );
+  if (!allDict) return undefined;
+  const matched = allDict.find(
+    (item) =>
+      item.dictType === dictCode && String(item.dictValue) === String(value)
+  );
+  const c = matched?.color;
+  return typeof c === 'string' ? c : undefined;
+}
+
 // 解析字典选项文案（静态 options 优先，fallback 到字典缓存）
 function resolveDictLabel(
   field: Record<string, any>,
@@ -247,12 +267,29 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
   }
 
   if (fieldType === 'dict' || fieldType === 'select') {
-    return ({ cellData }: { cellData: unknown }) =>
-      h(
-        'span',
-        {},
-        resolveDictLabel(field, cellData) ?? String(cellData ?? '--')
-      );
+    return ({ cellData }: { cellData: unknown }) => {
+      const label =
+        resolveDictLabel(field, cellData) ?? String(cellData ?? '--');
+      const color = resolveDictColor(field, cellData);
+      if (color) {
+        return h(
+          'span',
+          {
+            style: {
+              display: 'inline-block',
+              padding: '2px 10px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: '500',
+              color: '#fff',
+              backgroundColor: color,
+            },
+          },
+          label
+        );
+      }
+      return h('span', {}, label);
+    };
   }
 
   return ({ cellData: _cellData }: { cellData: unknown }) =>
