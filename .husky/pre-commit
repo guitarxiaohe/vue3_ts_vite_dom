@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
+pnpm format
 
 pnpm pre-commit:check
 
-pnpm format
+
