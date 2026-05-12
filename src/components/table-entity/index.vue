@@ -22,6 +22,7 @@
         :height="props.height ?? 400"
         :row-event-handlers="selectable ? rowEventHandlers : undefined"
         fixed
+        @column-resize="onColumnResize"
       />
     </div>
     <!-------------------------- 分页 -------------------------->
@@ -186,6 +187,23 @@ watch(
   }
 );
 
+// 用户拖拽调整后的列宽缓存
+const columnWidthOverride = reactive<Record<string, number>>({});
+
+/******************************** 列宽拖拽 ********************************/
+
+function onColumnResize({
+  column,
+  width,
+}: {
+  column: ColumnsItem;
+  width: number;
+}) {
+  const key = String(column.dataKey ?? column.key ?? '');
+  if (!key || key === '__sel__' || key === '__ops__') return;
+  columnWidthOverride[key] = Math.max(60, width);
+}
+
 /******************************** 组合能力 ********************************/
 
 const {
@@ -259,6 +277,13 @@ const displayColumns = computed(() => {
 const autoFitBusinessColumns = computed(() =>
   visibleBusinessColumns.value.map((column) => {
     const dataKey = String(column.dataKey ?? '');
+
+    // 用户手动拖拽过的列宽优先
+    const userWidth = columnWidthOverride[dataKey];
+    if (userWidth != null) {
+      return { ...column, width: userWidth };
+    }
+
     const titleText = String(column.title ?? dataKey);
     const valueWidth = dataList.value.reduce((maxWidth, row) => {
       const text = formatCellText(dataKey ? row[dataKey] : '');
