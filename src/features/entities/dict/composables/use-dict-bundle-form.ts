@@ -70,9 +70,20 @@ export function useDictBundleForm(
     const recordDictType = String(record?.dictType ?? '').trim();
 
     parentForm.value = cloneParentForm(record);
-    queryDictType.value = recordDictType;
     previousDictType.value = props.isCreate ? '' : recordDictType;
-    childItems.value = [];
+
+    // 同一 dictType 再次编辑时 queryKey 不变，TanStack 缓存命中不触发 watch
+    // 需要直接从现有查询数据恢复子表
+    const cachedData = childItemsQuery.data.value;
+    if (recordDictType && cachedData?.length) {
+      childItems.value = cachedData.map((item) => ({ ...item }));
+      originalChildItems.value = cachedData.map((item) => ({ ...item }));
+    } else {
+      childItems.value = [];
+      originalChildItems.value = [];
+    }
+
+    queryDictType.value = recordDictType;
   }
 
   function clearParentValidation() {
