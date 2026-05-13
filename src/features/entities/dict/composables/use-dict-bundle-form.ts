@@ -156,6 +156,14 @@ export function useDictBundleForm(
       }
 
       syncFormState(props.record);
+
+      // 每次打开抽屉强制刷新子表数据（避免缓存导致第二次编辑无数据）
+      if (queryDictType.value) {
+        queryClient.invalidateQueries({
+          queryKey: [...DICT_CHILDREN_QUERY_KEY, queryDictType.value],
+        });
+        childItemsQuery.refetch();
+      }
     },
     { immediate: true }
   );
