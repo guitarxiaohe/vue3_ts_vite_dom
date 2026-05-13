@@ -137,12 +137,13 @@ export function useDictBundleForm(
         }
       }
 
-      await queryClient.invalidateQueries({
-        queryKey: DICT_CHILDREN_QUERY_KEY,
-      });
-
       emit('save', payload.dict as unknown as Record<string, unknown>);
       emit('update:visible', false);
+
+      // 先关闭抽屉使查询 disabled，再失效缓存（避免无效的立即重取）
+      queryClient.invalidateQueries({
+        queryKey: DICT_CHILDREN_QUERY_KEY,
+      });
     } finally {
       saving.value = false;
     }
@@ -151,19 +152,8 @@ export function useDictBundleForm(
   watch(
     () => props.visible,
     (visible) => {
-      if (!visible) {
-        return;
-      }
-
+      if (!visible) return;
       syncFormState(props.record);
-
-      // 每次打开抽屉强制刷新子表数据（避免缓存导致第二次编辑无数据）
-      if (queryDictType.value) {
-        queryClient.invalidateQueries({
-          queryKey: [...DICT_CHILDREN_QUERY_KEY, queryDictType.value],
-        });
-        childItemsQuery.refetch();
-      }
     },
     { immediate: true }
   );
