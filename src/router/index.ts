@@ -18,7 +18,9 @@ const routes: RouteRecordRaw[] = [
     children: [
       {
         path: '/entity',
-        redirect: '/multiview/entity',
+        name: 'Entity',
+        component: () => import('@/views/entity/index.vue'),
+        meta: { requiresAuth: true },
       },
       {
         path: '/components',
