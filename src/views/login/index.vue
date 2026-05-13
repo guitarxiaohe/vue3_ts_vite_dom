@@ -1,5 +1,5 @@
 <template>
-  <div class="login-container">
+  <div class="login-container" :class="{ 'is-dark': isDark }">
     <!-- 左侧内容区 -->
     <div class="login-left">
       <div class="left-content">
@@ -279,15 +279,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { Sparkles, Eye, EyeOff, Mail } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import Pupil from '@/components/login/Pupil.vue';
 import EyeBall from '@/components/login/EyeBall.vue';
-import { useUserStore } from '@/stores';
+import { useSystemStore, useUserStore } from '@/stores';
 import router from '@/router';
 
 const { t } = useI18n();
+const systemStore = useSystemStore();
+const isDark = computed(() => systemStore.isDark);
 
 // 响应式数据
 const showPassword = ref(false);
@@ -628,6 +630,7 @@ onUnmounted(() => {
   background: linear-gradient(135deg, #6c3ff5 0%, #5b2ee3 50%, #4a1ed1 100%);
   padding: 3rem;
   color: white;
+  transition: background 0.3s;
 
   @media (max-width: 1024px) {
     display: none;
@@ -728,6 +731,11 @@ onUnmounted(() => {
   }
 }
 
+// 暗色模式左侧面板
+.is-dark .login-left {
+  background: linear-gradient(135deg, #1a1040 0%, #140a35 50%, #0d0624 100%);
+}
+
 // 角色样式
 .character-purple {
   position: absolute;
@@ -817,17 +825,27 @@ onUnmounted(() => {
   }
 }
 
+// 暗色模式角色调整
+.is-dark .character-purple {
+  background-color: #4a2fd6;
+}
+.is-dark .character-black {
+  background-color: #1a1a2e;
+}
+.is-dark .character-orange {
+  background-color: #d9784a;
+}
+.is-dark .character-yellow {
+  background-color: #c4b440;
+}
+
 // 右侧样式
 .login-right {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background-color: #ffffff;
-
-  @media (prefers-color-scheme: dark) {
-    background-color: #0f0f12;
-  }
+  background: var(--color-bg-page);
 
   .login-form-wrapper {
     width: 100%;
@@ -839,6 +857,7 @@ onUnmounted(() => {
       align-items: center;
       gap: 0.5rem;
       margin-bottom: 3rem;
+      color: var(--color-text-primary);
 
       @media (max-width: 1024px) {
         display: flex;
@@ -848,7 +867,7 @@ onUnmounted(() => {
         width: 2rem;
         height: 2rem;
         border-radius: 0.5rem;
-        background: rgba(108, 63, 245, 0.1);
+        background: var(--color-primary-bg);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -868,12 +887,12 @@ onUnmounted(() => {
         font-weight: 700;
         letter-spacing: -0.025em;
         margin-bottom: 0.5rem;
-        color: #18181b;
+        color: var(--color-text-primary);
       }
 
       p {
         font-size: 0.875rem;
-        color: #71717a;
+        color: var(--color-text-secondary);
       }
     }
 
@@ -890,22 +909,27 @@ onUnmounted(() => {
         label {
           font-size: 0.875rem;
           font-weight: 500;
-          color: #18181b;
+          color: var(--color-text-primary);
         }
 
         input {
           height: 3rem;
           padding: 0 1rem;
-          border: 1px solid #e4e4e7;
+          border: 1px solid var(--color-border);
           border-radius: 0.5rem;
-          background: #ffffff;
+          background: var(--color-bg-card);
+          color: var(--color-text-primary);
           font-size: 0.875rem;
           transition: all 0.2s;
 
+          &::placeholder {
+            color: var(--color-text-placeholder);
+          }
+
           &:focus {
             outline: none;
-            border-color: #6c3ff5;
-            box-shadow: 0 0 0 2px rgba(108, 63, 245, 0.1);
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 2px var(--color-primary-bg);
           }
         }
 
@@ -924,14 +948,14 @@ onUnmounted(() => {
             transform: translateY(-50%);
             background: none;
             border: none;
-            color: #71717a;
+            color: var(--color-text-secondary);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
 
             &:hover {
-              color: #18181b;
+              color: var(--color-text-primary);
             }
           }
         }
@@ -952,17 +976,18 @@ onUnmounted(() => {
             width: 1rem;
             height: 1rem;
             cursor: pointer;
+            accent-color: var(--color-primary);
           }
 
           span {
             font-size: 0.875rem;
-            color: #71717a;
+            color: var(--color-text-secondary);
           }
         }
 
         .forgot-link {
           font-size: 0.875rem;
-          color: #6c3ff5;
+          color: var(--color-primary);
           text-decoration: none;
           font-weight: 500;
 
@@ -975,17 +1000,17 @@ onUnmounted(() => {
       .error-message {
         padding: 0.75rem;
         font-size: 0.875rem;
-        color: #f87171;
-        background: rgba(248, 113, 113, 0.1);
-        border: 1px solid rgba(248, 113, 113, 0.2);
+        color: var(--color-danger);
+        background: var(--color-danger-light, rgba(248, 113, 113, 0.1));
+        border: 1px solid var(--color-danger-light, rgba(248, 113, 113, 0.2));
         border-radius: 0.5rem;
       }
 
       .login-btn {
         width: 100%;
         height: 3rem;
-        background: #6c3ff5;
-        color: white;
+        background: var(--color-primary);
+        color: #fff;
         border: none;
         border-radius: 0.5rem;
         font-size: 1rem;
@@ -994,7 +1019,7 @@ onUnmounted(() => {
         transition: background 0.2s;
 
         &:hover:not(:disabled) {
-          background: #5b2ee3;
+          background: var(--color-primary-dark);
         }
 
         &:disabled {
@@ -1014,17 +1039,17 @@ onUnmounted(() => {
         align-items: center;
         justify-content: center;
         gap: 0.5rem;
-        background: #ffffff;
-        border: 1px solid #e4e4e7;
+        background: var(--color-bg-card);
+        border: 1px solid var(--color-border);
         border-radius: 0.5rem;
         font-size: 0.875rem;
         font-weight: 500;
-        color: #18181b;
+        color: var(--color-text-primary);
         cursor: pointer;
         transition: all 0.2s;
 
         &:hover {
-          background: #f4f4f5;
+          background: var(--color-bg-hover);
         }
       }
     }
@@ -1033,54 +1058,18 @@ onUnmounted(() => {
       text-align: center;
       margin-top: 2rem;
       font-size: 0.875rem;
-      color: #71717a;
+      color: var(--color-text-secondary);
 
       a {
-        color: #18181b;
+        color: var(--color-text-primary);
         font-weight: 500;
         text-decoration: none;
 
         &:hover {
           text-decoration: underline;
+          color: var(--color-primary);
         }
       }
-    }
-  }
-}
-
-// 暗色主题适配
-@media (prefers-color-scheme: dark) {
-  .login-right .login-form-wrapper {
-    .form-header h1 {
-      color: #fafafa;
-    }
-
-    .form-field label {
-      color: #fafafa;
-    }
-
-    .form-field input {
-      background: #1f1f24;
-      border-color: #27272a;
-      color: #fafafa;
-    }
-
-    .form-options .checkbox-label span {
-      color: #a1a1aa;
-    }
-
-    .social-login .google-btn {
-      background: #1f1f24;
-      border-color: #27272a;
-      color: #fafafa;
-
-      &:hover {
-        background: #27272a;
-      }
-    }
-
-    .signup-link a {
-      color: #fafafa;
     }
   }
 }
