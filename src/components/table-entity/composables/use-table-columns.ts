@@ -169,6 +169,17 @@ function resolveDetailTextByFieldType(
     return cellData == null || cellData === '' ? '--' : String(cellData);
   }
 
+  if (fieldType === 'switch') {
+    const v = String(cellData ?? '');
+    if (v === '1' || v === 'true') return '是';
+    if (v === '0' || v === 'false') return '否';
+    return v || '--';
+  }
+
+  if (fieldType === 'number') {
+    return cellData == null || cellData === '' ? '--' : String(cellData);
+  }
+
   if (fieldType === 'date') {
     return formatDateTimeText(cellData, true);
   }
@@ -264,6 +275,24 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
   if (fieldType === 'datetime') {
     return ({ cellData }: { cellData: unknown }) =>
       h('span', {}, formatDateTimeText(cellData));
+  }
+
+  if (fieldType === 'switch') {
+    return ({ cellData }: { cellData: unknown }) => {
+      const v = String(cellData ?? '');
+      if (v === '1' || v === 'true') return h('span', {}, '是');
+      if (v === '0' || v === 'false') return h('span', {}, '否');
+      return h('span', {}, v || '--');
+    };
+  }
+
+  if (fieldType === 'number') {
+    return ({ cellData }: { cellData: unknown }) =>
+      h(
+        'span',
+        {},
+        cellData == null || cellData === '' ? '--' : String(cellData)
+      );
   }
 
   if (fieldType === 'dict' || fieldType === 'select') {
