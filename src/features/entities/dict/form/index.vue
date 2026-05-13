@@ -7,7 +7,11 @@ import type {
   EntityFormEmits,
   EntityFormProps,
 } from '@/features/entities/_shared/types';
-import type { DictClassValue, DictFormData } from '@/types/dict';
+import type {
+  DictClassValue,
+  DictFormData,
+  DictItemFormData,
+} from '@/types/dict';
 import { useDictBundleForm } from '../composables/use-dict-bundle-form';
 import DictItemTable from './components/dict-item-table.vue';
 
@@ -73,6 +77,11 @@ const parentRules = computed<FormRules<DictFormData>>(() => ({
 function handleIndexChange(index: number) {
   const record = props.recordList?.[index] ?? props.record;
   syncFormState(record);
+}
+
+// 子表 items 更新（通过 .value 保持 Ref 响应式）
+function onChildItemsUpdate(items: DictItemFormData[]) {
+  childItems.value = items;
 }
 
 // 关闭主抽屉
@@ -173,7 +182,7 @@ function handleCancel() {
         <DictItemTable
           :items="childItems"
           :loading="childItemsLoading"
-          @update:items="childItems = $event"
+          @update:items="onChildItemsUpdate($event as DictItemFormData[])"
         />
       </section>
     </template>
