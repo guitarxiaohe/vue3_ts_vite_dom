@@ -114,6 +114,9 @@ const remoteEnabled = computed(
   () => props.userId != null && String(props.userId) !== ''
 );
 
+// 仅打开抽屉时才请求（避免挂载时立即调接口）
+const queryEnabled = computed(() => remoteEnabled.value && drawerVisible.value);
+
 const { data: remoteDetail, isFetching } = useQuery({
   queryKey: computed(() => ['sysUser', props.userId] as const),
   queryFn: async (): Promise<SysUserDetailApiResponse> => {
@@ -123,7 +126,8 @@ const { data: remoteDetail, isFetching } = useQuery({
     }
     return res;
   },
-  enabled: remoteEnabled,
+  enabled: queryEnabled,
+  staleTime: 5 * 60 * 1000,
 });
 
 /** data 内用户主数据 */
