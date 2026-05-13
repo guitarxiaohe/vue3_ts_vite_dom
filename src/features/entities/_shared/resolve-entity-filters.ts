@@ -92,6 +92,20 @@ export function createDefaultFilterComponentRegistrations(): EntityFilterCompone
           entityConfig: {
             entityKey: `__dict__:${dictCode}`,
             fetcher: createDictDataFetcher(dictCode),
+            columns: [
+              {
+                key: 'dictLabel',
+                dataKey: 'dictLabel',
+                title: '标签',
+                width: 160,
+              },
+              {
+                key: 'dictValue',
+                dataKey: 'dictValue',
+                title: '键值',
+                width: 120,
+              },
+            ],
           },
           valueKey: 'dictValue',
           labelKey: 'dictLabel',
