@@ -96,6 +96,7 @@ function normalizeMenuIndex(routeItem: SysRouter): string {
     normalizedPath.startsWith('multiview/') ||
     normalizedPath.startsWith('monitor/') ||
     normalizedPath.startsWith('tool/') ||
+    normalizedPath.startsWith('fieldConfig/') ||
     normalizedPath.startsWith('entity/') ||
     normalizedPath.startsWith('fileInfo/') ||
     normalizedPath.startsWith('components/') ||

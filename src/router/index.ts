@@ -21,6 +21,12 @@ const routes: RouteRecordRaw[] = [
         redirect: '/multiview/entity',
       },
       {
+        path: '/fieldConfig',
+        name: 'FieldConfig',
+        component: () => import('@/views/fieldConfig/index.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
         path: '/components',
         name: 'Components',
         component: () => import('@/views/components.vue'),
