@@ -5,7 +5,7 @@ import type { EntityModule } from '@/features/entities/types';
 
 // 字段配置模块
 const entityModule: EntityModule = {
-  entityKey: 'field-config',
+  entityKey: 'fieldConfig',
   form: {
     component: defineAsyncComponent(() => import('./form/index.vue')),
   },
@@ -21,7 +21,7 @@ const entityModule: EntityModule = {
       showCopy: true,
       showDelete: true,
       showImport: false,
-      showExport: false,
+      showExport: true,
     },
     filters: {
       fields: {
@@ -54,12 +54,16 @@ const entityModule: EntityModule = {
           order: 4,
           options: [
             { label: '输入框', value: 'input' },
+            { label: '数字', value: 'number' },
+            { label: '文本域', value: 'textarea' },
             { label: '下拉框', value: 'select' },
+            { label: '字典', value: 'dict' },
             { label: '日期', value: 'date' },
             { label: '日期时间', value: 'datetime' },
-            { label: '文本域', value: 'textarea' },
-            { label: '数字', value: 'number' },
             { label: '开关', value: 'switch' },
+            { label: '文件', value: 'file' },
+            { label: '审计人', value: 'by' },
+            { label: '用户', value: 'user' },
           ],
         },
       },
