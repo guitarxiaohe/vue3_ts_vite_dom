@@ -1,7 +1,14 @@
 import { computed, ref, watch } from 'vue';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import type { FormInstance } from 'element-plus';
-import { getListByEntityKeyApi, saveMockDictBundle } from '@/api/modules/user';
+import { getListByEntityKeyApi } from '@/api/modules/user';
+import {
+  addDictType,
+  updateDictType,
+  addDictData,
+  updateDictData,
+  deleteDictData,
+} from '@/api/modules/dict';
 import type { DictFormData, DictItemFormData } from '@/types/dict';
 import type {
   EntityFormEmits,
@@ -25,6 +32,7 @@ export function useDictBundleForm(
   const saving = ref<boolean>(false);
   const parentForm = ref<DictFormData>(createDefaultParentForm());
   const childItems = ref<DictItemFormData[]>([]);
+  const originalChildItems = ref<DictItemFormData[]>([]);
   const queryDictType = ref<string>('');
   const previousDictType = ref<string>('');
 
@@ -84,10 +92,50 @@ export function useDictBundleForm(
         childItems.value
       );
 
-      await saveMockDictBundle({
-        previousDictType: previousDictType.value,
-        ...payload,
-      });
+      // 1. 保存字典类型（新增或更新）
+      const isCreate = !payload.dict.dictId;
+      if (isCreate) {
+        await addDictType(payload.dict as unknown as Record<string, unknown>);
+      } else {
+        await updateDictType(
+          payload.dict as unknown as Record<string, unknown>
+        );
+      }
+
+      // 2. 如果 dictType 变更，先删除旧类型的子表数据
+      const prevType = String(previousDictType.value ?? '');
+      const newType = String(payload.dict.dictType ?? '');
+      if (prevType && prevType !== newType) {
+        // dictType 变更时，旧数据同步更新需要调用 refreshCache
+      }
+
+      // 3. 删除被移除的子表项
+      const currentCodes = new Set(
+        payload.items
+          .filter((item) => item.dictCode)
+          .map((item) => Number(item.dictCode))
+      );
+      const removedCodes = originalChildItems.value
+        .filter(
+          (item) => item.dictCode && !currentCodes.has(Number(item.dictCode))
+        )
+        .map((item) => Number(item.dictCode));
+      if (removedCodes.length) {
+        await deleteDictData(removedCodes as number[]);
+      }
+
+      // 4. 保存子表字典值
+      const validItems = payload.items.filter((item) =>
+        String(item.dictValue ?? '').trim()
+      );
+      for (const item of validItems) {
+        const itemData = { ...item, dictType: newType };
+        if (item.dictCode) {
+          await updateDictData(itemData as unknown as Record<string, unknown>);
+        } else {
+          await addDictData(itemData as unknown as Record<string, unknown>);
+        }
+      }
 
       await queryClient.invalidateQueries({
         queryKey: DICT_CHILDREN_QUERY_KEY,
@@ -125,6 +173,7 @@ export function useDictBundleForm(
       }
 
       childItems.value = value?.map((item) => ({ ...item })) ?? [];
+      originalChildItems.value = value?.map((item) => ({ ...item })) ?? [];
     },
     { immediate: true }
   );
