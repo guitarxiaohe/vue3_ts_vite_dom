@@ -11,7 +11,6 @@ const props = withDefaults(
     value: null,
   }
 );
-console.log('value ==>', props.row);
 </script>
 <template>
   <UserAvatarInfo :user-id="props.row?.userId" v-bind="{ ...props }" />

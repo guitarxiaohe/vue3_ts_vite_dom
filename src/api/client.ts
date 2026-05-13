@@ -41,7 +41,6 @@ class HttpClient {
           '%c[Request] ' + `${response.data} `,
           'color: red; background-color: yellow; font-weight: bold;'
         );
-        console.log('response.data ==>', response.data);
         if (response.data?.code === 401) {
           // 统一错误处理
           const { logout } = useUserStore();

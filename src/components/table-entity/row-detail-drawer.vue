@@ -266,11 +266,18 @@ watch(
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   position: absolute;
   top: calc(50% - 350px);
   left: -28px;
   width: 25px;
+  height: 96px;
+  border: 1px solid #dcdfe6;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
 }
 
 .row-detail-drawer__pos {

@@ -17,7 +17,7 @@ const props = withDefaults(
     showResetButton: true,
   }
 );
-
+console.log('props.fields ==>', props.fields);
 const emit = defineEmits<{
   search: [];
   reset: [];
@@ -57,7 +57,7 @@ function updateCustomFieldValue(key: string, value: unknown) {
           v-bind="field.componentProps"
         />
 
-        <el-select
+        <!-- <el-select
           v-else-if="field.component === 'select'"
           v-model="formModel[field.key]"
           :placeholder="field.placeholder || t('common.pleaseSelect')"
@@ -70,10 +70,10 @@ function updateCustomFieldValue(key: string, value: unknown) {
             :label="option.label"
             :value="option.value"
           />
-        </el-select>
+        </el-select> -->
 
         <AsyncSelect
-          v-else-if="field.component === 'async-select'"
+          v-else-if="field.component === 'async-select' || 'select'"
           :model-value="(formModel[field.key] ?? null) as any"
           :entity-config="field.entityConfig"
           :value-key="field.valueKey || 'value'"
