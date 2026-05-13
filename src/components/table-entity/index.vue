@@ -61,7 +61,7 @@ import { useElementSize } from '@vueuse/core';
 import { ElMessage, ElMessageBox, ElTableV2 } from 'element-plus';
 import { useSlots } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { fieldConfigSort } from '@/api/modules/user';
+import { fieldConfigSort } from '@/api/modules/dynamic-entity';
 import type { DataItem } from '@/types/user';
 import type {
   ColumnsItem,

@@ -146,7 +146,7 @@
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { getAllEntityModules } from '@/features/entities/registry';
-import { getByEntityKeyAndFieldKeyApi } from '@/api/modules/user';
+import { getByEntityKeyAndFieldKeyApi } from '@/api/modules/dynamic-entity';
 
 /******************************** 基础状态 ********************************/
 

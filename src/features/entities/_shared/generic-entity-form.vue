@@ -142,7 +142,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import { AsyncSelect } from '@/components/async-select';
-import { getByEntityKeyAndFieldKeyApi } from '@/api/modules/user';
+import { getByEntityKeyAndFieldKeyApi } from '@/api/modules/dynamic-entity';
 import {
   getEntityConfig,
   getEntityFormSubmitter,

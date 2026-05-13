@@ -110,7 +110,7 @@ import MultiviewFuzzyFilter from '@/features/multiview/components/multiview-fuzz
 import {
   getByEntityKeyAndFieldKeyApi,
   getListByEntityKeyApi,
-} from '@/api/modules/user';
+} from '@/api/modules/dynamic-entity';
 import { snakeToCamel } from '@/utils/value';
 import {
   getEntityActionsConfig,

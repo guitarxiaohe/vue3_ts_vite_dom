@@ -1,6 +1,6 @@
 import { h, ref, watch, type ComputedRef, type Ref } from 'vue';
 import type { Slots } from 'vue';
-import { getByEntityKeyAndFieldKeyApi } from '@/api/modules/user';
+import { getByEntityKeyAndFieldKeyApi } from '@/api/modules/dynamic-entity';
 import { isEmptyValue, snakeToCamel } from '@/utils/value';
 import { queryClient } from '@/api/query-client';
 import { DICT_DATA_ALL_QUERY_KEY } from '@/api/modules/dict';

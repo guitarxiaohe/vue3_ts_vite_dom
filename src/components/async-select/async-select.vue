@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQuery } from '@tanstack/vue-query';
 import DialogList from '@/components/dialog-list/index.vue';
-import { getListByEntityKeyApi } from '@/api/modules/user';
+import { getListByEntityKeyApi } from '@/api/modules/dynamic-entity';
 import moreDotIcon from '@/assets/svg/icons/more-dot.svg';
 import type {
   ColumnsItem,

@@ -1,5 +1,5 @@
 import { watch, type Ref } from 'vue';
-import { getListByEntityKeyApi } from '@/api/modules/user';
+import { getListByEntityKeyApi } from '@/api/modules/dynamic-entity';
 import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
 import type { TableEntlty, TableListQuery } from '../index.type';
 import { isDataFetcher, shouldUseEntityListApi } from '../utils/utils';

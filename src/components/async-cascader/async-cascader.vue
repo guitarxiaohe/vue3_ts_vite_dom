@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { getListByEntityKeyApi } from '@/api/modules/user';
+import { getListByEntityKeyApi } from '@/api/modules/dynamic-entity';
 import type { TableListQuery } from '@/components/table-entity/index.type';
 import type {
   AsyncCascaderEntityConfig,

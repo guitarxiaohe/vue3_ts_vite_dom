@@ -5,7 +5,7 @@ import { ElMessage } from 'element-plus';
 import {
   getByEntityKeyAndFieldKeyApi,
   getListByEntityKeyApi,
-} from '@/api/modules/user';
+} from '@/api/modules/dynamic-entity';
 import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
 import { getEntityTableConfig } from '@/utils/entity-config';
 import { mapFieldConfigRowsToColumns } from './composables/use-table-columns';

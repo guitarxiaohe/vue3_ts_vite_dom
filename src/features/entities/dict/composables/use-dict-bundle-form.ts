@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import type { FormInstance } from 'element-plus';
-import { getListByEntityKeyApi } from '@/api/modules/user';
+import { getListByEntityKeyApi } from '@/api/modules/dynamic-entity';
 import {
   addDictType,
   updateDictType,

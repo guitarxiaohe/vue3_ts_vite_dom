@@ -1,6 +1,6 @@
 import type { Ref } from 'vue';
 import { ElMessage } from 'element-plus';
-import { deleteByEntityKeyAndIdApi } from '@/api/modules/user';
+import { deleteByEntityKeyAndIdApi } from '@/api/modules/dynamic-entity';
 import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
 import type { TableEntlty } from '../index.type';
 
