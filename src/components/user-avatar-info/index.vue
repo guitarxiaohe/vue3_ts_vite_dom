@@ -96,7 +96,9 @@ const drawerRendered = ref(false);
 watch(
   drawerVisible,
   (v) => {
-    if (v) drawerRendered.value = true;
+    if (v) {
+      drawerRendered.value = true;
+    }
   },
   { immediate: true }
 );
@@ -114,9 +116,6 @@ const remoteEnabled = computed(
   () => props.userId != null && String(props.userId) !== ''
 );
 
-// 仅打开抽屉时才请求（避免挂载时立即调接口）
-const queryEnabled = computed(() => remoteEnabled.value && drawerVisible.value);
-
 const { data: remoteDetail, isFetching } = useQuery({
   queryKey: computed(() => ['sysUser', props.userId] as const),
   queryFn: async (): Promise<SysUserDetailApiResponse> => {
@@ -126,7 +125,7 @@ const { data: remoteDetail, isFetching } = useQuery({
     }
     return res;
   },
-  enabled: queryEnabled,
+  enabled: remoteEnabled,
   staleTime: 5 * 60 * 1000,
 });
 
@@ -164,53 +163,38 @@ const displayJobLevel = computed(() => props.jobLevel);
 // 默认插槽存在时，抽屉内展示插槽内容，否则展示内置字段
 const hasDrawerDefaultSlot = computed(() => !!slots.default);
 
-const genderSource = computed<UserAvatarGenderInput | undefined>(() => {
+const genderSource = computed<'male' | 'female' | 'unknown'>(() => {
   if (
     props.gender !== undefined &&
     props.gender !== null &&
     props.gender !== ''
   ) {
-    return props.gender;
+    return props.gender as 'male' | 'female' | 'unknown';
   }
   const sex = remoteUser.value?.sex;
   if (sex === UserSex.MALE || sex === '0') return 'male';
   if (sex === UserSex.FEMALE || sex === '1') return 'female';
-  if (sex === UserSex.UNKNOWN || sex === '2') return 'unknown';
-  return undefined;
-});
-
-// 归一化性别，便于样式类名
-const resolvedGender = computed<'male' | 'female' | 'unknown'>(() => {
-  const g = genderSource.value;
-  if (g === undefined || g === null || g === '') return 'unknown';
-  if (g === 'male' || g === 1 || g === 'M' || g === 'm' || g === '男') {
-    return 'male';
-  }
-  if (g === 'female' || g === 2 || g === 'F' || g === 'f' || g === '女') {
-    return 'female';
-  }
-  if (g === 'unknown') return 'unknown';
   return 'unknown';
 });
 
 const genderLabel = computed(() => {
-  if (resolvedGender.value === 'male') {
+  if (genderSource.value === 'male') {
     return t('components.userAvatarInfo.genderMale');
   }
-  if (resolvedGender.value === 'female') {
+  if (genderSource.value === 'female') {
     return t('components.userAvatarInfo.genderFemale');
   }
   return t('components.userAvatarInfo.genderUnknown');
 });
 
 const metaClass = computed(() => ({
-  'user-avatar-info__meta--male': resolvedGender.value === 'male',
-  'user-avatar-info__meta--female': resolvedGender.value === 'female',
+  'user-avatar-info__meta--male': genderSource.value === 'male',
+  'user-avatar-info__meta--female': genderSource.value === 'female',
 }));
 
 /** 头像右上角性别角标（仅男/女展示） */
 const showGenderBadge = computed(
-  () => resolvedGender.value === 'male' || resolvedGender.value === 'female'
+  () => genderSource.value === 'male' || genderSource.value === 'female'
 );
 
 const genderIconSize = computed(() =>
@@ -418,11 +402,11 @@ defineExpose({
         <span
           v-if="showGenderBadge"
           class="user-avatar-info__gender-badge"
-          :class="`user-avatar-info__gender-badge--${resolvedGender}`"
+          :class="`user-avatar-info__gender-badge--${genderSource}`"
           aria-hidden="true"
         >
           <Mars
-            v-if="resolvedGender === 'male'"
+            v-if="genderSource === 'male'"
             :size="genderIconSize"
             :stroke-width="2.5"
           />

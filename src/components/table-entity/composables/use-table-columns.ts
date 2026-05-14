@@ -99,44 +99,6 @@ function resolveDictLabelFromCache(
   return matched ? String(matched.dictLabel ?? value) : undefined;
 }
 
-// 语义色 → CSS 变量映射（主题自适应）
-const SEMANTIC_COLOR_VARS: Record<string, string> = {
-  primary: 'var(--color-primary)',
-  success: 'var(--color-success)',
-  danger: 'var(--color-danger)',
-  warning: 'var(--color-warning)',
-  info: 'var(--color-info)',
-};
-
-// 从字典缓存中解析标签颜色（语义色优先，tag_color 兜底）
-function resolveDictColor(
-  field: Record<string, any>,
-  value: unknown
-): { bg: string; isSemantic: boolean } | undefined {
-  if (value == null || value === '') return undefined;
-  const dictCode = field.dictCode || field.dict_code;
-  if (!dictCode) return undefined;
-  const allDict = queryClient.getQueryData<DictDataItem[]>(
-    DICT_DATA_ALL_QUERY_KEY
-  );
-  if (!allDict) return undefined;
-  const matched = allDict.find(
-    (item) =>
-      item.dictType === dictCode && String(item.dictValue) === String(value)
-  );
-  if (!matched) return undefined;
-  // 语义色优先（自动适配主题）
-  const sc = matched.semanticColor;
-  if (sc && SEMANTIC_COLOR_VARS[sc]) {
-    return { bg: SEMANTIC_COLOR_VARS[sc], isSemantic: true };
-  }
-  const c = matched.color;
-  if (typeof c === 'string' && c) {
-    return { bg: c, isSemantic: false };
-  }
-  return undefined;
-}
-
 // 解析字典选项文案（静态 options 优先，fallback 到字典缓存）
 function resolveDictLabel(
   field: Record<string, any>,
@@ -314,26 +276,12 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
   }
 
   if (fieldType === 'dict' || fieldType === 'select') {
-    return ({ cellData }: { cellData: unknown }) => {
-      const label =
-        resolveDictLabel(field, cellData) ?? String(cellData ?? '--');
-      const colorInfo = resolveDictColor(field, cellData);
-      if (colorInfo) {
-        return h(
-          'span',
-          {
-            class: colorInfo.isSemantic
-              ? 'cell-badge cell-badge--semantic'
-              : 'cell-badge',
-            style: colorInfo.isSemantic
-              ? { backgroundColor: colorInfo.bg }
-              : { backgroundColor: colorInfo.bg, color: '#fff' },
-          },
-          label
-        );
-      }
-      return h('span', {}, label);
-    };
+    return ({ cellData }: { cellData: unknown }) =>
+      h(
+        'span',
+        {},
+        resolveDictLabel(field, cellData) ?? String(cellData ?? '--')
+      );
   }
 
   return ({ cellData: _cellData }: { cellData: unknown }) =>
