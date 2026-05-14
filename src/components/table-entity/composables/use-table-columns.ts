@@ -322,7 +322,9 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
         return h(
           'span',
           {
-            class: colorInfo.isSemantic ? 'cell-badge cell-badge--semantic' : 'cell-badge',
+            class: colorInfo.isSemantic
+              ? 'cell-badge cell-badge--semantic'
+              : 'cell-badge',
             style: colorInfo.isSemantic
               ? { backgroundColor: colorInfo.bg }
               : { backgroundColor: colorInfo.bg, color: '#fff' },
@@ -338,18 +340,24 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
     h('div', '未找到对应类型 =>' + fieldType);
 }
 
-// 将字段配置转换为表格列
-export function mapFieldConfigRowsToColumns(rows: Record<string, any>[]) {
+// 将字段配置转换为表格列（支持 i18n key 查找）
+export function mapFieldConfigRowsToColumns(
+  rows: Record<string, any>[],
+  t?: (key: string) => string
+) {
   return rows.map((col): ColumnsItem => {
     const fieldType = String(
       resolveFieldValue(col, 'fieldType') ?? ''
     ).toLowerCase();
+    const rawTitle = resolveFieldValue(col, 'fieldName') ?? '--';
+    const labelKey = resolveFieldValue(col, 'labelKey') as string | undefined;
+
+    // i18n key 优先，field_name 兜底
+    const title = t && labelKey ? t(labelKey) || rawTitle : rawTitle;
 
     return {
-      width: col.width
-        ? col.width
-        : (fontWidth(resolveFieldValue(col, 'fieldName')) ?? 150),
-      title: resolveFieldValue(col, 'fieldName') ?? '--',
+      width: col.width ? col.width : (fontWidth(rawTitle) ?? 150),
+      title,
       key: col.id ?? '--',
       dataKey: snakeToCamel(resolveFieldValue(col, 'fieldKey') ?? '--'),
       fixed: normalizeColumnFixed(resolveFieldValue(col, 'fixed')),

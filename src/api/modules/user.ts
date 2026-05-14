@@ -21,6 +21,7 @@ const createMockField = (
   entityKey: String(field.entityKey ?? ''),
   fieldKey: String(field.fieldKey ?? ''),
   fieldName: String(field.fieldName ?? field.fieldKey ?? ''),
+  labelKey: (field.labelKey as string | null | undefined) ?? null,
   fieldType: (field.fieldType as string | null | undefined) ?? 'input',
   dictCode: (field.dictCode as string | null | undefined) ?? null,
   selectEntityKey: (field.selectEntityKey as string | null | undefined) ?? null,

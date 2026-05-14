@@ -356,7 +356,8 @@ const sortableTimeColumnKeys = computed<string[]>(() => {
 const resolvedTableColumns = computed(() => {
   if (backendFieldConfigs.value.length) {
     return mapFieldConfigRowsToColumns(
-      backendFieldConfigs.value as unknown as Record<string, any>[]
+      backendFieldConfigs.value as unknown as Record<string, any>[],
+      t
     );
   }
 

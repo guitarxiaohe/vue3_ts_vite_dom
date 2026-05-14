@@ -102,6 +102,7 @@ export interface FieldConfig {
   entityKey: string;
   fieldKey: string;
   fieldName: string;
+  labelKey: string | null;
   fieldType: string | null;
   dictCode: string | null;
   selectEntityKey: string | null;
