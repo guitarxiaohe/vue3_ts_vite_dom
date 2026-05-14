@@ -578,10 +578,7 @@ watch(
   }
 );
 const userStore = useUserStore();
-console.log(
-  'userStore.loginAction(formData.value) ==>',
-  userStore.loginAction(formData.value)
-);
+
 // 表单提交
 const handleSubmit = async () => {
   error.value = '';
