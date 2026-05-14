@@ -17,10 +17,12 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      host: '0.0.0.0', // 监听所有地址，包括局域网
       proxy: {
         [proxyPrefix]: {
           target: env.VITE_BASE_URL,
           changeOrigin: true,
+          ws: true,
           // 统一移除本地代理前缀
           rewrite: (p) => p.replace(new RegExp(`^${proxyPrefix}`), ''),
         },

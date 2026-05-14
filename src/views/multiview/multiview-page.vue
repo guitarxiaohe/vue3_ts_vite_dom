@@ -16,6 +16,7 @@
       :key="entityKey"
       :entity-key="entityKey"
       :cache-key="cacheKey"
+      :initial-filters="initialFilters"
       @create="handleCreate"
       @edit="handleEdit"
       @copy="handleCopy"
@@ -75,6 +76,16 @@ const rowKeyField = computed<string>(
 const formRecordList = computed<Record<string, unknown>[]>(
   () => shellRef.value?.data?.list ?? []
 );
+
+// 从 URL query 提取初始筛选参数
+const initialFilters = computed(() => {
+  const query = route.query;
+  const filters: Record<string, any> = {};
+  for (const [key, value] of Object.entries(query)) {
+    if (typeof value === 'string') filters[key] = value;
+  }
+  return filters;
+});
 
 /******************************** 监听 ********************************/
 

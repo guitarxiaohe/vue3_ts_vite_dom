@@ -162,6 +162,7 @@ const props = withDefaults(
     hideHeaderActions?: boolean;
     showSearchButton?: boolean;
     showResetButton?: boolean;
+    initialFilters?: Record<string, any>;
   }>(),
   {
     cacheKey: '',
@@ -174,6 +175,7 @@ const props = withDefaults(
     hideHeaderActions: false,
     showSearchButton: true,
     showResetButton: true,
+    initialFilters: () => ({}),
   }
 );
 
@@ -452,7 +454,10 @@ function initFilterForm() {
   }
 
   for (const field of filterFields.value) {
-    filterForm[field.key] = field.defaultValue;
+    // 优先使用 URL query 传入的初始值
+    const queryValue = props.initialFilters[field.key];
+    filterForm[field.key] =
+      queryValue !== undefined ? queryValue : field.defaultValue;
   }
 }
 
