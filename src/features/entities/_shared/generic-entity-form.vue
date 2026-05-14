@@ -343,41 +343,33 @@ function resolveFieldComponent(
       ''
   ).toLowerCase();
 
-  if (
-    rawType.includes('textarea') ||
-    /remark|desc|description|content/i.test(key)
-  ) {
-    return 'textarea';
-  }
-
-  if (rawType.includes('date') || /date|time/i.test(key)) {
-    if (rawType.includes('time')) {
-      return 'datetime';
-    }
-    return 'date';
-  }
-
-  if (rawType.includes('switch')) {
-    return 'switch';
-  }
-
+  // 显式 field_type 优先（不再依赖字段名启发式猜测）
+  if (rawType.includes('textarea')) return 'textarea';
+  if (rawType.includes('datetime')) return 'datetime';
+  if (rawType.includes('date')) return 'date';
+  if (rawType.includes('switch')) return 'switch';
   if (
     rawType.includes('number') ||
     rawType.includes('int') ||
     rawType.includes('float') ||
-    rawType.includes('double') ||
-    /count|num|amount|price|size/i.test(key)
-  ) {
+    rawType.includes('double')
+  )
     return 'number';
-  }
+  if (rawType.includes('select')) return 'async-select';
 
+  // 元数据驱动推断（有 selectEntityKey/dictCode 则视为 async-select）
   if (
-    rawType.includes('select') ||
     resolveFieldValue(field, 'selectEntityKey', 'select_entity_key') ||
     resolveFieldValue(field, 'dictCode', 'dict_code')
   ) {
     return 'async-select';
   }
+
+  // Fallback: 字段名含 date/time/number 等常见后缀时做温和推断
+  if (/date|time/i.test(key))
+    return rawType.includes('time') ? 'datetime' : 'date';
+  if (/count|num|amount|price|size/i.test(key)) return 'number';
+  if (/remark|desc|description|content/i.test(key)) return 'textarea';
 
   return 'input';
 }
