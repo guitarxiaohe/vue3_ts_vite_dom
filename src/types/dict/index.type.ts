@@ -59,6 +59,8 @@ export interface DictDataItem extends Record<string, unknown> {
   listClass?: string;
   /** 标签颜色值（来自 DB tag_color 字段，JSON key 为 color） */
   color?: string;
+  /** 语义色槽: primary/success/danger/warning/info（自动适配主题） */
+  semanticColor?: 'primary' | 'success' | 'danger' | 'warning' | 'info';
   isDefault?: string;
   status?: DictStatusValue | string;
   remark?: string;
