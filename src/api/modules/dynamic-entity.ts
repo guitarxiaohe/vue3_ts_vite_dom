@@ -30,3 +30,23 @@ export function deleteByEntityKeyAndIdApi(entityKey: string, ids: string) {
 export function fieldConfigSort(data: DataStructure) {
   return httpClient.put('/system/fieldConfig/sort', data);
 }
+
+// 新增实体数据行
+export function addEntityRowApi(
+  entityKey: string,
+  data: Record<string, unknown>
+) {
+  return httpClient.post('/system/fieldConfig/data/' + entityKey, data);
+}
+
+// 修改实体数据行
+export function updateEntityRowApi(
+  entityKey: string,
+  id: number | string,
+  data: Record<string, unknown>
+) {
+  return httpClient.put(
+    '/system/fieldConfig/data/' + entityKey + '/' + id,
+    data
+  );
+}

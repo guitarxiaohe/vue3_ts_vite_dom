@@ -150,6 +150,10 @@ import {
 import { getEntityTableConfig } from '@/utils/entity-config';
 import { snakeToCamel } from '@/utils/value';
 import { createDictDataFetcher } from '@/utils/dict-fetcher';
+import {
+  addEntityRowApi,
+  updateEntityRowApi,
+} from '@/api/modules/dynamic-entity';
 import type { AsyncSelectEntityConfig } from '@/components/async-select';
 import type { ColumnsItem } from '@/components/table-entity/index.type';
 import type {
@@ -634,14 +638,28 @@ async function submitForm() {
   submitLoading.value = true;
 
   try {
+    const payload: EntityFormSubmitContext = {
+      entityKey: entityKey.value,
+      isCreate: props.isCreate,
+      record: props.record,
+      data: { ...formData },
+    };
+
+    // 优先使用自定义 submitter，无则走通用动态实体 API
     if (submitter.value && entityKey.value) {
-      const payload: EntityFormSubmitContext = {
-        entityKey: entityKey.value,
-        isCreate: props.isCreate,
-        record: props.record,
-        data: { ...formData },
-      };
       await submitter.value(payload);
+    } else if (entityKey.value) {
+      const id =
+        props.record?.id ?? props.record?.[resolvedRowKey.value] ?? undefined;
+      if (props.isCreate || id == null) {
+        await addEntityRowApi(entityKey.value, payload.data);
+      } else {
+        await updateEntityRowApi(
+          entityKey.value,
+          id as number | string,
+          payload.data
+        );
+      }
     }
 
     emit('save');
@@ -651,6 +669,13 @@ async function submitForm() {
     submitLoading.value = false;
   }
 }
+
+// 行主键字段
+const resolvedRowKey = computed(() => {
+  if (!entityKey.value) return 'id';
+  const config = getEntityTableConfig(entityKey.value);
+  return config.rowKey || 'id';
+});
 
 // 关闭抽屉
 function onCancel() {
