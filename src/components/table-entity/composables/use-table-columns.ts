@@ -300,11 +300,23 @@ export function mapFieldConfigRowsToColumns(
     const rawTitle = resolveFieldValue(col, 'fieldName') ?? '--';
     const labelKey = resolveFieldValue(col, 'labelKey') as string | undefined;
 
-    // i18n key 优先，field_name 兜底
-    const title = t && labelKey ? t(labelKey) || rawTitle : rawTitle;
+    // i18n key 优先，field_name 兜底；t() 找不到翻译时返回 key 本身，需排除
+    let title = rawTitle;
+    if (t && labelKey) {
+      const translated = t(labelKey);
+      if (translated && translated !== labelKey) {
+        title = translated;
+      }
+    }
+
+    // by/createUser/updateUser 类型展示头像+姓名，需要更大宽度
+    const defaultWidth =
+      fieldType === 'by' || fieldType === 'createuser' || fieldType === 'updateuser'
+        ? 160
+        : fontWidth(rawTitle) ?? 150;
 
     return {
-      width: col.width ? col.width : (fontWidth(rawTitle) ?? 150),
+      width: col.width ? col.width : defaultWidth,
       title,
       key: col.id ?? '--',
       dataKey: snakeToCamel(resolveFieldValue(col, 'fieldKey') ?? '--'),

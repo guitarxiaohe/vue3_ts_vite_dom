@@ -22,6 +22,9 @@ class HttpClient {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+        // 添加国际化语言头
+        const locale = localStorage.getItem('app_locale') || 'zh-CN';
+        config.headers['Accept-Language'] = locale;
         console.log(
           '%c[Request] ' + `${config.method?.toUpperCase()} ${config.url}`,
           'color: red; background-color: yellow; font-weight: bold;',
