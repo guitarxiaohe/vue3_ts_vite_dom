@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import {
@@ -10,11 +10,14 @@ import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
 import { getEntityTableConfig } from '@/utils/entity-config';
 import { mapFieldConfigRowsToColumns } from './composables/use-table-columns';
 import { formatCellText } from './utils/column-utils';
+import MultiviewFuzzyFilter from '@/features/multiview/components/multiview-fuzzy-filter.vue';
+import { resolveBackendFilterFields } from '@/features/entities/_shared/resolve-entity-filters';
 import type { ColumnsItem, TableListQuery } from './index.type';
 import type {
   EntityTableChildConfig,
   EntityTableChildRelationFieldConfig,
 } from '@/types/entity-config';
+import type { FilterFormValue } from '@/features/multiview/types';
 
 /******************************** 组件入参 ********************************/
 
@@ -38,6 +41,7 @@ const currentPage = ref<number>(1);
 const total = ref<number>(0);
 const rows = ref<Record<string, any>[]>([]);
 const fieldConfigRows = ref<Record<string, any>[]>([]);
+const filterForm = reactive<Record<string, FilterFormValue>>({});
 
 const entityTableConfig = computed(() =>
   getEntityTableConfig(props.config.entityKey)
@@ -76,10 +80,23 @@ const resolvedTitle = computed<string>(() => {
   return props.config.label || props.config.entityKey;
 });
 
+const relationChildKeySet = computed(
+  () => new Set(relationFields.value.map((item) => String(item.childKey)))
+);
+
+const filterFields = computed(() =>
+  resolveBackendFilterFields({
+    entityKey: props.config.entityKey,
+    backendFields: fieldConfigRows.value as any,
+    t,
+  }).filter((field) => !relationChildKeySet.value.has(String(field.key)))
+);
+
 const resolvedQuery = computed<TableListQuery>(() => {
   return {
     pageNum: currentPage.value,
     pageSize: pageSize.value,
+    ...buildFilterParams(),
     ...buildRelationParams(),
     ...(props.config.dataParams ?? {}),
   };
@@ -117,6 +134,48 @@ function buildRelationParams() {
   });
 
   return params;
+}
+
+// 构建子表筛选参数
+function buildFilterParams() {
+  const params: Record<string, string | number | boolean | undefined> = {};
+
+  Object.entries(filterForm).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') {
+      return;
+    }
+    if (Array.isArray(value)) {
+      params[key] = value.join(',');
+      return;
+    }
+    if (value instanceof Date) {
+      params[key] = value.getTime();
+      return;
+    }
+    params[key] = value as string | number | boolean;
+  });
+
+  return params;
+}
+
+// 清空子表筛选
+function clearFilters() {
+  Object.keys(filterForm).forEach((key) => {
+    delete filterForm[key];
+  });
+}
+
+// 重置并刷新子表筛选
+function resetFilters() {
+  clearFilters();
+  currentPage.value = 1;
+  loadRows();
+}
+
+// 执行子表筛选
+function searchRows() {
+  currentPage.value = 1;
+  loadRows();
 }
 
 // 判断是否可以加载子表
@@ -199,6 +258,7 @@ watch(
   () => props.config,
   async () => {
     currentPage.value = 1;
+    clearFilters();
     await loadColumns();
     await loadRows();
   },
@@ -230,6 +290,15 @@ watch(currentPage, async () => {
     </div>
 
     <!-------------------------- 子表内容 -------------------------->
+    <MultiviewFuzzyFilter
+      v-if="filterFields.length"
+      v-model="filterForm"
+      class="row-detail-child-table__filter"
+      :fields="filterFields"
+      @search="searchRows"
+      @reset="resetFilters"
+    />
+
     <el-table
       v-loading="tableLoading"
       :data="rows"
@@ -290,6 +359,10 @@ watch(currentPage, async () => {
 .row-detail-child-table__total {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.row-detail-child-table__filter {
+  margin-bottom: 12px;
 }
 
 .row-detail-child-table__pagination {
