@@ -8,7 +8,7 @@ import type { DictDataItem } from '@/types/dict';
 import type { ColumnsItem, TableEntlty } from '../index.type';
 import { fontWidth, normalizeColumnFixed } from '../utils/column-utils';
 import { applyColumnSlots } from '../utils/column-slots';
-import UserCell from '../cells/cell-avatar.vue';
+import UserCell from '../cells/avatar-cell.vue';
 import FileCell from '../cells/file-cell.vue';
 /******************************** 列配置加载与插槽合并 ********************************/
 
@@ -311,9 +311,11 @@ export function mapFieldConfigRowsToColumns(
 
     // by/createUser/updateUser 类型展示头像+姓名，需要更大宽度
     const defaultWidth =
-      fieldType === 'by' || fieldType === 'createuser' || fieldType === 'updateuser'
+      fieldType === 'by' ||
+      fieldType === 'createuser' ||
+      fieldType === 'updateuser'
         ? 160
-        : fontWidth(rawTitle) ?? 150;
+        : (fontWidth(rawTitle) ?? 150);
 
     return {
       width: col.width ? col.width : defaultWidth,

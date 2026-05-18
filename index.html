@@ -38,12 +38,21 @@
         font-family: system-ui, sans-serif;
       }
       @keyframes app-spin {
-        to { transform: rotate(360deg); }
+        to {
+          transform: rotate(360deg);
+        }
       }
       @media (prefers-color-scheme: dark) {
-        #app-loading { background: #0f0f12; }
-        .app-loading-spinner { border-color: #27272a; border-top-color: #6c3ff5; }
-        .app-loading-text { color: #71717a; }
+        #app-loading {
+          background: #0f0f12;
+        }
+        .app-loading-spinner {
+          border-color: #27272a;
+          border-top-color: #6c3ff5;
+        }
+        .app-loading-text {
+          color: #71717a;
+        }
       }
     </style>
     <script type="module" src="/src/main.ts"></script>
