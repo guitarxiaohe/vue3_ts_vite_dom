@@ -1,4 +1,6 @@
 import { httpClient } from '@/api/client';
+import type { SysRole } from '@/types/user/role.type';
+import type { SysUser, SysUserDetailApiResponse } from '@/types/user';
 
 /******************************** 用户表单服务 ********************************/
 
@@ -11,6 +13,9 @@ export interface CreateUserPayload {
   phonenumber?: string;
   sex?: string;
   avatar?: string;
+  status?: string;
+  roleIds?: Array<number | string>;
+  remark?: string;
 }
 
 export interface EditUserPayload {
@@ -22,7 +27,17 @@ export interface EditUserPayload {
   phonenumber?: string;
   sex?: string;
   avatar?: string;
+  status?: string;
+  roleIds?: Array<number | string>;
+  remark?: string;
 }
+
+// 用户表单选项响应
+export type UserFormOptionsResponse = SysUserDetailApiResponse & {
+  roles?: SysRole[];
+  roleIds?: Array<number | string>;
+  data?: SysUser;
+};
 
 // 新增用户（POST /system/user）
 export function createUser(payload: CreateUserPayload) {
@@ -31,4 +46,12 @@ export function createUser(payload: CreateUserPayload) {
 
 export function editUser(payload: EditUserPayload) {
   return httpClient.put('/system/user', payload);
+}
+
+// 查询用户表单角色选项与已选角色
+export function getUserFormOptions(userId?: number | string) {
+  const suffix = userId == null || userId === '' ? '/' : `/${userId}`;
+  return httpClient.get(
+    `/system/user${suffix}`
+  ) as Promise<UserFormOptionsResponse>;
 }

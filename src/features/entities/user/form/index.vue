@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import DetailDrawer from '@/features/form-shell/components/form-drawer.vue';
 import { mapEntityFormFields } from '@/features/entities/_shared/form-field-adapter';
@@ -12,6 +12,7 @@ import type {
 import {
   createUser,
   editUser,
+  getUserFormOptions,
   type CreateUserPayload,
   type EditUserPayload,
 } from './service';
@@ -28,8 +29,12 @@ const { t } = useI18n();
 /******************************** 表单状态 ********************************/
 
 const submitLoading = ref<boolean>(false);
+const optionsLoading = ref<boolean>(false);
 const formData = ref<Record<string, unknown>>({});
-const formFields = computed(() => mapEntityFormFields(getUserFormFields(t)));
+const roleOptions = ref<Array<{ label: string; value: string | number }>>([]);
+const formFields = computed(() =>
+  mapEntityFormFields(getUserFormFields(t, roleOptions.value))
+);
 const formChildren = computed(
   () => getEntityTableConfig(props.entityKey ?? 'user').children ?? []
 );
@@ -42,6 +47,49 @@ const drawerTitle = computed(() => {
     ? `${t('common.add')}${t('menu.user')}`
     : `${t('common.edit')}${t('menu.user')}`;
 });
+
+// 标准化角色 ID 列表
+function normalizeRoleIds(value: unknown): Array<number | string> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => (typeof item === 'string' ? item.trim() : item))
+    .filter((item) => item !== '' && item != null) as Array<number | string>;
+}
+
+// 加载用户可绑定角色与已选角色
+async function loadUserPermissionOptions() {
+  if (!props.visible) return;
+
+  optionsLoading.value = true;
+  try {
+    const userId = props.isCreate ? undefined : props.record?.userId;
+    const response = await getUserFormOptions(userId as number | string);
+    const roles = Array.isArray(response.roles) ? response.roles : [];
+    roleOptions.value = roles.map((role) => ({
+      label: String(role.roleName ?? role.roleKey ?? role.roleId ?? ''),
+      value: role.roleId ?? '',
+    }));
+
+    const selectedRoleIds = normalizeRoleIds(response.roleIds);
+    if (!props.isCreate && response.data) {
+      formData.value = {
+        ...props.record,
+        ...response.data,
+        roleIds: selectedRoleIds,
+      };
+      return;
+    }
+
+    formData.value = {
+      ...formData.value,
+      roleIds: selectedRoleIds,
+    };
+  } finally {
+    optionsLoading.value = false;
+  }
+}
 
 // 提交部门表单
 async function handleSave(data: Record<string, unknown>) {
@@ -56,6 +104,9 @@ async function handleSave(data: Record<string, unknown>) {
       phonenumber: String(data.phonenumber ?? '').trim() || undefined,
       sex: String(data.sex ?? '').trim() || undefined,
       avatar: String(data.avatar ?? '').trim() || undefined,
+      status: String(data.status ?? '0'),
+      roleIds: normalizeRoleIds(data.roleIds),
+      remark: String(data.remark ?? '').trim() || undefined,
     };
     await createUser(payload);
     emit('save');
@@ -76,6 +127,9 @@ const handEdit = async (data: Record<string, unknown>) => {
       phonenumber: String(data.phonenumber ?? '').trim() || undefined,
       sex: String(data.sex ?? '').trim() || undefined,
       avatar: String(data.avatar ?? '').trim() || undefined,
+      status: String(data.status ?? '0'),
+      roleIds: normalizeRoleIds(data.roleIds),
+      remark: String(data.remark ?? '').trim() || undefined,
     };
     await editUser(payload);
     emit('save');
@@ -94,6 +148,18 @@ function onCancel() {
 const save = (data: Record<string, unknown>) => {
   props.isCreate ? handleSave(data) : handEdit(data);
 };
+
+/******************************** 监听 ********************************/
+
+watch(
+  () => [props.visible, props.record?.userId, props.isCreate] as const,
+  () => {
+    if (props.visible) {
+      void loadUserPermissionOptions();
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -106,7 +172,7 @@ const save = (data: Record<string, unknown>) => {
     :is-create="props.isCreate"
     :fields="formFields"
     :columns="1"
-    :saving="submitLoading"
+    :saving="submitLoading || optionsLoading"
     :title="drawerTitle"
     :child-tables="formChildren"
     @save="save"

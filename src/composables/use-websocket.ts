@@ -1,8 +1,8 @@
-import { ref } from 'vue';
+import { h, ref } from 'vue';
 import { ElNotification } from 'element-plus';
 import { useNotificationStore } from '@/stores';
 import type { WsMessage } from '@/types/ws';
-
+import SocketMsg from '@/components/socket-msg/index.vue';
 const wsBaseUrl = import.meta.env.VITE_WS_URL || '';
 
 export function useWebSocket() {
@@ -56,7 +56,7 @@ export function useWebSocket() {
 
         ElNotification({
           title: msg.title || '新消息',
-          message: msg.text || '',
+          message: h(SocketMsg, { msgInfo: msg }),
           type: msgTypeToElType(msg.type),
           duration: 5000,
         });

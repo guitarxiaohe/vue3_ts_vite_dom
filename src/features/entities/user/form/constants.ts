@@ -5,7 +5,10 @@ import type { EntityFormField } from '@/features/entities/_shared/types';
 type Translate = (key: string, params?: Record<string, unknown>) => string;
 
 // 获取用户实体表单字段配置
-export function getUserFormFields(t: Translate): EntityFormField[] {
+export function getUserFormFields(
+  t: Translate,
+  roleOptions: Array<{ label: string; value: string | number }> = []
+): EntityFormField[] {
   return [
     {
       prop: 'userId',
@@ -66,6 +69,14 @@ export function getUserFormFields(t: Translate): EntityFormField[] {
         { label: t('deptForm.enabled'), value: '0' },
         { label: t('deptForm.disabled'), value: '1' },
       ],
+    },
+    {
+      prop: 'roleIds',
+      label: t('permissionForm.userRoles'),
+      type: 'checkbox',
+      optionSource: 'static',
+      defaultValue: [],
+      options: roleOptions,
     },
   ];
 }

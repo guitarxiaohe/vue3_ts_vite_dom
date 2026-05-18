@@ -11,7 +11,19 @@ export interface SysRole {
   /** 角色状态 */
   status?: string;
   /** 显示顺序 */
-  roleSort?: number;
+  roleSort?: number | string;
+  /** 数据范围 */
+  dataScope?: string;
+  /** 菜单父子联动 */
+  menuCheckStrictly?: boolean;
+  /** 部门父子联动 */
+  deptCheckStrictly?: boolean;
+  /** 菜单权限 ID */
+  menuIds?: Array<number | string>;
+  /** 部门数据权限 ID */
+  deptIds?: Array<number | string>;
+  /** 备注 */
+  remark?: string;
   /** 创建时间 */
   createTime?: string | Date;
   /** 是否管理员 */
