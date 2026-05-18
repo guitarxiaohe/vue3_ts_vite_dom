@@ -231,8 +231,8 @@ onBeforeUnmount(() => {
   height: 80px;
   background: linear-gradient(
     160deg,
-    rgba(64, 158, 255, 0.92),
-    rgba(100, 120, 255, 0.88)
+    var(--color-primary),
+    var(--color-primary-light)
   );
   border-radius: 12px 0 0 12px;
   display: flex;
@@ -241,14 +241,14 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 5px;
   cursor: pointer;
-  box-shadow: -2px 0 16px rgba(64, 158, 255, 0.35);
+  box-shadow: -2px 0 16px var(--color-primary-bg);
   transition:
     width 0.3s ease,
     box-shadow 0.3s ease;
 
   .wheel-menu:hover & {
     width: 34px;
-    box-shadow: -4px 0 24px rgba(64, 158, 255, 0.55);
+    box-shadow: -4px 0 24px var(--color-primary-bg);
   }
 }
 
@@ -297,9 +297,9 @@ onBeforeUnmount(() => {
     transparent 100%
   );
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(100, 160, 255, 0.12);
+  border: 1px solid var(--color-primary-bg);
   box-shadow:
-    inset 0 0 80px rgba(64, 158, 255, 0.04),
+    inset 0 0 80px var(--color-primary-bg),
     -6px 0 32px rgba(0, 0, 0, 0.35);
 }
 
@@ -321,11 +321,11 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   background: linear-gradient(
     135deg,
-    rgba(64, 158, 255, 0.9),
-    rgba(100, 120, 255, 0.85)
+    var(--color-primary),
+    var(--color-primary-light)
   );
   box-shadow:
-    0 0 16px rgba(64, 158, 255, 0.5),
+    0 0 16px var(--color-primary-bg),
     inset 0 1px 2px rgba(255, 255, 255, 0.3);
   cursor: pointer;
   display: flex;
@@ -338,7 +338,7 @@ onBeforeUnmount(() => {
   &:hover {
     transform: translateY(-50%) scale(1.15);
     box-shadow:
-      0 0 24px rgba(64, 158, 255, 0.7),
+      0 0 24px var(--color-primary-bg),
       inset 0 1px 2px rgba(255, 255, 255, 0.4);
   }
 
@@ -370,18 +370,18 @@ onBeforeUnmount(() => {
     box-shadow 0.25s ease;
 
   &:hover {
-    background: rgba(64, 158, 255, 0.22);
-    box-shadow: 0 0 20px rgba(64, 158, 255, 0.18);
+    background: var(--color-primary-bg);
+    box-shadow: 0 0 20px var(--color-primary-bg);
   }
 
   &.is-active {
-    background: rgba(64, 158, 255, 0.28);
+    background: var(--color-primary-bg);
     box-shadow:
-      0 0 24px rgba(64, 158, 255, 0.22),
-      inset 0 0 8px rgba(64, 158, 255, 0.08);
+      0 0 24px var(--color-primary-bg),
+      inset 0 0 8px var(--color-primary-bg);
 
     .wheel-menu__item-name {
-      color: #409eff;
+      color: var(--el-color-primary-light-7);
     }
 
     .wheel-menu__item-icon {

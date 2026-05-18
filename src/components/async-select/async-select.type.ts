@@ -14,6 +14,7 @@ export interface AsyncSelectFetchParams {
   keyword?: string;
   page: number;
   pageSize: number;
+  params?: Record<string, any>;
 }
 
 export interface AsyncSelectFetchResult {

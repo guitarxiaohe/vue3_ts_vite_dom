@@ -30,7 +30,7 @@ export type DetailRenderContext = {
   column: ColumnsItem;
 };
 
-export type DetailRenderResult = VNode | Component;
+export type DetailRenderResult = VNode | Component | string | number | boolean;
 
 export type DetailRenderMap = Record<
   string,

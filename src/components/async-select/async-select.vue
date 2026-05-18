@@ -172,6 +172,7 @@ async function fetchEntityList(
     pageNum: params.page,
     pageSize: params.pageSize,
     ...(config.dataParams ?? {}),
+    ...(params.params ?? {}),
   };
   if (params.keyword) {
     query.keyword = params.keyword;
@@ -351,6 +352,7 @@ const computedDialogTitle = computed(
         ? props.entityConfig.columns
         : props.columns
     "
+    :keyId="valueKey"
     :row-key="valueKey"
     :dialog-title="computedDialogTitle"
     :page-size="resolvedDialogPageSize"

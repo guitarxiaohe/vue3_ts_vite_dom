@@ -10,6 +10,8 @@ import { fontWidth, normalizeColumnFixed } from '../utils/column-utils';
 import { applyColumnSlots } from '../utils/column-slots';
 import UserCell from '../cells/avatar-cell.vue';
 import FileCell from '../cells/file-cell.vue';
+import PictureCell from '../cells/picture-cell.vue';
+import { useImageUrl } from '@/composables/use-image-url';
 /******************************** 列配置加载与插槽合并 ********************************/
 
 // 兼容字段配置的 camelCase 与 snake_case
@@ -39,11 +41,11 @@ function resolveAuditUser(
     resolveFieldValue(field, 'fieldKey') ?? ''
   ).toLowerCase();
 
-  if (fieldRole === 'updateUser') {
+  if (fieldRole === 'updateUser' || fieldKey === 'updateuser') {
     return rowData.updateUser ?? null;
   }
 
-  if (fieldRole === 'createUser') {
+  if (fieldRole === 'createUser' || fieldKey === 'createuser') {
     return rowData.createUser ?? null;
   }
 
@@ -52,6 +54,30 @@ function resolveAuditUser(
   }
 
   return rowData.createUser ?? null;
+}
+
+// 图片字段兼容字符串、数组和附件对象
+function resolveImageUrls(value: unknown) {
+  const { resolveImageUrl } = useImageUrl();
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(',').map((item) => item.trim())
+      : value
+        ? [value]
+        : [];
+
+  return values
+    .map((item) => {
+      if (!item) return '';
+      if (typeof item === 'object') {
+        const record = item as Record<string, any>;
+        return record.fileUrl ?? record.url ?? record.path ?? '';
+      }
+      return String(item);
+    })
+    .filter(Boolean)
+    .map((url) => resolveImageUrl(url));
 }
 
 // 规范化日期时间文案 时间戳转 YYYY-MM-DD HH:MM:SS
@@ -136,7 +162,11 @@ function resolveDetailTextByFieldType(
     resolveFieldValue(field, 'fieldType') ?? ''
   ).toLowerCase();
 
-  if (fieldType === 'by') {
+  if (
+    fieldType === 'by' ||
+    fieldType === 'createuser' ||
+    fieldType === 'updateuser'
+  ) {
     const auditUser = resolveAuditUser(field, rowData);
     return String(auditUser?.userName ?? cellData ?? '--');
   }
@@ -176,6 +206,14 @@ function resolveDetailTextByFieldType(
     return String(rowData.userName ?? rowData.nickName ?? cellData ?? '--');
   }
 
+  if (
+    fieldType === 'image' ||
+    fieldType === 'picture' ||
+    fieldType === 'avatar'
+  ) {
+    return cellData == null || cellData === '' ? '--' : String(cellData);
+  }
+
   return cellData == null || cellData === '' ? '--' : String(cellData);
 }
 
@@ -202,6 +240,18 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
       });
     };
   }
+
+  if (
+    fieldType === 'image' ||
+    fieldType === 'picture' ||
+    fieldType === 'avatar'
+  ) {
+    return ({ cellData }: { cellData: unknown }) =>
+      h(PictureCell, {
+        urls: resolveImageUrls(cellData),
+      });
+  }
+
   if (fieldType === 'user') {
     return ({
       rowData,
@@ -217,7 +267,11 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
       });
   }
 
-  if (fieldType === 'by') {
+  if (
+    fieldType === 'by' ||
+    fieldType === 'createuser' ||
+    fieldType === 'updateuser'
+  ) {
     return ({
       rowData,
       cellData,
@@ -314,9 +368,8 @@ export function mapFieldConfigRowsToColumns(
       fieldType === 'by' ||
       fieldType === 'createuser' ||
       fieldType === 'updateuser'
-        ? 160
+        ? 120
         : (fontWidth(rawTitle) ?? 150);
-
     return {
       width: col.width ? col.width : defaultWidth,
       title,

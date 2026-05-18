@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, reactive, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Search } from '@element-plus/icons-vue';
 import { useQuery } from '@tanstack/vue-query';
 import TableEntlty from '@/components/table-entity/index.vue';
+import MultiviewFuzzyFilter from '@/features/multiview/components/multiview-fuzzy-filter.vue';
+import { getByEntityKeyAndFieldKeyApi } from '@/api/modules/dynamic-entity';
+import { resolveBackendFilterFields } from '@/features/entities/_shared/resolve-entity-filters';
 import type { ColumnsItem } from '@/components/table-entity/index.type';
+import type { EntityFilterFieldConfig } from '@/types/entity-config';
+import type { FieldConfig } from '@/types/user';
 
 const { t } = useI18n();
 
@@ -16,6 +21,7 @@ export interface DialogListFetchParams {
   keyword?: string;
   page: number;
   pageSize: number;
+  params?: Record<string, any>;
 }
 
 export interface DialogListFetchResult {
@@ -41,6 +47,8 @@ const props = withDefaults(
     pageSize?: number;
     queryKey?: string | string[];
     staleTime?: number;
+    /** 外部传入的筛选参数（由 AsyncSelect 的模糊筛选表单产生） */
+    filterParams?: Record<string, any>;
   }>(),
   {
     multiple: true,
@@ -51,6 +59,7 @@ const props = withDefaults(
     tableWidth: 700,
     pageSize: 20,
     staleTime: 5 * 60 * 1000,
+    filterParams: () => ({}),
   }
 );
 
@@ -69,6 +78,24 @@ const tableRef = ref<InstanceType<typeof TableEntlty>>();
 const keyword = ref('');
 const page = ref(1);
 const selectedKeys = ref<any[]>([]);
+const filterFields = ref<EntityFilterFieldConfig[]>([]);
+const filterForm = reactive<Record<string, any>>({});
+const filterLoading = ref(false);
+
+const internalFilterParams = computed(() => {
+  const params: Record<string, any> = {};
+  for (const [key, value] of Object.entries(filterForm)) {
+    if (value !== '' && value != null) {
+      params[key] = value;
+    }
+  }
+  return params;
+});
+
+const mergedFilterParams = computed(() => ({
+  ...props.filterParams,
+  ...internalFilterParams.value,
+}));
 
 const resolvedQueryKey = computed(() => {
   if (props.queryKey) {
@@ -85,6 +112,7 @@ const dialogQueryKey = computed(() => [
   page.value,
   props.pageSize,
   keyword.value || '',
+  JSON.stringify(mergedFilterParams.value),
 ]);
 
 const resolvedGcTime = computed(() =>
@@ -98,6 +126,7 @@ const { data: queryData, isFetching: loading } = useQuery({
       keyword: keyword.value || undefined,
       page: page.value,
       pageSize: props.pageSize,
+      params: mergedFilterParams.value,
     }),
   enabled: computed(() => props.visible),
   staleTime: computed(() => props.staleTime),
@@ -122,12 +151,62 @@ watch(
     selectedKeys.value = vals;
     keyword.value = '';
     page.value = 1;
+    void loadFilterFields();
   }
 );
 
 // 搜索列表
 function onSearch() {
   page.value = 1;
+}
+
+function onFilterSearch() {
+  page.value = 1;
+}
+
+function onFilterReset() {
+  for (const key of Object.keys(filterForm)) {
+    filterForm[key] = '';
+  }
+  page.value = 1;
+}
+
+// 加载实体模糊搜索字段配置
+async function loadFilterFields() {
+  if (!props.entityKey || props.entityKey.startsWith('__')) {
+    filterFields.value = [];
+    return;
+  }
+
+  filterLoading.value = true;
+  try {
+    const res = await getByEntityKeyAndFieldKeyApi(props.entityKey);
+    const backendFields: FieldConfig[] = Array.isArray(res?.data)
+      ? res.data
+      : [];
+    filterFields.value = resolveBackendFilterFields({
+      entityKey: props.entityKey,
+      backendFields,
+      t,
+    });
+
+    for (const key of Object.keys(filterForm)) {
+      if (!filterFields.value.some((field) => field.key === key)) {
+        delete filterForm[key];
+      }
+    }
+    for (const field of filterFields.value) {
+      const fieldKey = String(field.key);
+      const defaultValue = (field as { defaultValue?: unknown }).defaultValue;
+      if (!(fieldKey in filterForm)) {
+        filterForm[fieldKey] = defaultValue ?? '';
+      }
+    }
+  } catch {
+    filterFields.value = [];
+  } finally {
+    filterLoading.value = false;
+  }
 }
 
 // 切换分页
@@ -181,6 +260,19 @@ const computedDialogTitle = computed(
     @update:model-value="emit('update:visible', $event)"
   >
     <div class="dialog-list">
+      <!-- 模糊筛选：优先使用调用方插槽，否则按后端字段配置生成 -->
+      <slot name="filter">
+        <MultiviewFuzzyFilter
+          v-if="filterFields.length"
+          v-loading="filterLoading"
+          v-model="filterForm"
+          :fields="filterFields"
+          compact
+          @search="onFilterSearch"
+          @reset="onFilterReset"
+        />
+      </slot>
+
       <!-- 搜索栏 -->
       <div class="dialog-list__bar">
         <el-input

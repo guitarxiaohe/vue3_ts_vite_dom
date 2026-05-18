@@ -11,10 +11,12 @@ const props = withDefaults(
     fields: EntityFilterFieldConfig[];
     showSearchButton?: boolean;
     showResetButton?: boolean;
+    compact?: boolean;
   }>(),
   {
     showSearchButton: true,
     showResetButton: true,
+    compact: false,
   }
 );
 
@@ -37,7 +39,11 @@ function updateCustomFieldValue(key: string, value: unknown) {
 </script>
 
 <template>
-  <section v-if="props.fields.length" class="multiview-fuzzy-filter">
+  <section
+    v-if="props.fields.length"
+    class="multiview-fuzzy-filter"
+    :class="{ 'is-compact': props.compact }"
+  >
     <el-form
       :model="formModel"
       label-position="top"
@@ -141,8 +147,37 @@ function updateCustomFieldValue(key: string, value: unknown) {
 
 .multiview-fuzzy-filter__actions {
   display: flex;
+  flex-shrink: 0;
   gap: 8px;
   padding-bottom: 2px;
+}
+
+.multiview-fuzzy-filter.is-compact {
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  .multiview-fuzzy-filter__form {
+    flex: 1 1 0;
+    min-width: 0;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+
+  .multiview-fuzzy-filter__actions {
+    flex: 0 0 auto;
+    padding-bottom: 2px;
+  }
+}
+
+@media (max-width: 768px) {
+  .multiview-fuzzy-filter.is-compact {
+    align-items: stretch;
+    flex-direction: column;
+
+    .multiview-fuzzy-filter__actions {
+      justify-content: flex-start;
+    }
+  }
 }
 
 @media (max-width: 1024px) {

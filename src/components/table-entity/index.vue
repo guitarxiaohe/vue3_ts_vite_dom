@@ -284,6 +284,12 @@ const autoFitBusinessColumns = computed(() =>
       return { ...column, width: userWidth };
     }
 
+    // 头像类型列（by/createUser/updateUser）跳过内容自适应，保留初始宽度
+    const ft = String(column.fieldType ?? '').toLowerCase();
+    if (ft === 'by' || ft === 'createuser' || ft === 'updateuser') {
+      return column;
+    }
+
     const titleText = String(column.title ?? dataKey);
     const valueWidth = dataList.value.reduce((maxWidth, row) => {
       const text = formatCellText(dataKey ? row[dataKey] : '');

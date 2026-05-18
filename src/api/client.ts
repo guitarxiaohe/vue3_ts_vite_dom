@@ -25,11 +25,11 @@ class HttpClient {
         // 添加国际化语言头
         const locale = localStorage.getItem('app_locale') || 'zh-CN';
         config.headers['Accept-Language'] = locale;
-        console.log(
-          '%c[Request] ' + `${config.method?.toUpperCase()} ${config.url}`,
-          'color: red; background-color: yellow; font-weight: bold;',
-          config.params || config.data
-        );
+        // console.log(
+        //   '%c[Request] ' + `${config.method?.toUpperCase()} ${config.url}`,
+        //   'color: red; background-color: yellow; font-weight: bold;',
+        //   config.params || config.data
+        // );
         return config;
       },
       (error) => {
@@ -40,10 +40,6 @@ class HttpClient {
     // 响应拦截器
     this.instance.interceptors.response.use(
       (response) => {
-        console.log(
-          '%c[Request] ' + `${response.data} `,
-          'color: red; background-color: yellow; font-weight: bold;'
-        );
         if (response.data?.code === 401) {
           // 统一错误处理
           const { logout } = useUserStore();

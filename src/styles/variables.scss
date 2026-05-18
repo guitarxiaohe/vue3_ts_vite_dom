@@ -1,16 +1,16 @@
 :root {
   // ========== 主色调 ==========
-  --color-primary: #0048ff;
-  --color-primary-light: #336dff;
-  --color-primary-dark: #003acc;
-  --color-primary-bg: rgba(0, 72, 255, 0.1);
+  --color-primary: #5e6ad2;
+  --color-primary-light: #7e87db;
+  --color-primary-dark: #4f59b1;
+  --color-primary-bg: rgba(94, 106, 210, 0.1);
   --el-color-primary: var(--color-primary);
-  --el-color-primary-light-3: #4d7bff;
-  --el-color-primary-light-5: #80a3ff;
-  --el-color-primary-light-7: #b3c8ff;
-  --el-color-primary-light-8: #cddcff;
-  --el-color-primary-light-9: #e6edff;
-  --el-color-primary-dark-2: #003acc;
+  --el-color-primary-light-3: #8e96df;
+  --el-color-primary-light-5: #afb5e9;
+  --el-color-primary-light-7: #cfd2f2;
+  --el-color-primary-light-8: #dfe1f6;
+  --el-color-primary-light-9: #eff0fb;
+  --el-color-primary-dark-2: #4f59b1;
   --el-font-family: 'MiSans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --el-text-color-primary: rgb(11, 11, 11);
 
@@ -97,15 +97,15 @@
 // 暗色主题 - 支持 data-theme 和 .dark 两种方式
 html.dark,
 [data-theme='dark'] {
-  --el-color-primary: #4d7bff;
-  --el-color-primary-light-3: #7aa0ff;
-  --el-color-primary-light-5: #9bb9ff;
-  --el-color-primary-light-7: #bdd3ff;
-  --el-color-primary-light-8: #d6e3ff;
-  --el-color-primary-light-9: #ebf1ff;
-  --el-color-primary-dark-2: #3d62cc;
+  --el-color-primary: #5e6ad2;
+  --el-color-primary-light-3: #8e96df;
+  --el-color-primary-light-5: #afb5e9;
+  --el-color-primary-light-7: #cfd2f2;
+  --el-color-primary-light-8: #dfe1f6;
+  --el-color-primary-light-9: #eff0fb;
+  --el-color-primary-dark-2: #4f59b1;
   --el-font-family: 'MiSans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --el-text-color-primary: rgba(0, 72, 255, 1);
+  --el-text-color-primary: rgba(94, 106, 210, 1);
 
   --color-text-primary: #f9fafb;
   --color-text-secondary: #d1d5db;

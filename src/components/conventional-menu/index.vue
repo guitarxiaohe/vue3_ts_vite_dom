@@ -11,6 +11,17 @@ import { resolveMenuIcon } from '@/features/entities/menu/form/menu-icons';
 import type { ConventionalMenuItem } from './index.type';
 import MenuBranch from './menu-branch.vue';
 
+/******************************** 组件入参 ********************************/
+
+const props = withDefaults(
+  defineProps<{
+    mode?: 'side' | 'top';
+  }>(),
+  {
+    mode: 'side',
+  }
+);
+
 /******************************** 基础状态 ********************************/
 
 const router = useRouter();
@@ -140,7 +151,31 @@ function buildMenuItems(menus: SysRouter[]): ConventionalMenuItem[] {
 </script>
 
 <template>
-  <el-aside class="aside" :class="{ 'is-collapse': isCollapse }">
+  <nav v-if="props.mode === 'top'" class="conventional-menu-top">
+    <el-scrollbar v-loading="menuLoading" class="conventional-menu-top__scroll">
+      <el-menu
+        :default-active="defaultActive"
+        mode="horizontal"
+        :ellipsis="false"
+        :unique-opened="true"
+        background-color="transparent"
+        text-color="var(--color-text-primary)"
+        active-text-color="var(--color-primary)"
+        class="conventional-menu-top__menu"
+        @select="handleSelect"
+      >
+        <MenuBranch v-for="item in menuItems" :key="item.menuId" :item="item" />
+      </el-menu>
+
+      <el-empty
+        v-if="!menuLoading && !menuItems.length"
+        :description="menuError ? t('common.failed') : t('common.noData')"
+        :image-size="40"
+      />
+    </el-scrollbar>
+  </nav>
+
+  <el-aside v-else class="aside" :class="{ 'is-collapse': isCollapse }">
     <div class="conventional-menu" :class="{ 'is-collapse': isCollapse }">
       <!-------------------------- 品牌区 -------------------------->
       <div class="conventional-menu__logo">
@@ -157,7 +192,7 @@ function buildMenuItems(menus: SysRouter[]): ConventionalMenuItem[] {
           :unique-opened="true"
           background-color="transparent"
           text-color="var(--color-text-primary)"
-          active-text-color="#6c3ff5"
+          active-text-color="var(--color-primary)"
           @select="handleSelect"
         >
           <MenuBranch
@@ -233,7 +268,11 @@ function buildMenuItems(menus: SysRouter[]): ConventionalMenuItem[] {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #6c3ff5 0%, #5b2ee3 100%);
+    background: linear-gradient(
+      135deg,
+      var(--color-primary) 0%,
+      var(--color-primary-dark) 100%
+    );
     border-radius: 0.5rem;
     font-size: 1rem;
   }
@@ -266,7 +305,7 @@ function buildMenuItems(menus: SysRouter[]): ConventionalMenuItem[] {
     }
 
     .el-menu-item.is-active {
-      background-color: rgba(108, 63, 245, 0.1);
+      background-color: var(--color-primary-bg);
     }
 
     .el-sub-menu {
@@ -283,7 +322,7 @@ function buildMenuItems(menus: SysRouter[]): ConventionalMenuItem[] {
     }
 
     .el-menu-item.is-active .menu-icon {
-      color: #6c3ff5;
+      color: var(--color-primary);
     }
   }
 }
@@ -311,5 +350,51 @@ function buildMenuItems(menus: SysRouter[]): ConventionalMenuItem[] {
       color: var(--color-text-primary);
     }
   }
+}
+
+.conventional-menu-top {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-self: stretch;
+}
+
+.conventional-menu-top__scroll {
+  width: 100%;
+}
+
+.conventional-menu-top__scroll:deep(.el-scrollbar__view) {
+  height: 100%;
+}
+
+.conventional-menu-top__menu {
+  min-width: max-content;
+  height: 56px;
+  border-bottom: 0;
+}
+
+.conventional-menu-top:deep(.el-menu--horizontal) {
+  border-bottom: 0;
+}
+
+.conventional-menu-top:deep(.el-menu--horizontal > .el-menu-item),
+.conventional-menu-top:deep(
+  .el-menu--horizontal > .el-sub-menu .el-sub-menu__title
+) {
+  height: 56px;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-primary);
+}
+
+.conventional-menu-top:deep(.el-menu--horizontal > .el-menu-item.is-active),
+.conventional-menu-top:deep(
+  .el-menu--horizontal > .el-sub-menu.is-active .el-sub-menu__title
+) {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.conventional-menu-top:deep(.menu-icon) {
+  margin-right: 6px;
 }
 </style>

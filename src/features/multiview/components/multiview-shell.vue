@@ -801,6 +801,11 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-sm);
 }
 
 .multiview-shell__header,
@@ -817,7 +822,8 @@ defineExpose({
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .multiview-shell__title {
@@ -842,9 +848,14 @@ defineExpose({
 
 .multiview-shell__table-card {
   padding: 0;
+  min-width: 0;
 }
 
 @media (max-width: 1024px) {
+  .multiview-shell {
+    padding: 16px;
+  }
+
   .multiview-shell__header {
     align-items: stretch;
     flex-direction: column;

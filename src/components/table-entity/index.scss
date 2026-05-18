@@ -6,6 +6,23 @@
 
 .table-entity__viewport {
   width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+}
+
+.table-entity__viewport :deep(.el-table-v2__header) {
+  background: var(--color-bg-hover);
+}
+
+.table-entity__viewport :deep(.el-table-v2__header-cell) {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.table-entity__viewport :deep(.el-table-v2__row:hover) {
+  background: var(--color-bg-hover);
 }
 
 .table-entity__toolbar {
@@ -73,7 +90,7 @@
 .table-entlty__pagination {
   display: flex;
   justify-content: flex-end;
-  margin-top: 12px;
+  padding-top: 12px;
 }
 
 :deep(.table-entity__sort-header) {

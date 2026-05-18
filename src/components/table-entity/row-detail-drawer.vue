@@ -52,6 +52,7 @@
           />
           <DetailRender
             v-else-if="shouldUseRichRenderer(col)"
+            class="row-detail-drawer__rich-value"
             :content="renderColumnDetail(row, col)"
           />
           <el-tooltip
@@ -150,7 +151,13 @@ const DetailRender = defineComponent({
   name: 'DetailRender',
   props: {
     content: {
-      type: [Object, Function] as PropType<DetailRenderResult>,
+      type: [
+        Object,
+        Function,
+        String,
+        Number,
+        Boolean,
+      ] as PropType<DetailRenderResult>,
       required: true,
     },
   },
@@ -158,7 +165,10 @@ const DetailRender = defineComponent({
     return () =>
       isVNode(renderProps.content)
         ? renderProps.content
-        : h(renderProps.content);
+        : typeof renderProps.content === 'object' ||
+            typeof renderProps.content === 'function'
+          ? h(renderProps.content)
+          : h('span', {}, String(renderProps.content ?? '--'));
   },
 });
 
@@ -211,10 +221,7 @@ function cellDisplay(row: Record<string, any>, col: ColumnsItem) {
 
 // 判断详情是否使用富内容渲染
 function shouldUseRichRenderer(col: ColumnsItem) {
-  return (
-    typeof col.cellRenderer === 'function' &&
-    ['file', 'user', 'by'].includes(String(col.fieldType ?? '').toLowerCase())
-  );
+  return typeof col.cellRenderer === 'function';
 }
 
 // 复用表格列的 cellRenderer，保证详情与列表展示一致
@@ -331,6 +338,11 @@ watch(
   white-space: nowrap;
   text-overflow: ellipsis;
   font-size: 12px;
+}
+
+.row-detail-drawer__rich-value {
+  flex: 1;
+  min-width: 0;
 }
 
 .row-detail-drawer:deep(.el-drawer__header) {

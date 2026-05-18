@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import PlateMenu from '@/components/plate-menu/index.vue';
 import SettingsPanel from '@/components/settings-panel/index.vue';
 import { useSystemStore } from '@/stores';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
@@ -17,12 +16,15 @@ const elementLocale = computed(() => {
   };
   return localeMap[systemStore.currentLocale] || zhCn;
 });
+
+const showFloatingSettings = computed(
+  () => systemStore.isSimpleMode || systemStore.navigationMode === 'top'
+);
 </script>
 
 <template>
   <el-config-provider :locale="elementLocale">
-    <PlateMenu v-if="systemStore.isSimpleMode" />
-    <SettingsPanel v-if="systemStore.isSimpleMode" />
+    <SettingsPanel v-if="showFloatingSettings" floating />
     <router-view></router-view>
   </el-config-provider>
 </template>
