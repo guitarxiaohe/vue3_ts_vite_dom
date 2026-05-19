@@ -223,7 +223,7 @@ const getPreviewTargetFile = (
 // 获取附件预览地址
 const getPreviewFileUrl = (file: AttachmentData): string => {
   return resolveImageUrl(
-    file.url || file.fileUrl || file.name || file.fileOriginName || ''
+    file.fileUrl || file.url || file.name || file.fileOriginName || ''
   );
 };
 

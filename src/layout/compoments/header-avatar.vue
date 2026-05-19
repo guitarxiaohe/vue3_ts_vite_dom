@@ -8,7 +8,7 @@ import { useRouter } from 'vue-router';
 const { t } = useI18n();
 const router = useRouter();
 const userStore = useUserStore();
-const { resolveImageUrl, ensureImageBaseUrl } = useImageUrl();
+const { ensureImageBaseUrl } = useImageUrl();
 void ensureImageBaseUrl();
 const avatarSrc = computed(() => userStore.avatar);
 

@@ -76,6 +76,8 @@ export const useMultipleFileUpload = (
 
   const isEmpty = computed(() => fileList.value.length === 0);
 
+  const getFileUrl = (file: AttachmentData) => file.fileUrl || file.url || '';
+
   /**
    * 是否处于错误状态
    */
@@ -238,7 +240,7 @@ export const useMultipleFileUpload = (
    */
   const handleRemove = (file: AttachmentData) => {
     const currentList = fileList.value.filter(
-      (item) => item.url !== file.url && item.name !== file.name
+      (item) => getFileUrl(item) !== getFileUrl(file) && item.name !== file.name
     );
     options.onUpdate(currentList.length > 0 ? currentList : undefined);
     options.onRemove?.(file);
@@ -248,7 +250,7 @@ export const useMultipleFileUpload = (
    * 预览文件
    */
   const handlePreview = (file: AttachmentData) => {
-    const url = resolveImageUrl(file.url || file.name || '');
+    const url = resolveImageUrl(getFileUrl(file) || file.name || '');
     if (url) {
       window.open(url, '_blank');
       options.onPreview?.(file);
@@ -267,7 +269,7 @@ export const useMultipleFileUpload = (
       );
       return;
     }
-    const url = resolveImageUrl(file.url || file.name || '');
+    const url = resolveImageUrl(getFileUrl(file) || file.name || '');
     if (url) {
       const link = document.createElement('a');
       link.href = url;
@@ -282,7 +284,10 @@ export const useMultipleFileUpload = (
    */
   const getUploadItem = (file: AttachmentData): FileUploadItem | undefined => {
     for (const item of uploadItems.value.values()) {
-      if (item.result?.url === file.url || item.result?.name === file.name) {
+      if (
+        (item.result && getFileUrl(item.result) === getFileUrl(file)) ||
+        item.result?.name === file.name
+      ) {
         return item;
       }
     }

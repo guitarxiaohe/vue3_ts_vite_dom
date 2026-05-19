@@ -141,6 +141,10 @@ export const useFileUpload = (options: UseFileUploadOptions) => {
     return options.modelValue.value;
   });
 
+  const fileUrl = computed(
+    () => fileData.value?.fileUrl || fileData.value?.url || ''
+  );
+
   watch(
     () => options.modelValue.value,
     (value) => {
@@ -155,7 +159,7 @@ export const useFileUpload = (options: UseFileUploadOptions) => {
   );
 
   const resolvedFileUrl = computed(() =>
-    resolveImageUrl(fileData.value?.url || fileData.value?.name || '')
+    resolveImageUrl(fileUrl.value || fileData.value?.name || '')
   );
 
   const isEmpty = computed(() => !fileData.value && !uploadingFile.value);
@@ -363,6 +367,7 @@ export const useFileUpload = (options: UseFileUploadOptions) => {
     uploadError,
     // 计算属性
     fileData,
+    fileUrl,
     isEmpty,
     isError,
     displayErrorMessage,

@@ -28,7 +28,7 @@ import {
   Venus,
 } from 'lucide-vue-next';
 import { useImageUrl } from '@/composables/use-image-url';
-const { ensureImageBaseUrl, resolveImageUrl } = useImageUrl();
+const { ensureImageBaseUrl } = useImageUrl();
 void ensureImageBaseUrl();
 /******************************** 类型 ********************************/
 

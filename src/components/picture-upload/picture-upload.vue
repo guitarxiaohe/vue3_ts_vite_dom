@@ -89,13 +89,11 @@ const containerStyle = computed(() => ({
   height: `${props.height}px`,
 }));
 
-const imageUrl = computed(() => upload.fileData.value?.url);
-console.log(
-  'variable ==>',
+const imageUrl = computed(() =>
   resolveImageUrl(
-    upload.fileData.value?.url ||
+    upload.fileUrl.value ||
       upload.fileData.value?.fileUrl ||
-      upload.fileData.value?.name ||
+      upload.fileData.value?.url ||
       ''
   )
 );

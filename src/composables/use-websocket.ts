@@ -3,7 +3,7 @@ import { ElNotification } from 'element-plus';
 import { useNotificationStore } from '@/stores';
 import type { WsMessage } from '@/types/ws';
 import SocketMsg from '@/components/socket-msg/index.vue';
-const wsBaseUrl = import.meta.env.VITE_WS_URL || '';
+const wsBaseUrl = String(import.meta.env.VITE_WS_URL || '').replace(/\/$/, '');
 
 export function useWebSocket() {
   const ws = ref<WebSocket | null>(null);
@@ -23,12 +23,15 @@ export function useWebSocket() {
     // 拼接 WS URL，通过 Vite 代理或直连
     let url: string;
     if (wsBaseUrl) {
-      url = `${wsBaseUrl}/ws/notify?token=${token}`;
+      const normalizedBaseUrl = wsBaseUrl
+        .replace(/^http:\/\//, 'ws://')
+        .replace(/^https:\/\//, 'wss://');
+      url = `${normalizedBaseUrl}/ws/notify?token=${encodeURIComponent(token)}`;
     } else {
       // 走 Vite 代理：同域 + 代理前缀
       const baseApi = import.meta.env.VITE_APP_BASE_API || '/dev-api';
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      url = `${protocol}//${location.host}${baseApi}/ws/notify?token=${token}`;
+      url = `${protocol}//${location.host}${baseApi}/ws/notify?token=${encodeURIComponent(token)}`;
     }
 
     try {
