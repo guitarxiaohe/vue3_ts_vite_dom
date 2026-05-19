@@ -2,6 +2,7 @@ import { httpClient } from '../client';
 import type {
   DataStructure,
   FieldConfig,
+  GetInfoResponse,
   LoginParams,
   LoginResponse,
   SysUser,
@@ -10,7 +11,12 @@ import type {
 import type { SysRouter } from '@/types/menu';
 import { isMockEnabled } from '@/utils/is-mock';
 import { listRouterTree } from './menu';
-import { findMockAuthUserByCredentials, listMockAuthUsers } from './mock-auth';
+import {
+  findMockAuthUserByCredentials,
+  findMockAuthUserByToken,
+  getMockRoleKeysByToken,
+  listMockAuthUsers,
+} from './mock-auth';
 
 const nowTs = () => new Date().toISOString();
 
@@ -482,6 +488,39 @@ export const login = (data: LoginParams) => {
   }
 
   return httpClient.post<LoginResponse>('/login', data);
+};
+
+export const getInfoApi = (): Promise<GetInfoResponse> => {
+  if (isMockEnabled()) {
+    const token = localStorage.getItem('token');
+    const user = findMockAuthUserByToken(token);
+
+    if (!user) {
+      return Promise.resolve({
+        code: 401,
+        msg: '未登录或登录已过期',
+        message: '未登录或登录已过期',
+        data: undefined as unknown as SysUser,
+        roles: [],
+        permissions: [],
+        timestamp: nowTs(),
+      });
+    }
+
+    const roles = getMockRoleKeysByToken(token);
+    return Promise.resolve({
+      code: 200,
+      msg: '获取成功',
+      message: '获取成功',
+      data: user,
+      user,
+      roles,
+      permissions: user.admin ? ['*:*:*'] : roles,
+      timestamp: nowTs(),
+    });
+  }
+
+  return httpClient.get('/getInfo') as Promise<GetInfoResponse>;
 };
 
 export const getRoutersApi = () => {

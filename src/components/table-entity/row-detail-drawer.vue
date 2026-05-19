@@ -343,6 +343,7 @@ watch(
 .row-detail-drawer__rich-value {
   flex: 1;
   min-width: 0;
+  font-size: 12px;
 }
 
 .row-detail-drawer:deep(.el-drawer__header) {

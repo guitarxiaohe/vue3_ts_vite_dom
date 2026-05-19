@@ -292,6 +292,7 @@ export default {
       clickToViewDetail: 'Click to view profile',
       drawerTitle: 'Profile',
       fieldAvatar: 'Avatar',
+      defaultAvatar: 'Default avatar',
       fieldName: 'Name',
       fieldGender: 'Gender',
       fieldAge: 'Age',

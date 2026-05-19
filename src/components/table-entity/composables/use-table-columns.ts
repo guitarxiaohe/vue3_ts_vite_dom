@@ -11,6 +11,7 @@ import { applyColumnSlots } from '../utils/column-slots';
 import UserCell from '../cells/avatar-cell.vue';
 import FileCell from '../cells/file-cell.vue';
 import PictureCell from '../cells/picture-cell.vue';
+import DictTag from '@/components/dict-tag/index.vue';
 import { useImageUrl } from '@/composables/use-image-url';
 /******************************** 列配置加载与插槽合并 ********************************/
 
@@ -125,6 +126,44 @@ function resolveDictLabelFromCache(
   return matched ? String(matched.dictLabel ?? value) : undefined;
 }
 
+function resolveDictMetaFromCache(dictCode: string, value: unknown) {
+  if (!dictCode || value == null || value === '') return undefined;
+  const allDict = queryClient.getQueryData<DictDataItem[]>(
+    DICT_DATA_ALL_QUERY_KEY
+  );
+  if (!allDict) return undefined;
+  return allDict.find(
+    (item) =>
+      item.dictType === dictCode && String(item.dictValue) === String(value)
+  );
+}
+
+function resolveDictFieldColor(
+  field: Record<string, any>,
+  rowData: Record<string, any>
+) {
+  const fieldKey = String(resolveFieldValue(field, 'fieldKey') ?? '').trim();
+  const dataKey = snakeToCamel(fieldKey);
+  const candidates = [
+    `${dataKey}Color`,
+    `${dataKey}TagColor`,
+    `${dataKey}DictColor`,
+    `${fieldKey}Color`,
+    `${fieldKey}_color`,
+    `${fieldKey}_tag_color`,
+    'color',
+  ].filter(Boolean);
+
+  for (const key of candidates) {
+    const value = rowData[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
 // 解析字典选项文案（静态 options 优先，fallback 到字典缓存）
 function resolveDictLabel(
   field: Record<string, any>,
@@ -150,6 +189,59 @@ function resolveDictLabel(
   }
 
   return undefined;
+}
+
+function resolveDictMeta(
+  field: Record<string, any>,
+  rowData: Record<string, any>,
+  value: unknown
+) {
+  if (value == null || value === '') {
+    return {
+      label: '--',
+      dictType: String(field.dictCode ?? field.dict_code ?? ''),
+      color: undefined,
+      semanticColor: undefined,
+    };
+  }
+
+  const options = field.options;
+  if (Array.isArray(options)) {
+    const matched = options.find((item) => {
+      if (!item || typeof item !== 'object') return false;
+      return String((item as Record<string, any>).value) === String(value);
+    }) as Record<string, any> | undefined;
+
+    if (matched) {
+      return {
+        label: String(matched.label ?? value),
+        dictType: String(field.dictCode ?? field.dict_code ?? ''),
+        color:
+          resolveDictFieldColor(field, rowData) ??
+          (typeof matched.color === 'string' ? matched.color : undefined),
+        semanticColor: matched.semanticColor as DictDataItem['semanticColor'],
+      };
+    }
+  }
+
+  const dictType = String(field.dictCode ?? field.dict_code ?? '');
+  const matched = resolveDictMetaFromCache(dictType, value);
+
+  return {
+    label: String(matched?.dictLabel ?? value),
+    dictType,
+    color:
+      resolveDictFieldColor(field, rowData) ??
+      (typeof matched?.color === 'string' ? matched.color : undefined),
+    semanticColor: matched?.semanticColor,
+  };
+}
+
+function isDictTagField(field: Record<string, any>, fieldType: string) {
+  return (
+    fieldType === 'dict' ||
+    Boolean(String(field.dictCode ?? field.dict_code ?? '').trim())
+  );
 }
 
 // 根据字段类型解析详情抽屉文本
@@ -330,12 +422,30 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
   }
 
   if (fieldType === 'dict' || fieldType === 'select') {
-    return ({ cellData }: { cellData: unknown }) =>
-      h(
-        'span',
-        {},
-        resolveDictLabel(field, cellData) ?? String(cellData ?? '--')
-      );
+    return ({
+      rowData,
+      cellData,
+    }: {
+      rowData: Record<string, any>;
+      cellData: unknown;
+    }) => {
+      if (!isDictTagField(field, fieldType)) {
+        return h(
+          'span',
+          {},
+          resolveDictLabel(field, cellData) ?? String(cellData ?? '--')
+        );
+      }
+
+      const meta = resolveDictMeta(field, rowData, cellData);
+      return h(DictTag, {
+        dictType: meta.dictType,
+        value: cellData as string | number | null,
+        label: meta.label,
+        color: meta.color,
+        semanticColor: meta.semanticColor,
+      });
+    };
   }
 
   return ({ cellData: _cellData }: { cellData: unknown }) =>

@@ -1,12 +1,32 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, watchEffect, useSlots } from 'vue';
+import {
+  computed,
+  ref,
+  watch,
+  nextTick,
+  watchEffect,
+  useSlots,
+  markRaw,
+  type Component,
+} from 'vue';
 import { useQuery } from '@tanstack/vue-query';
 import { useI18n } from 'vue-i18n';
 import { getSysUserById } from '@/api/modules/user';
 import { UserSex, type SysUserDetailApiResponse } from '@/types/user';
 import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
-import { Mars, Venus } from 'lucide-vue-next';
-import FileCell from '../table-entity/cells/file-cell.vue';
+import {
+  Badge,
+  Briefcase,
+  Building2,
+  Cake,
+  CalendarDays,
+  Image,
+  Mail,
+  Mars,
+  Phone,
+  User,
+  Venus,
+} from 'lucide-vue-next';
 import { useImageUrl } from '@/composables/use-image-url';
 const { ensureImageBaseUrl, resolveImageUrl } = useImageUrl();
 void ensureImageBaseUrl();
@@ -159,6 +179,7 @@ const displayPhone = computed(
 const displayAge = computed(() => props.age);
 const displayWorkYears = computed(() => props.workYears);
 const displayJobLevel = computed(() => props.jobLevel);
+const displayUserId = computed(() => remoteUser.value?.userId ?? props.userId);
 
 // 默认插槽存在时，抽屉内展示插槽内容，否则展示内置字段
 const hasDrawerDefaultSlot = computed(() => !!slots.default);
@@ -204,77 +225,84 @@ const genderIconSize = computed(() =>
 const mergedAvatarProps = computed(() => ({
   ...props.avatarProps,
   size: props.size,
-  src: resolveImageUrl(displaySrc.value),
+  src: displaySrc.value,
   shape: 'circle',
 }));
 
-/** 抽屉内 descriptions 的头像（与列表区头像同源，尺寸可单独调大） */
-const drawerAvatarBind = computed(() => [
-  {
-    ...props.avatarProps,
-    size: props.drawerAvatarSize,
-    fileUrl: displaySrc.value,
-    fileOriginName: '',
-  },
-]);
+const drawerAvatarUrl = computed(() => displaySrc.value);
 const drawerTitleText = computed(
   () => props.drawerTitle ?? t('components.userAvatarInfo.drawerTitle')
 );
+
+const drawerIconMap: Record<string, Component> = {
+  avatar: markRaw(Image),
+  name: markRaw(User),
+  gender: markRaw(Mars),
+  age: markRaw(Cake),
+  workYears: markRaw(CalendarDays),
+  email: markRaw(Mail),
+  phone: markRaw(Phone),
+  department: markRaw(Building2),
+  jobLevel: markRaw(Badge),
+  position: markRaw(Briefcase),
+};
 
 const drawerDetailItems = computed(() => [
   {
     key: 'avatar',
     label: t('components.userAvatarInfo.fieldAvatar'),
-    type: 'avatar' as const,
-    value: '',
+    icon: drawerIconMap.avatar,
+    value: drawerAvatarUrl.value
+      ? displayName.value || t('components.userAvatarInfo.fieldAvatar')
+      : t('components.userAvatarInfo.defaultAvatar'),
   },
   {
     key: 'name',
     label: t('components.userAvatarInfo.fieldName'),
-    type: 'text' as const,
+    icon: drawerIconMap.name,
     value: displayName.value,
   },
   {
     key: 'gender',
     label: t('components.userAvatarInfo.fieldGender'),
-    type: 'text' as const,
+    icon: drawerIconMap.gender,
     value: genderLabel.value,
   },
   {
     key: 'age',
     label: t('components.userAvatarInfo.fieldAge'),
-    type: 'text' as const,
+    icon: drawerIconMap.age,
     value: displayField(displayAge.value),
   },
   {
     key: 'workYears',
     label: t('components.userAvatarInfo.fieldWorkYears'),
-    type: 'text' as const,
+    icon: drawerIconMap.workYears,
     value: displayField(displayWorkYears.value),
-  },
-  {
-    key: 'email',
-    label: t('components.userAvatarInfo.fieldEmail'),
-    type: 'text' as const,
-    value: displayField(displayEmail.value),
-  },
-  {
-    key: 'phone',
-    label: t('components.userAvatarInfo.fieldPhone'),
-    type: 'text' as const,
-    value: displayField(displayPhone.value),
-  },
-  {
-    key: 'department',
-    label: t('components.userAvatarInfo.fieldDepartment'),
-    type: 'text' as const,
-    value: departmentDisplay.value,
   },
   {
     key: 'jobLevel',
     label: t('components.userAvatarInfo.fieldJobLevel'),
-    type: 'text' as const,
+    icon: drawerIconMap.position,
     value: displayField(displayJobLevel.value),
+  },
+  {
+    key: 'phone',
+    label: t('components.userAvatarInfo.fieldPhone'),
+    icon: drawerIconMap.phone,
+    value: displayField(displayPhone.value),
+  },
+  {
+    key: 'email',
+    label: t('components.userAvatarInfo.fieldEmail'),
+    icon: drawerIconMap.email,
+    value: displayField(displayEmail.value),
+  },
+  {
+    key: 'department',
+    label: t('components.userAvatarInfo.fieldDepartment'),
+    icon: drawerIconMap.department,
+    value: departmentDisplay.value,
   },
 ]);
 
@@ -464,31 +492,60 @@ defineExpose({
       <div v-if="hasDrawerDefaultSlot" class="user-avatar-info__drawer-slot">
         <slot />
       </div>
-      <el-row v-else :gutter="12" class="row-detail-drawer__grid">
-        <el-col v-for="item in drawerDetailItems" :key="item.key" :span="8">
-          <div class="row-detail-drawer__item">
-            <div class="row-detail-drawer__label">{{ item.label }}:</div>
-            <div
-              v-if="item.type === 'avatar'"
-              class="row-detail-drawer__value user-avatar-info__drawer-avatar-value"
-            >
-              <slot name="drawer-avatar">
-                <div class="user-avatar-info__avatar-wrap">
-                  <FileCell :attachments="drawerAvatarBind" />
-                </div>
+      <div v-else class="user-avatar-info__drawer">
+        <!-------------------------- 用户摘要 -------------------------->
+        <section class="user-avatar-info__hero">
+          <div class="user-avatar-info__hero-avatar">
+            <slot name="drawer-avatar">
+              <el-avatar :size="props.drawerAvatarSize" :src="drawerAvatarUrl">
+                {{ displayName?.slice(0, 1) }}
+              </el-avatar>
+            </slot>
+          </div>
+          <div class="user-avatar-info__hero-main">
+            <div class="user-avatar-info__hero-name-row">
+              <slot name="drawer-name">
+                <strong class="user-avatar-info__hero-name">
+                  {{ displayName }}
+                </strong>
               </slot>
+              <span
+                v-if="showGenderBadge"
+                class="user-avatar-info__hero-gender"
+              >
+                {{ genderLabel }}
+              </span>
             </div>
-            <div v-else class="row-detail-drawer__value">
-              <slot v-if="item.key === 'name'" name="drawer-name">
-                {{ item.value }}
-              </slot>
-              <template v-else>
-                {{ item.value }}
-              </template>
+            <div class="user-avatar-info__hero-meta">
+              <span v-if="displayUserId">
+                {{ t('field.id') }}: {{ displayUserId }}
+              </span>
+              <span v-if="departmentDisplay">
+                {{ departmentDisplay }}
+              </span>
             </div>
           </div>
-        </el-col>
-      </el-row>
+        </section>
+
+        <!-------------------------- 信息卡片 -------------------------->
+        <section class="user-avatar-info__card-grid">
+          <div
+            v-for="item in drawerDetailItems"
+            :key="item.key"
+            class="user-avatar-info__field-card"
+          >
+            <div class="user-avatar-info__field-icon">
+              <component :is="item.icon" :size="18" :stroke-width="2.2" />
+            </div>
+            <div class="user-avatar-info__field-content">
+              <div class="user-avatar-info__field-label">{{ item.label }}</div>
+              <div class="user-avatar-info__field-value">
+                {{ item.value }}
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
     </el-drawer>
   </div>
 </template>
@@ -636,11 +693,6 @@ defineExpose({
   color: var(--color-text-primary);
 }
 
-.user-avatar-info__drawer-avatar-value {
-  white-space: normal;
-  overflow: visible;
-}
-
 .row-detail-drawer__header {
   display: flex;
   align-items: center;
@@ -652,37 +704,7 @@ defineExpose({
 .row-detail-drawer__title {
   flex: 1;
   font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.row-detail-drawer__grid {
-  margin-top: 0;
-}
-
-.row-detail-drawer__item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-  min-width: 0;
-}
-
-.row-detail-drawer__label {
-  flex-shrink: 0;
-  margin-right: 8px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  line-height: 20px;
-}
-
-.row-detail-drawer__value {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--el-text-color-primary);
-  line-height: 22px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 12px;
+  color: var(--color-text-primary);
 }
 
 /* 男性：名称与副标题均为蓝色 */
@@ -695,6 +717,189 @@ defineExpose({
 .user-avatar-info__meta--female .user-avatar-info__name,
 .user-avatar-info__meta--female .user-avatar-info__subtitle {
   color: var(--color-gender-female-text);
+}
+
+.user-avatar-info__drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.user-avatar-info__hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 142px;
+  padding: 26px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(
+      circle at 88% 40%,
+      rgba(255, 255, 255, 0.72) 0 10%,
+      transparent 11% 100%
+    ),
+    linear-gradient(135deg, var(--color-primary-bg), rgba(255, 255, 255, 0.68));
+
+  &::before,
+  &::after {
+    position: absolute;
+    content: '';
+    border-radius: 999px;
+    pointer-events: none;
+  }
+
+  &::before {
+    right: -34px;
+    top: 20px;
+    width: 210px;
+    height: 118px;
+    border: 1px solid rgba(255, 255, 255, 0.62);
+    transform: rotate(-28deg);
+  }
+
+  &::after {
+    right: 58px;
+    bottom: -28px;
+    width: 120px;
+    height: 168px;
+    border: 1px solid rgba(255, 255, 255, 0.52);
+    transform: rotate(18deg);
+  }
+}
+
+.user-avatar-info__hero-avatar {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+
+  :deep(.el-avatar) {
+    background: linear-gradient(
+      135deg,
+      var(--color-primary-light),
+      var(--color-primary)
+    );
+    color: #fff;
+    font-size: 26px;
+    font-weight: 700;
+  }
+}
+
+.user-avatar-info__hero-main {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.user-avatar-info__hero-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.user-avatar-info__hero-name {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 18px;
+  line-height: 26px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-avatar-info__hero-gender {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.user-avatar-info__hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+
+  span + span::before {
+    margin-right: 8px;
+    color: var(--color-text-placeholder);
+    content: '·';
+  }
+}
+
+.user-avatar-info__card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  padding: 16px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.user-avatar-info__field-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.user-avatar-info__field-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.user-avatar-info__field-content {
+  min-width: 0;
+}
+
+.user-avatar-info__field-label {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.user-avatar-info__field-value {
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .user-avatar-info__card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .user-avatar-info__hero {
+    padding: 22px;
+  }
 }
 </style>
 
@@ -709,10 +914,18 @@ defineExpose({
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  margin-bottom: 12px;
+  min-height: 32px;
+  margin: 0;
+  padding: 18px 24px 10px;
+  color: var(--color-text-primary);
 }
 
 .user-avatar-info-drawer .el-drawer__body {
-  padding-top: 8px;
+  padding: 12px 24px 24px;
+  background: var(--color-bg-page);
+}
+
+.user-avatar-info-drawer .el-drawer {
+  background: var(--color-bg-page);
 }
 </style>

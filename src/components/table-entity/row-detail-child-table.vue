@@ -1,7 +1,16 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import {
+  computed,
+  defineComponent,
+  h,
+  isVNode,
+  reactive,
+  ref,
+  watch,
+} from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
+import type { PropType } from 'vue';
 import {
   getByEntityKeyAndFieldKeyApi,
   getListByEntityKeyApi,
@@ -20,6 +29,25 @@ import type {
 import type { FilterFormValue } from '@/features/multiview/types';
 
 /******************************** 组件入参 ********************************/
+
+const CellRender = defineComponent({
+  name: 'CellRender',
+  props: {
+    content: {
+      type: [Object, Function, String, Number, Boolean] as PropType<any>,
+      required: true,
+    },
+  },
+  setup(renderProps) {
+    return () =>
+      isVNode(renderProps.content)
+        ? renderProps.content
+        : typeof renderProps.content === 'object' ||
+            typeof renderProps.content === 'function'
+          ? h(renderProps.content)
+          : h('span', {}, String(renderProps.content ?? '--'));
+  },
+});
 
 const props = withDefaults(
   defineProps<{
@@ -252,6 +280,20 @@ function onPageChange(page: number) {
   currentPage.value = page;
 }
 
+function renderTableCell(row: Record<string, any>, column: ColumnsItem) {
+  const dataKey = String(column.dataKey ?? '');
+  const value = dataKey ? row[dataKey] : undefined;
+  const rendered = column.cellRenderer?.({
+    column,
+    rowData: row,
+    rowIndex: rows.value.indexOf(row),
+    cellData: value,
+    isScrolling: false,
+  } as unknown as Parameters<NonNullable<ColumnsItem['cellRenderer']>>[0]);
+
+  return rendered ?? formatCellText(value);
+}
+
 /******************************** 监听 ********************************/
 
 watch(
@@ -316,7 +358,13 @@ watch(currentPage, async () => {
         show-overflow-tooltip
       >
         <template #default="{ row }">
-          {{ formatCellText(row[String(column.dataKey ?? '')]) }}
+          <CellRender
+            v-if="column.cellRenderer"
+            :content="renderTableCell(row, column)"
+          />
+          <template v-else>
+            {{ formatCellText(row[String(column.dataKey ?? '')]) }}
+          </template>
         </template>
       </el-table-column>
     </el-table>

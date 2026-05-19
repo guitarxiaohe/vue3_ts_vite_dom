@@ -1,24 +1,15 @@
 <script lang="ts" setup>
 import { computed, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
-import { useI18n } from 'vue-i18n';
-import { LogOut } from 'lucide-vue-next';
-import { useSystemStore, useUserStore } from '@/stores';
+
+import { useSystemStore } from '@/stores';
 import ConventionalMenu from '@/components/conventional-menu/index.vue';
 import NoticeBar from '@/components/notice-bar/index.vue';
 import NotifyBell from '@/components/notify-bell/index.vue';
 import { useWebSocket } from '@/composables/use-websocket';
 import { getRecentWsLogsApi } from '@/api/modules/ws-log';
 import { useNotificationStore } from '@/stores';
-import { useImageUrl } from '@/composables/use-image-url';
-const { resolveImageUrl, ensureImageBaseUrl } = useImageUrl();
-void ensureImageBaseUrl();
-
-const { t } = useI18n();
-const router = useRouter();
+import HeaderAvatar from './compoments/header-avatar.vue';
 const systemStore = useSystemStore();
-const userStore = useUserStore();
 const notificationStore = useNotificationStore();
 
 const { connect, disconnect } = useWebSocket();
@@ -63,21 +54,6 @@ onMounted(async () => {
 onUnmounted(() => {
   disconnect();
 });
-
-/******************************** 登出 ********************************/
-
-function handleLogout() {
-  disconnect();
-  userStore.logout();
-  ElMessage.success(t('user.logout'));
-  router.push('/login');
-}
-
-function handleUserCommand(command: string) {
-  if (command === 'logout') {
-    handleLogout();
-  }
-}
 </script>
 
 <template>
@@ -99,35 +75,7 @@ function handleUserCommand(command: string) {
 
             <div class="layout-header__right">
               <NotifyBell />
-              <el-dropdown
-                trigger="click"
-                placement="bottom-end"
-                @command="handleUserCommand"
-              >
-                <button type="button" class="layout-header__user-trigger">
-                  <el-avatar
-                    :size="32"
-                    :src="resolveImageUrl(userStore.avatar)"
-                    class="layout-header__avatar"
-                  >
-                    {{ userStore.avatarText }}
-                  </el-avatar>
-                </button>
-
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item disabled>
-                      <span class="layout-header__user-name">
-                        {{ userStore.displayName }}
-                      </span>
-                    </el-dropdown-item>
-                    <el-dropdown-item divided command="logout">
-                      <LogOut :size="15" />
-                      <span>{{ t('user.logout') }}</span>
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+              <HeaderAvatar />
             </div>
           </el-header>
 

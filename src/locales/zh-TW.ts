@@ -279,6 +279,7 @@ export default {
       clickToViewDetail: '點擊檢視基本資料',
       drawerTitle: '基本資料',
       fieldAvatar: '頭像',
+      defaultAvatar: '預設頭像',
       fieldName: '名稱',
       fieldGender: '性別',
       fieldAge: '年齡',

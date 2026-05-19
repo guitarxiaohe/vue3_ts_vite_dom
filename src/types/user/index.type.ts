@@ -62,6 +62,14 @@ export interface LoginResponse {
   msg: string;
   code: number;
   token: string;
+  user?: SysUser;
+}
+
+export interface GetInfoResponse extends ApiResponse<SysUser> {
+  msg?: string;
+  user?: SysUser;
+  roles?: string[];
+  permissions?: string[];
 }
 
 // ----------------- 菜单相关 -----------------

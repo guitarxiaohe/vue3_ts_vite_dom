@@ -279,6 +279,7 @@ export default {
       clickToViewDetail: '点击查看基础信息',
       drawerTitle: '基础信息',
       fieldAvatar: '头像',
+      defaultAvatar: '默认头像',
       fieldName: '名称',
       fieldGender: '性别',
       fieldAge: '年龄',
