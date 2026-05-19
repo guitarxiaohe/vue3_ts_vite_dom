@@ -27,8 +27,12 @@ export function mapEntityFormFields(fields: EntityFormField[]): DetailField[] {
       copyable: field.copyable,
     };
 
+    if (field.type === 'picture') {
+      nextField.pictureConfig = field.pictureConfig;
+    }
+
     if (field.type === 'fileUpload') {
-      nextField.options = field.options;
+      nextField.fileConfig = field.fileConfig;
     }
 
     if (field.optionSource === 'static' && field.options) {

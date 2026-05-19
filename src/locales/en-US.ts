@@ -413,6 +413,7 @@ export default {
   permissionForm: {
     basicInfo: 'Basic Info',
     userRoles: 'Assigned Roles',
+    userAvatar: 'Avatar',
     roleName: 'Role Name',
     roleKey: 'Permission Key',
     roleSort: 'Display Order',

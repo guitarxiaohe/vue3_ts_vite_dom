@@ -16,7 +16,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/',
-    component: () => Layout,
+    component: Layout,
     redirect: '/entity',
     children: [
       {

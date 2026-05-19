@@ -58,6 +58,20 @@ function normalizeRoleIds(value: unknown): Array<number | string> {
     .filter((item) => item !== '' && item != null) as Array<number | string>;
 }
 
+// 标准化头像上传值
+function normalizeAvatarValue(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value.trim() || undefined;
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return String(record.url ?? record.fileUrl ?? '').trim() || undefined;
+  }
+
+  return undefined;
+}
+
 // 加载用户可绑定角色与已选角色
 async function loadUserPermissionOptions() {
   if (!props.visible) return;
@@ -103,7 +117,7 @@ async function handleSave(data: Record<string, unknown>) {
       email: String(data.email ?? '').trim() || undefined,
       phonenumber: String(data.phonenumber ?? '').trim() || undefined,
       sex: String(data.sex ?? '').trim() || undefined,
-      avatar: String(data.avatar ?? '').trim() || undefined,
+      avatar: normalizeAvatarValue(data.avatar),
       status: String(data.status ?? '0'),
       roleIds: normalizeRoleIds(data.roleIds),
       remark: String(data.remark ?? '').trim() || undefined,
@@ -126,7 +140,8 @@ const handEdit = async (data: Record<string, unknown>) => {
       email: String(data.email ?? '').trim() || undefined,
       phonenumber: String(data.phonenumber ?? '').trim() || undefined,
       sex: String(data.sex ?? '').trim() || undefined,
-      avatar: String(data.avatar ?? '').trim() || undefined,
+      avatar: normalizeAvatarValue(data.avatar),
+
       status: String(data.status ?? '0'),
       roleIds: normalizeRoleIds(data.roleIds),
       remark: String(data.remark ?? '').trim() || undefined,

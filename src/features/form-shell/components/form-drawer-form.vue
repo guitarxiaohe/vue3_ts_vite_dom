@@ -6,6 +6,7 @@ import { AsyncCascader } from '@/components/async-cascader';
 import { useFormValidation } from '../composables/use-form-validation';
 import type { DetailField, DetailRecord } from '../types/detail';
 import FileUpload from '@/components/file-upload/file-upload.vue';
+import PictureUpload from '@/components/picture-upload/picture-upload.vue';
 
 /******************************** 类型定义 ********************************/
 
@@ -117,6 +118,14 @@ defineExpose({ validate, formRef });
                 v-bind="field.fileConfig"
                 v-model="formData[field.prop]"
               />
+
+              <PictureUpload
+                v-else-if="field.type === 'picture'"
+                v-bind="field.pictureConfig"
+                v-model="formData[field.prop]"
+                :disabled="isFieldDisabled(field)"
+              />
+
               <AsyncCascader
                 v-else-if="
                   field.type === 'async-cascader' && field.asyncCascaderConfig

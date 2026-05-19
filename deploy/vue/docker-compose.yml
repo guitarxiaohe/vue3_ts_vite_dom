@@ -1,0 +1,11 @@
+services:
+  web:
+    build: .
+    image: xiaohe-vue:local
+    container_name: xiaohe-vue
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${WEB_HOST_PORT:-80}:80"
+

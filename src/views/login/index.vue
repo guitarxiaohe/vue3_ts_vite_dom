@@ -294,8 +294,8 @@ const isDark = computed(() => systemStore.isDark);
 // 响应式数据
 const showPassword = ref(false);
 const formData = ref({
-  username: 'admin',
-  password: 'admin123',
+  username: '',
+  password: '',
 });
 const error = ref('');
 const isLoading = ref(false);

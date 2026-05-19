@@ -1,7 +1,8 @@
 export const useImageUrl = () => {
   return {
-    ensureImageBaseUrl: (_args?: unknown) => 'http://localhost:8002',
+    ensureImageBaseUrl: (_args?: unknown) =>
+      import.meta.env.VITE_BASE_URL || '',
     resolveImageUrl: (path?: unknown) =>
-      `http://localhost:8002${String(path ?? '')}`,
+      `${import.meta.env.VITE_BASE_URL}${String(path ?? '')}`,
   };
 };

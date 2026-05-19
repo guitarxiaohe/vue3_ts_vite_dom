@@ -399,6 +399,7 @@ export default {
   permissionForm: {
     basicInfo: '基础信息',
     userRoles: '绑定角色',
+    userAvatar: '头像',
     roleName: '角色名称',
     roleKey: '权限字符',
     roleSort: '显示顺序',

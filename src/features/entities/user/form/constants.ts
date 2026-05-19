@@ -71,6 +71,14 @@ export function getUserFormFields(
       ],
     },
     {
+      prop: 'avatar',
+      label: t('permissionForm.userAvatar'),
+      type: 'picture',
+      defaultValue: [],
+      options: roleOptions,
+    },
+
+    {
       prop: 'roleIds',
       label: t('permissionForm.userRoles'),
       type: 'checkbox',

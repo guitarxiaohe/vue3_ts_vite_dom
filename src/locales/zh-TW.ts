@@ -398,6 +398,8 @@ export default {
   permissionForm: {
     basicInfo: '基礎資訊',
     userRoles: '綁定角色',
+    userAvatar: '頭像',
+
     roleName: '角色名稱',
     roleKey: '權限字元',
     roleSort: '顯示順序',
