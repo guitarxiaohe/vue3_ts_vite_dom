@@ -1,10 +1,6 @@
 import { httpClient } from '@/api/client';
 import type { SysRole } from '@/types/user/role.type';
-import type {
-  SysPost,
-  SysUser,
-  SysUserDetailApiResponse,
-} from '@/types/user';
+import type { SysPost, SysUser, SysUserDetailApiResponse } from '@/types/user';
 
 /******************************** 用户表单服务 ********************************/
 

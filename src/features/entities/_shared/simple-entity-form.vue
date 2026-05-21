@@ -4,9 +4,16 @@ import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import DetailDrawer from '@/features/form-shell/components/form-drawer.vue';
 import { mapEntityFormFields } from './form-field-adapter';
-import { addEntityRowApi, updateEntityRowApi } from '@/api/modules/dynamic-entity';
+import {
+  addEntityRowApi,
+  updateEntityRowApi,
+} from '@/api/modules/dynamic-entity';
 import { getEntityTableConfig } from '@/utils/entity-config';
-import type { EntityFormField, EntityFormProps, EntityFormEmits } from './types';
+import type {
+  EntityFormField,
+  EntityFormProps,
+  EntityFormEmits,
+} from './types';
 
 /******************************** 组件入参 ********************************/
 
