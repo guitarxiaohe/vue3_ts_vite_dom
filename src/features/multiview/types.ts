@@ -26,6 +26,7 @@ export type MultiviewFilterComponent =
   | 'select'
   | 'async-select'
   | 'date'
+  | 'datetime'
   | 'custom';
 
 // 筛选选项

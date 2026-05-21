@@ -13,9 +13,12 @@
     />
 
     <!-------------------------- 虚拟表格 -------------------------->
-    <div ref="tableViewportRef" class="table-entity__viewport">
+    <div
+      ref="tableViewportRef"
+      v-loading="tableLoading"
+      class="table-entity__viewport"
+    >
       <ElTableV2
-        :loading="tableLoading"
         :columns="displayColumns"
         :data="dataList"
         :width="resolvedTableWidth"

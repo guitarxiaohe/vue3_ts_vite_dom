@@ -15,7 +15,7 @@ export interface SysDept {
   /** 显示顺序 */
   orderNum?: number;
   /** 创建时间 */
-  createTime?: string | Date;
+  createTime?: string | number | Date;
   /** 子部门列表 */
   children?: SysDept[];
 }

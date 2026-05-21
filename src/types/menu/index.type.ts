@@ -26,9 +26,9 @@ export interface SysMenu {
   perms?: string | null;
   icon?: string;
   createBy?: string;
-  createTime?: string | null;
+  createTime?: string | number | null;
   updateBy?: string;
-  updateTime?: string | null;
+  updateTime?: string | number | null;
   remark?: string;
   children?: SysMenu[];
   localeNames?: MenuLocaleItem[];

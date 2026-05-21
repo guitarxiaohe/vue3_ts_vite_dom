@@ -5,6 +5,7 @@
 }
 
 .table-entity__viewport {
+  position: relative;
   width: 100%;
   overflow: hidden;
   border: 1px solid var(--color-border-light);

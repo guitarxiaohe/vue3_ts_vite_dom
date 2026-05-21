@@ -48,7 +48,7 @@ function buildBaseBackendFilterField(
   if (fieldType === 'date' || fieldType === 'datetime') {
     return {
       ...baseField,
-      component: 'date',
+      component: fieldType === 'datetime' ? 'datetime' : 'date',
       placeholder: t('common.pleaseSelect'),
     };
   }

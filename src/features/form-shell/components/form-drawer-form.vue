@@ -176,11 +176,7 @@ defineExpose({ validate, formRef });
                 :type="field.type"
                 :placeholder="resolveSelectPlaceholder(field)"
                 :disabled="isFieldDisabled(field)"
-                :value-format="
-                  field.type === 'datetime'
-                    ? 'YYYY-MM-DD HH:mm:ss'
-                    : 'YYYY-MM-DD'
-                "
+                value-format="x"
                 style="width: 100%"
               />
 

@@ -32,8 +32,11 @@ const submitLoading = ref<boolean>(false);
 const optionsLoading = ref<boolean>(false);
 const formData = ref<Record<string, unknown>>({});
 const roleOptions = ref<Array<{ label: string; value: string | number }>>([]);
+const postOptions = ref<Array<{ label: string; value: string | number }>>([]);
 const formFields = computed(() =>
-  mapEntityFormFields(getUserFormFields(t, roleOptions.value))
+  mapEntityFormFields(
+    getUserFormFields(t, roleOptions.value, postOptions.value)
+  )
 );
 const formChildren = computed(
   () => getEntityTableConfig(props.entityKey ?? 'user').children ?? []
@@ -55,6 +58,21 @@ function normalizeRoleIds(value: unknown): Array<number | string> {
   }
   return value
     .map((item) => (typeof item === 'string' ? item.trim() : item))
+    .filter((item) => item !== '' && item != null) as Array<number | string>;
+}
+
+function normalizePostIds(value: unknown): Array<number | string> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => {
+      if (item && typeof item === 'object') {
+        const record = item as Record<string, unknown>;
+        return record.postId ?? record.value ?? '';
+      }
+      return typeof item === 'string' ? item.trim() : item;
+    })
     .filter((item) => item !== '' && item != null) as Array<number | string>;
 }
 
@@ -81,17 +99,24 @@ async function loadUserPermissionOptions() {
     const userId = props.isCreate ? undefined : props.record?.userId;
     const response = await getUserFormOptions(userId as number | string);
     const roles = Array.isArray(response.roles) ? response.roles : [];
+    const posts = Array.isArray(response.posts) ? response.posts : [];
     roleOptions.value = roles.map((role) => ({
       label: String(role.roleName ?? role.roleKey ?? role.roleId ?? ''),
       value: role.roleId ?? '',
     }));
+    postOptions.value = posts.map((post) => ({
+      label: String(post.postName ?? post.postCode ?? post.postId ?? ''),
+      value: post.postId ?? '',
+    }));
 
     const selectedRoleIds = normalizeRoleIds(response.roleIds);
+    const selectedPostIds = normalizePostIds(response.postIds);
     if (!props.isCreate && response.data) {
       formData.value = {
         ...props.record,
         ...response.data,
         roleIds: selectedRoleIds,
+        postIds: selectedPostIds,
       };
       return;
     }
@@ -99,6 +124,7 @@ async function loadUserPermissionOptions() {
     formData.value = {
       ...formData.value,
       roleIds: selectedRoleIds,
+      postIds: selectedPostIds,
     };
   } finally {
     optionsLoading.value = false;
@@ -120,6 +146,7 @@ async function handleSave(data: Record<string, unknown>) {
       avatar: normalizeAvatarValue(data.avatar),
       status: String(data.status ?? '0'),
       roleIds: normalizeRoleIds(data.roleIds),
+      postIds: normalizePostIds(data.postIds),
       remark: String(data.remark ?? '').trim() || undefined,
     };
     await createUser(payload);
@@ -144,6 +171,7 @@ const handEdit = async (data: Record<string, unknown>) => {
 
       status: String(data.status ?? '0'),
       roleIds: normalizeRoleIds(data.roleIds),
+      postIds: normalizePostIds(data.postIds),
       remark: String(data.remark ?? '').trim() || undefined,
     };
     await editUser(payload);

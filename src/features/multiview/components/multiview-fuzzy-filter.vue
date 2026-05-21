@@ -93,9 +93,12 @@ function updateCustomFieldValue(key: string, value: unknown) {
         />
 
         <el-date-picker
-          v-else-if="field.component === 'date'"
+          v-else-if="
+            field.component === 'date' || field.component === 'datetime'
+          "
           v-model="formModel[field.key]"
-          type="date"
+          :type="field.component"
+          value-format="x"
           :placeholder="field.placeholder || t('common.pleaseSelect')"
           clearable
           v-bind="field.componentProps"

@@ -134,6 +134,7 @@ import type {
   ImportDialogTargetField,
 } from '@/components/import-dialog';
 import type { FilterFormValue } from '@/features/multiview/types';
+import { normalizeTimestampValue } from '@/utils/datetime';
 import { useMultiviewActions } from '@/features/multiview/composables/use-multiview-actions';
 import {
   resolveBackendFilterFields,
@@ -474,7 +475,10 @@ function buildRequestParams() {
     }
 
     if (value instanceof Date) {
-      params[field.key] = value.toISOString();
+      const timestamp = normalizeTimestampValue(value);
+      if (timestamp !== undefined) {
+        params[field.key] = timestamp;
+      }
       continue;
     }
 

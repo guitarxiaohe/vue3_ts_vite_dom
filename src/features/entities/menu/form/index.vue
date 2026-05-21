@@ -303,10 +303,10 @@ watch(
             <el-tree-select
               v-model="formData.parentId"
               :data="filteredParentOptions"
-              node-key="menuId"
+              node-key="id"
               :props="{
-                label: 'menuName',
-                value: 'menuId',
+                label: 'label',
+                value: 'id',
                 children: 'children',
               }"
               check-strictly

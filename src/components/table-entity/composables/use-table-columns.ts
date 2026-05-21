@@ -13,6 +13,7 @@ import FileCell from '../cells/file-cell.vue';
 import PictureCell from '../cells/picture-cell.vue';
 import DictTag from '@/components/dict-tag/index.vue';
 import { useImageUrl } from '@/composables/use-image-url';
+import { formatTimestampText } from '@/utils/datetime';
 /******************************** 列配置加载与插槽合并 ********************************/
 
 // 兼容字段配置的 camelCase 与 snake_case
@@ -79,34 +80,6 @@ function resolveImageUrls(value: unknown) {
     })
     .filter(Boolean)
     .map((url) => resolveImageUrl(url));
-}
-
-// 规范化日期时间文案 时间戳转 YYYY-MM-DD HH:MM:SS
-function formatDateTimeText(value: unknown, isDateOnly = false) {
-  if (value == null || value === '') return '--';
-  const text = String(value).trim();
-  if (!text) return '--';
-
-  // 解析为合法时间戳（支持字符串和数字）
-  let date: Date;
-  if (/^\d+$/.test(text)) {
-    date = new Date(Number(text));
-  } else {
-    date = new Date(text);
-  }
-  if (isNaN(date.getTime())) return '--';
-
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const Y = date.getFullYear();
-  const M = pad(date.getMonth() + 1);
-  const D = pad(date.getDate());
-  if (isDateOnly) {
-    return `${Y}-${M}-${D}`;
-  }
-  const h = pad(date.getHours());
-  const m = pad(date.getMinutes());
-  const s = pad(date.getSeconds());
-  return `${Y}-${M}-${D} ${h}:${m}:${s}`;
 }
 
 // 从全局字典缓存中解析标签
@@ -283,11 +256,11 @@ function resolveDetailTextByFieldType(
   }
 
   if (fieldType === 'date') {
-    return formatDateTimeText(cellData, true);
+    return formatTimestampText(cellData, { dateOnly: true });
   }
 
   if (fieldType === 'datetime') {
-    return formatDateTimeText(cellData);
+    return formatTimestampText(cellData);
   }
 
   if (fieldType === 'dict' || fieldType === 'select') {
@@ -395,12 +368,12 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
 
   if (fieldType === 'date') {
     return ({ cellData }: { cellData: unknown }) =>
-      h('span', {}, formatDateTimeText(cellData, true));
+      h('span', {}, formatTimestampText(cellData, { dateOnly: true }));
   }
 
   if (fieldType === 'datetime') {
     return ({ cellData }: { cellData: unknown }) =>
-      h('span', {}, formatDateTimeText(cellData));
+      h('span', {}, formatTimestampText(cellData));
   }
 
   if (fieldType === 'switch') {

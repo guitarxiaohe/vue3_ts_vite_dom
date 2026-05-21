@@ -192,13 +192,13 @@ export interface SysUser {
   createBy?: string;
 
   /** 创建时间 */
-  createTime?: string | Date;
+  createTime?: string | number | Date;
 
   /** 更新者 */
   updateBy?: string;
 
   /** 更新时间 */
-  updateTime?: string | Date;
+  updateTime?: string | number | Date;
 
   /** 备注 */
   remark?: string;

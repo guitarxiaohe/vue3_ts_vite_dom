@@ -17,7 +17,7 @@ export interface WsMsgLog {
   queryParams: string;
   targetUserId: number | null;
   sendStatus: string;
-  sendTime: string | null;
+  sendTime: string | number | null;
   createBy: string;
-  createTime: string;
+  createTime: string | number;
 }

@@ -25,7 +25,7 @@ export interface SysRole {
   /** 备注 */
   remark?: string;
   /** 创建时间 */
-  createTime?: string | Date;
+  createTime?: string | number | Date;
   /** 是否管理员 */
   admin?: boolean;
 }

@@ -54,7 +54,7 @@
             v-else-if="field.component === 'date'"
             v-model="formData[field.key]"
             type="date"
-            value-format="YYYY-MM-DD"
+            value-format="x"
             :placeholder="field.placeholder"
             style="width: 100%"
           />
@@ -63,7 +63,7 @@
             v-else-if="field.component === 'datetime'"
             v-model="formData[field.key]"
             type="datetime"
-            value-format="YYYY-MM-DD HH:mm:ss"
+            value-format="x"
             :placeholder="field.placeholder"
             style="width: 100%"
           />

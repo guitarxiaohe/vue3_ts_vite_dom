@@ -1,6 +1,10 @@
 import { httpClient } from '@/api/client';
 import type { SysRole } from '@/types/user/role.type';
-import type { SysUser, SysUserDetailApiResponse } from '@/types/user';
+import type {
+  SysPost,
+  SysUser,
+  SysUserDetailApiResponse,
+} from '@/types/user';
 
 /******************************** 用户表单服务 ********************************/
 
@@ -15,6 +19,7 @@ export interface CreateUserPayload {
   avatar?: string;
   status?: string;
   roleIds?: Array<number | string>;
+  postIds?: Array<number | string>;
   remark?: string;
 }
 
@@ -29,6 +34,7 @@ export interface EditUserPayload {
   avatar?: string;
   status?: string;
   roleIds?: Array<number | string>;
+  postIds?: Array<number | string>;
   remark?: string;
 }
 
@@ -36,6 +42,8 @@ export interface EditUserPayload {
 export type UserFormOptionsResponse = SysUserDetailApiResponse & {
   roles?: SysRole[];
   roleIds?: Array<number | string>;
+  posts?: SysPost[];
+  postIds?: Array<number | string>;
   data?: SysUser;
 };
 

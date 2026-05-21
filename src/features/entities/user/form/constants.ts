@@ -7,7 +7,8 @@ type Translate = (key: string, params?: Record<string, unknown>) => string;
 // 获取用户实体表单字段配置
 export function getUserFormFields(
   t: Translate,
-  roleOptions: Array<{ label: string; value: string | number }> = []
+  roleOptions: Array<{ label: string; value: string | number }> = [],
+  postOptions: Array<{ label: string; value: string | number }> = []
 ): EntityFormField[] {
   return [
     {
@@ -75,7 +76,6 @@ export function getUserFormFields(
       label: t('permissionForm.userAvatar'),
       type: 'picture',
       defaultValue: [],
-      options: roleOptions,
     },
 
     {
@@ -85,6 +85,14 @@ export function getUserFormFields(
       optionSource: 'static',
       defaultValue: [],
       options: roleOptions,
+    },
+    {
+      prop: 'postIds',
+      label: t('permissionForm.userPosts'),
+      type: 'checkbox',
+      optionSource: 'static',
+      defaultValue: [],
+      options: postOptions,
     },
   ];
 }
