@@ -156,9 +156,7 @@ const formRules = computed<FormRules>(() => ({
           !String(value ?? '').trim()
         ) {
           callback(
-            new Error(
-              t('validation.enterField', { field: t('menuPage.path') })
-            )
+            new Error(t('validation.enterField', { field: t('menuPage.path') }))
           );
           return;
         }
