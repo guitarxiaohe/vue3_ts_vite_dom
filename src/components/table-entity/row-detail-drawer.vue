@@ -40,9 +40,12 @@
       <el-col
         v-for="col in detailColumns"
         :key="String(col.key)"
-        :span="detailColumnSpan"
+        :span="colSpan(col)"
       >
-        <div class="row-detail-drawer__item">
+        <div
+          class="row-detail-drawer__item"
+          :class="{ 'row-detail-drawer__item--full': isFullWidthColumn(col) }"
+        >
           <div class="row-detail-drawer__label">
             {{ String(col.title ?? col.dataKey ?? '') }}:
           </div>
@@ -208,6 +211,16 @@ const detailColumnSpan = computed(() =>
   detailColumns.value.length > 10 ? 6 : 8
 );
 
+// textarea / 长文本字段独占一行
+function isFullWidthColumn(col: ColumnsItem) {
+  const type = String(col.fieldType ?? '').toLowerCase();
+  return type === 'textarea' || type === 'text';
+}
+
+function colSpan(col: ColumnsItem) {
+  return isFullWidthColumn(col) ? 24 : detailColumnSpan.value;
+}
+
 const drawerSize = computed(() => {
   if (props.width != null) return props.width;
   if (hasChildTables.value) return '1080px';
@@ -338,6 +351,17 @@ watch(
   white-space: nowrap;
   text-overflow: ellipsis;
   font-size: 12px;
+}
+
+.row-detail-drawer__item--full .row-detail-drawer__value {
+  white-space: normal;
+  word-break: break-all;
+  overflow: visible;
+}
+
+.row-detail-drawer__item--full .row-detail-drawer__rich-value {
+  white-space: normal;
+  word-break: break-all;
 }
 
 .row-detail-drawer__rich-value {
