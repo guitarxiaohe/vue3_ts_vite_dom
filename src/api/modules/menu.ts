@@ -1,5 +1,10 @@
 import { httpClient } from '../client';
-import type { SysMenu, SysMenuQuery, SysRouter } from '@/types/menu';
+import type {
+  MenuTreeSelectOption,
+  SysMenu,
+  SysMenuQuery,
+  SysRouter,
+} from '@/types/menu';
 import type { TableListQuery } from '@/components/table-entity/index.type';
 import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
 import { isMockEnabled } from '@/utils/is-mock';
@@ -44,7 +49,7 @@ let mockMenus: MenuNode[] = [
     localeNames: [
       { locale: 'zh-CN', label: '首页' },
       { locale: 'en-US', label: 'Home' },
-      { locale: 'ja-JP', label: 'ホーム' },
+      { locale: 'zh-TW', label: '首頁' },
     ],
     createTime: nowText(),
     updateTime: nowText(),
@@ -374,6 +379,60 @@ function buildMockRouters(menus: MenuNode[]): SysRouter[] {
     }));
 }
 
+function normalizeMenuTree(menus: SysMenu[]) {
+  const menuMap = new Map<number, MenuNode>();
+  const roots: MenuNode[] = [];
+
+  menus.forEach((menu) => {
+    const menuId = Number(menu.menuId ?? 0);
+    menuMap.set(menuId, {
+      ...(menu as MenuNode),
+      menuId,
+      parentId: Number(menu.parentId ?? 0),
+      orderNum: Number(menu.orderNum ?? 0),
+      children: [],
+    });
+  });
+
+  menuMap.forEach((menu) => {
+    const parentId = Number(menu.parentId ?? 0);
+    if (parentId > 0 && menuMap.has(parentId)) {
+      const parent = menuMap.get(parentId)!;
+      parent.children = parent.children ?? [];
+      parent.children.push(menu);
+      return;
+    }
+    roots.push(menu);
+  });
+
+  const sortMenus = (items: MenuNode[]) => {
+    items.sort((left, right) => {
+      const leftOrder = Number(left.orderNum ?? 0);
+      const rightOrder = Number(right.orderNum ?? 0);
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+      return Number(left.menuId ?? 0) - Number(right.menuId ?? 0);
+    });
+    items.forEach((item) => {
+      if (item.children?.length) {
+        sortMenus(item.children);
+      }
+    });
+  };
+
+  sortMenus(roots);
+  return roots;
+}
+
+function mapMenusToTreeSelect(menus: SysMenu[]): MenuTreeSelectOption[] {
+  return menus.map((menu) => ({
+    id: Number(menu.menuId ?? 0),
+    label: String(menu.menuName ?? ''),
+    children: menu.children?.length ? mapMenusToTreeSelect(menu.children) : [],
+  }));
+}
+
 // 根据 ID 查找菜单
 function findMenuById(menuId: number): MenuNode | null {
   let target: MenuNode | null = null;
@@ -488,19 +547,36 @@ export async function listMenuRows(
   params: TableListQuery & Partial<SysMenuQuery> = { pageNum: 1, pageSize: 20 }
 ) {
   const response = (await listMenu(params)) as {
+    code?: number;
+    msg?: string;
     rows?: SysMenu[];
     total?: number;
+    data?: SysMenu[];
   };
 
-  const rows = Array.isArray(response.rows) ? response.rows : [];
+  assertAjaxOk(response);
+
+  const sourceRows = Array.isArray(response.rows)
+    ? response.rows
+    : Array.isArray(response.data)
+      ? response.data
+      : [];
+  const rows = Array.isArray(sourceRows[0]?.children)
+    ? (sourceRows as MenuNode[])
+    : normalizeMenuTree(sourceRows);
   const flatRows: Array<
-    SysMenu & { menuLevel: number; localeDisplay: string }
+    SysMenu & {
+      parentName?: string;
+      menuLevel: number;
+      localeDisplay: string;
+    }
   > = [];
 
-  const walk = (menus: SysMenu[], level = 1) => {
+  const walk = (menus: SysMenu[], level = 1, parentName = '') => {
     menus.forEach((menu) => {
       flatRows.push({
         ...menu,
+        parentName,
         menuLevel: level,
         localeDisplay: (menu.localeNames ?? [])
           .map((item) => `${item.locale}:${item.label}`)
@@ -508,7 +584,7 @@ export async function listMenuRows(
       });
 
       if (menu.children?.length) {
-        walk(menu.children, level + 1);
+        walk(menu.children, level + 1, String(menu.menuName ?? ''));
       }
     });
   };
@@ -540,7 +616,7 @@ export function listMenuTreeSelect() {
     return Promise.resolve({
       code: 200,
       msg: '操作成功',
-      data: getCurrentMockMenus(),
+      data: mapMenusToTreeSelect(getCurrentMockMenus()),
     } as any);
   }
 
@@ -548,12 +624,12 @@ export function listMenuTreeSelect() {
 }
 
 // 读取菜单树下拉数据
-export async function fetchMenuTreeSelect(): Promise<SysMenu[]> {
+export async function fetchMenuTreeSelect(): Promise<MenuTreeSelectOption[]> {
   const response = (await listMenuTreeSelect()) as {
     code?: number;
     msg?: string;
     message?: string;
-    data?: SysMenu[];
+    data?: MenuTreeSelectOption[];
   };
 
   assertAjaxOk(response);

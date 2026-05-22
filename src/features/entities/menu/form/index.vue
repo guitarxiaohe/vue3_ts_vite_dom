@@ -8,10 +8,15 @@ import {
   addMenu,
   assertAjaxOk,
   fetchMenuTreeSelect,
+  getMenu,
   MENU_TREESELECT_QUERY_KEY,
   updateMenu,
 } from '@/api/modules/menu';
-import type { SysMenu, SysMenuFormData } from '@/types/menu';
+import type {
+  MenuTreeSelectOption,
+  SysMenu,
+  SysMenuFormData,
+} from '@/types/menu';
 import type {
   EntityFormEmits,
   EntityFormProps,
@@ -54,7 +59,7 @@ const drawerTitle = computed(() => {
 const localeOptions = computed(() => [
   { label: t('locale.zhCN'), value: 'zh-CN' as const },
   { label: t('locale.enUS'), value: 'en-US' as const },
-  { label: t('menuPage.localeJaJP'), value: 'ja-JP' as const },
+  { label: t('locale.zhTW'), value: 'zh-TW' as const },
 ]);
 
 const menuTypeOptions = computed(() => [
@@ -63,8 +68,16 @@ const menuTypeOptions = computed(() => [
   { label: t('menuPage.typeButton'), value: 'F' },
 ]);
 
-const previewIcon = computed(() => resolveMenuIcon(formData.value.icon));
-const parentOptions = computed<SysMenu[]>(() => parentOptionsData.value ?? []);
+const previewIcon = computed(() =>
+  resolveMenuIcon(formData.value.icon || 'Menu')
+);
+const parentOptions = computed<MenuTreeSelectOption[]>(
+  () => parentOptionsData.value ?? []
+);
+const isDirectoryType = computed(() => formData.value.menuType === 'M');
+const isMenuType = computed(() => formData.value.menuType === 'C');
+const isButtonType = computed(() => formData.value.menuType === 'F');
+const isExternalLink = computed(() => String(formData.value.isFrame) === '0');
 
 const filteredParentOptions = computed(() => {
   if (!formData.value.menuId) {
@@ -74,23 +87,37 @@ const filteredParentOptions = computed(() => {
   const currentId = Number(formData.value.menuId);
   const blockedIds = new Set<number>([currentId]);
 
-  const collectChildren = (menus: SysMenu[]) => {
+  const markDescendants = (menus: MenuTreeSelectOption[]) => {
     menus.forEach((menu) => {
-      if (blockedIds.has(Number(menu.parentId))) {
-        blockedIds.add(Number(menu.menuId));
+      const menuId = Number(menu.id);
+      if (blockedIds.has(menuId)) {
+        const collectAll = (children: MenuTreeSelectOption[]) => {
+          children.forEach((child) => {
+            blockedIds.add(Number(child.id));
+            if (child.children?.length) {
+              collectAll(child.children);
+            }
+          });
+        };
+
+        if (menu.children?.length) {
+          collectAll(menu.children);
+        }
       }
 
       if (menu.children?.length) {
-        collectChildren(menu.children);
+        markDescendants(menu.children);
       }
     });
   };
 
-  collectChildren(parentOptions.value);
+  markDescendants(parentOptions.value);
 
-  const filterTree = (menus: SysMenu[]): SysMenu[] => {
+  const filterTree = (
+    menus: MenuTreeSelectOption[]
+  ): MenuTreeSelectOption[] => {
     return menus.flatMap((menu) => {
-      if (blockedIds.has(Number(menu.menuId))) {
+      if (blockedIds.has(Number(menu.id))) {
         return [];
       }
 
@@ -119,6 +146,61 @@ const formRules = computed<FormRules>(() => ({
       required: true,
       message: t('validation.selectField', { field: t('menuPage.menuType') }),
       trigger: 'change',
+    },
+  ],
+  path: [
+    {
+      validator: (_rule, value, callback) => {
+        if (
+          (isDirectoryType.value || isMenuType.value) &&
+          !String(value ?? '').trim()
+        ) {
+          callback(
+            new Error(
+              t('validation.enterField', { field: t('menuPage.path') })
+            )
+          );
+          return;
+        }
+        callback();
+      },
+      trigger: 'blur',
+    },
+  ],
+  component: [
+    {
+      validator: (_rule, value, callback) => {
+        if (
+          !isButtonType.value &&
+          !isExternalLink.value &&
+          !String(value ?? '').trim()
+        ) {
+          callback(
+            new Error(
+              t('validation.enterField', { field: t('menuPage.component') })
+            )
+          );
+          return;
+        }
+        callback();
+      },
+      trigger: 'blur',
+    },
+  ],
+  perms: [
+    {
+      validator: (_rule, value, callback) => {
+        if (isButtonType.value && !String(value ?? '').trim()) {
+          callback(
+            new Error(
+              t('validation.enterField', { field: t('menuPage.permission') })
+            )
+          );
+          return;
+        }
+        callback();
+      },
+      trigger: 'blur',
     },
   ],
 }));
@@ -219,20 +301,53 @@ function clearFormValidation() {
   formRef.value?.clearValidate();
 }
 
+function normalizeNullableText(value: unknown) {
+  const text = String(value ?? '').trim();
+  return text ? text : null;
+}
+
+function buildSubmitPayload(): SysMenu {
+  const remarkText = String(formData.value.remark ?? '').trim();
+  const iconText = String(formData.value.icon ?? '').trim();
+
+  syncMenuName();
+
+  return {
+    menuId: formData.value.menuId,
+    menuName: formData.value.menuName.trim(),
+    parentId: Number(formData.value.parentId ?? 0),
+    orderNum: Number(formData.value.orderNum ?? 0),
+    path: isButtonType.value ? '' : String(formData.value.path ?? '').trim(),
+    component:
+      isButtonType.value || isExternalLink.value
+        ? null
+        : normalizeNullableText(formData.value.component),
+    query:
+      isMenuType.value && !isExternalLink.value
+        ? normalizeNullableText(formData.value.query)
+        : null,
+    isFrame: Number(formData.value.isFrame ?? 1) as 0 | 1,
+    isCache: (isMenuType.value ? Number(formData.value.isCache ?? 1) : 1) as
+      | 0
+      | 1,
+    menuType: formData.value.menuType ?? 'C',
+    visible: (formData.value.visible ?? '0') as '0' | '1',
+    status: (formData.value.status ?? '0') as '0' | '1',
+    perms:
+      isButtonType.value || isMenuType.value
+        ? normalizeNullableText(formData.value.perms)
+        : null,
+    icon: isButtonType.value ? '' : iconText,
+    remark: remarkText,
+  };
+}
+
 // 提交表单
 async function handleSave() {
   saving.value = true;
 
   try {
-    const payload = {
-      ...formData.value,
-      localeNames: formData.value.localeNames
-        .map((item) => ({
-          ...item,
-          label: item.label.trim(),
-        }))
-        .filter((item) => item.label),
-    };
+    const payload = buildSubmitPayload();
 
     if (props.isCreate) {
       const response = await addMenu(payload);
@@ -245,7 +360,7 @@ async function handleSave() {
     await queryClient.invalidateQueries({
       queryKey: MENU_TREESELECT_QUERY_KEY,
     });
-    emit('save', payload);
+    emit('save', payload as unknown as Record<string, unknown>);
     emit('update:visible', false);
   } finally {
     saving.value = false;
@@ -267,9 +382,58 @@ watch(
       return;
     }
 
-    formData.value = cloneFormData(props.record);
+    const menuId = Number(props.record?.menuId ?? 0);
+    if (!props.isCreate && menuId > 0) {
+      const response = (await getMenu(menuId)) as {
+        code?: number;
+        msg?: string;
+        message?: string;
+        data?: SysMenu;
+      };
+      assertAjaxOk(response);
+      formData.value = cloneFormData(
+        (response.data ?? props.record ?? {}) as Record<string, unknown>
+      );
+    } else {
+      formData.value = cloneFormData(props.record);
+    }
+    clearFormValidation();
   },
   { immediate: true }
+);
+
+watch(
+  () => formData.value.menuType,
+  (menuType) => {
+    if (menuType === 'F') {
+      formData.value.path = '';
+      formData.value.component = '';
+      formData.value.query = '';
+      formData.value.isCache = 1;
+      formData.value.icon = '';
+      return;
+    }
+
+    if (menuType === 'M') {
+      formData.value.query = '';
+      formData.value.perms = '';
+      formData.value.isCache = 1;
+      if (!formData.value.component) {
+        formData.value.component = 'Layout';
+      }
+      if (!formData.value.icon) {
+        formData.value.icon = 'Menu';
+      }
+      return;
+    }
+
+    if (!formData.value.component) {
+      formData.value.component = 'ParentView';
+    }
+    if (!formData.value.icon) {
+      formData.value.icon = 'Menu';
+    }
+  }
 );
 </script>
 
@@ -375,7 +539,7 @@ watch(
             />
           </el-form-item>
 
-          <el-form-item :label="t('menuPage.icon')">
+          <el-form-item v-if="!isButtonType" :label="t('menuPage.icon')">
             <el-select v-model="formData.icon" style="width: 100%">
               <el-option
                 v-for="item in MENU_ICON_OPTIONS"
@@ -395,23 +559,38 @@ watch(
             </div>
           </el-form-item>
 
-          <el-form-item :label="t('menuPage.path')">
+          <el-form-item
+            v-if="isDirectoryType || isMenuType"
+            :label="t('menuPage.path')"
+            prop="path"
+          >
             <el-input v-model="formData.path" clearable />
           </el-form-item>
 
-          <el-form-item :label="t('menuPage.component')">
+          <el-form-item
+            v-if="!isButtonType"
+            :label="t('menuPage.component')"
+            prop="component"
+          >
             <el-input v-model="formData.component" clearable />
           </el-form-item>
 
-          <el-form-item :label="t('menuPage.routeName')">
+          <el-form-item v-if="false" :label="t('menuPage.routeName')">
             <el-input v-model="formData.routeName" clearable />
           </el-form-item>
 
-          <el-form-item :label="t('menuPage.query')">
+          <el-form-item
+            v-if="isMenuType && !isExternalLink"
+            :label="t('menuPage.query')"
+          >
             <el-input v-model="formData.query" clearable />
           </el-form-item>
 
-          <el-form-item :label="t('menuPage.permission')">
+          <el-form-item
+            v-if="isMenuType || isButtonType"
+            :label="t('menuPage.permission')"
+            prop="perms"
+          >
             <el-input v-model="formData.perms" clearable />
           </el-form-item>
 
@@ -435,7 +614,7 @@ watch(
               />
             </div>
 
-            <div class="menu-form__switch-item">
+            <div v-if="isMenuType" class="menu-form__switch-item">
               <span>{{ t('menuPage.cache') }}</span>
               <el-switch
                 v-model="formData.isCache"
@@ -444,7 +623,7 @@ watch(
               />
             </div>
 
-            <div class="menu-form__switch-item">
+            <div v-if="!isButtonType" class="menu-form__switch-item">
               <span>{{ t('menuPage.frame') }}</span>
               <el-switch
                 v-model="formData.isFrame"

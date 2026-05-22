@@ -4,8 +4,14 @@ import type { PaginationParams } from '@/types/api';
 
 // 菜单名称国际化项
 export interface MenuLocaleItem {
-  locale: 'zh-CN' | 'en-US' | 'ja-JP';
+  locale: 'zh-CN' | 'en-US' | 'zh-TW';
   label: string;
+}
+
+export interface MenuTreeSelectOption {
+  id: number;
+  label: string;
+  children?: MenuTreeSelectOption[];
 }
 
 // 菜单实体
