@@ -34,7 +34,7 @@ function buildBaseBackendFilterField(
   };
 
   if (
-    (fieldType === 'select' || fieldType === 'dict') &&
+    (fieldType === 'select' || fieldType === 'dict' || fieldType === 'user') &&
     staticOptions?.length
   ) {
     return {
@@ -63,7 +63,7 @@ export function createDefaultFilterComponentRegistrations(): EntityFilterCompone
     {
       key: 'select-entity-async-select',
       component: 'async-select',
-      fieldTypes: ['select', 'dict'],
+      fieldTypes: ['select', 'dict', 'user'],
       matcher: ({ field }) =>
         Boolean(String(field.selectEntityKey ?? '').trim()),
       mapField: ({ field, t }) => ({
