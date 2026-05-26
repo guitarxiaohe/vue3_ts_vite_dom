@@ -28,7 +28,8 @@ export interface AsyncSelectEntityFetchResult {
 }
 
 export interface AsyncSelectEntityConfig {
-  entityKey: string;
+  entityKey?: string;
+  dictCode?: string;
   columns?: ColumnsItem[];
   dataParams?: Record<string, string | number | boolean | undefined>;
   queryKey?: string | string[];

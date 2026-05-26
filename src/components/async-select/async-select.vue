@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { useQuery } from '@tanstack/vue-query';
 import DialogList from '@/components/dialog-list/index.vue';
 import { getListByEntityKeyApi } from '@/api/modules/dynamic-entity';
+import { createDictDataFetcher } from '@/utils/dict-fetcher';
 import moreDotIcon from '@/assets/svg/icons/more-dot.svg';
 import type {
   ColumnsItem,
@@ -54,6 +55,7 @@ const props = withDefaults(
     labelKey?: string;
     placeholder?: string;
     disabled?: boolean;
+    dictCode?: string;
     dialogTitle?: string;
     columns?: ColumnsItem[];
     dialogPageSize?: number;
@@ -67,6 +69,7 @@ const props = withDefaults(
     labelKey: 'deptName',
     placeholder: '',
     disabled: false,
+    dictCode: '',
     dialogTitle: '',
     columns: () => [],
     dialogPageSize: 20,
@@ -92,6 +95,12 @@ const resolvedDialogPageSize = computed(
   () => props.entityConfig?.pageSize ?? props.dialogPageSize
 );
 
+const resolvedDictCode = computed(() =>
+  String(props.entityConfig?.dictCode ?? props.dictCode ?? '').trim()
+);
+
+const isDictSelect = computed(() => Boolean(resolvedDictCode.value));
+
 const resolvedQueryKey = computed(() => {
   if (props.entityConfig?.queryKey) {
     return Array.isArray(props.entityConfig.queryKey)
@@ -100,6 +109,14 @@ const resolvedQueryKey = computed(() => {
   }
   if (props.queryKey) {
     return Array.isArray(props.queryKey) ? props.queryKey : [props.queryKey];
+  }
+  if (resolvedDictCode.value) {
+    return [
+      '__async-select-dict__',
+      resolvedDictCode.value,
+      props.valueKey,
+      props.labelKey,
+    ];
   }
   if (props.entityConfig?.entityKey) {
     return [
@@ -165,6 +182,18 @@ async function fetchEntityList(
   params: AsyncSelectFetchParams
 ): Promise<AsyncSelectListResult> {
   const config = props.entityConfig;
+  const dictCode = resolvedDictCode.value;
+  if (dictCode) {
+    const result = await createDictDataFetcher(dictCode)({
+      page: params.page,
+      pageSize: params.pageSize,
+      keyword: params.keyword,
+    });
+    return {
+      items: result.rows ?? [],
+      total: Number(result.total) || 0,
+    };
+  }
   if (!config?.entityKey) {
     throw new Error('AsyncSelect entityConfig.entityKey is required');
   }
@@ -203,11 +232,11 @@ async function fetchEntityList(
 }
 
 async function fetchList(params: AsyncSelectFetchParams) {
-  if (props.entityConfig?.entityKey) {
+  if (isDictSelect.value || props.entityConfig?.entityKey) {
     return fetchEntityList(params);
   }
   if (!props.fetcher) {
-    throw new Error('AsyncSelect requires fetcher or entityConfig');
+    throw new Error('AsyncSelect requires fetcher, dictCode or entityConfig');
   }
   return props.fetcher(params);
 }
@@ -251,6 +280,23 @@ watch(
 
     if (props.entityConfig?.loadByValues) {
       const rows = await props.entityConfig.loadByValues(missedValues);
+      for (const row of rows) {
+        const opt = toOpt(row);
+        if (!selectedOpts.value.find((item) => item.value === opt.value)) {
+          selectedOpts.value.push(opt);
+        }
+      }
+      return;
+    }
+
+    if (resolvedDictCode.value) {
+      const result = await createDictDataFetcher(resolvedDictCode.value)({
+        page: 1,
+        pageSize: 9999,
+      });
+      const rows = (result.rows ?? []).filter((row) =>
+        missedValues.includes(resolveOptionValue(row))
+      );
       for (const row of rows) {
         const opt = toOpt(row);
         if (!selectedOpts.value.find((item) => item.value === opt.value)) {

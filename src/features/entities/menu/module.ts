@@ -124,6 +124,15 @@ const entityModule: EntityModule = {
     showView: false,
     showCopy: false,
     actionColumnWidth: 160,
+    customButtons: [
+      {
+        key: 'zixiang',
+        component: defineAsyncComponent(
+          () => import('./row-actions/sub-item.vue')
+        ),
+        label: 'sdsd',
+      },
+    ],
   },
   config: {
     entityKey: 'menu',
@@ -136,38 +145,14 @@ const entityModule: EntityModule = {
       showImport: false,
       showExport: false,
     },
-    filters: {
-      fields: {
-        menuId: {
-          key: 'menuId',
-          label: '菜单编号',
-          component: 'input',
-          placeholder: '请输入菜单编号',
-          order: 1,
-        },
-        menuName: {
-          key: 'menuName',
-          label: '菜单名称',
-          component: 'input',
-          placeholder: '请输入菜单名称',
-          order: 2,
-        },
-        path: {
-          key: 'path',
-          label: '访问路径',
-          component: 'input',
-          placeholder: '请输入访问路径',
-          order: 3,
-        },
-      },
-    },
+
     table: {
       rowKey: 'menuId',
+
       height: 560,
       pageSize: 20,
       showColumnSettings: true,
       useFieldConfig: false,
-      columns: createMenuColumns(),
       fetcher: listMenuRows,
     },
     detail: {

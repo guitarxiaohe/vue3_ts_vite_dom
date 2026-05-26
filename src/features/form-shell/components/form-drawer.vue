@@ -307,11 +307,15 @@ async function handleSave() {
     }
   }
 
-  emits(
-    'save',
-    cloneRecord(internalFormData.value),
-    props.isCreate ? -1 : currentIndex.value
-  );
+  const submitRecord =
+    props.isCreate || !activeRecord.value
+      ? cloneRecord(internalFormData.value)
+      : {
+          ...cloneRecord(activeRecord.value),
+          ...cloneRecord(internalFormData.value),
+        };
+
+  emits('save', submitRecord, props.isCreate ? -1 : currentIndex.value);
 }
 
 // 取消编辑
