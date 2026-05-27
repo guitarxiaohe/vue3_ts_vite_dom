@@ -19,7 +19,7 @@ SCP_OPTS=(-P "$DEPLOY_PORT")
 
 echo "==> 构建前端产物..."
 cd "$REPO_DIR"
-pnpm build
+pnpm build:prod
 
 echo "==> 准备 Docker 部署包..."
 rm -rf "$DEPLOY_DIR"

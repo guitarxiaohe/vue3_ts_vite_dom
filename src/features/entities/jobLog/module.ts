@@ -45,7 +45,6 @@ const entityModule = createEntityModule({
     table: {
       rowKey: 'jobLogId',
       height: 560,
-      pageSize: 20,
       defaultSort: { field: 'startTime', order: 'desc' },
     },
     detail: {

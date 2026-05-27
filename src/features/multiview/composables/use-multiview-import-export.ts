@@ -12,6 +12,7 @@
 import { ref, type Ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
+import * as XLSX from 'xlsx';
 import { httpClient } from '@/api/client';
 import type {
   ImportDialogMappingItem,
@@ -173,7 +174,17 @@ export function useMultiviewImportExport(
   async function parseImportFile(
     payload: ImportDialogParsePayload
   ): Promise<ImportDialogParseResult> {
-    const text = await readFileText(payload.file);
+    if (isExcelFile(payload.file)) {
+      return parseExcelPreview(payload);
+    }
+
+    return parseCsvPreview(payload.file);
+  }
+
+  async function parseCsvPreview(
+    file: File
+  ): Promise<ImportDialogParseResult> {
+    const text = await readFileText(file);
     const lines = text
       .split(/\r?\n/)
       .map((line) => line.trim())
@@ -201,13 +212,81 @@ export function useMultiviewImportExport(
     const mappings = buildImportMappings(headers);
 
     return {
-      fileName: payload.file.name,
+      fileName: file.name,
       total: Math.max(0, lines.length - 1),
       sheets: [{ label: 'Sheet1', value: 'Sheet1' }],
       currentSheet: 'Sheet1',
       previewColumns,
       previewRows,
       mappings,
+    };
+  }
+
+  async function parseExcelPreview(
+    payload: ImportDialogParsePayload
+  ): Promise<ImportDialogParseResult> {
+    const buffer = await payload.file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const sheetNames = workbook.SheetNames ?? [];
+    const sheets = sheetNames.map((name) => ({
+      label: name,
+      value: name,
+    }));
+    const currentSheet =
+      (payload.sheet && sheetNames.includes(payload.sheet)
+        ? payload.sheet
+        : sheetNames[0]) || 'Sheet1';
+    const worksheet = workbook.Sheets[currentSheet];
+
+    if (!worksheet) {
+      return {
+        fileName: payload.file.name,
+        total: 0,
+        sheets: sheets.length ? sheets : [{ label: 'Sheet1', value: 'Sheet1' }],
+        currentSheet,
+        previewColumns: [],
+        previewRows: [],
+        mappings: buildImportMappings([]),
+      };
+    }
+
+    const rows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(
+      worksheet,
+      {
+        header: 1,
+        raw: false,
+        defval: '',
+      }
+    );
+    const normalizedRows = rows
+      .map((row) => row.map((cell) => String(cell ?? '').trim()))
+      .filter((row) => row.some((cell) => cell !== ''));
+    const headerCells = normalizedRows[0]?.filter(Boolean) ?? [];
+    const fallbackHeaders = importTargetFields.value.map(
+      (field) => field.label
+    );
+    const headers = headerCells.length ? headerCells : fallbackHeaders;
+    const previewColumns = headers.map((label, index) => ({
+      prop: `col_${index}`,
+      label,
+      width: 140,
+    }));
+    const dataRows = normalizedRows.slice(1);
+    const previewRows = dataRows.slice(0, 20).map((row) =>
+      previewColumns.reduce<Record<string, unknown>>((record, column, index) => {
+        record[column.prop] = row[index] ?? '';
+        return record;
+      }, {})
+    );
+
+    return {
+      fileName: payload.file.name,
+      total: dataRows.length,
+      sheets: sheets.length ? sheets : [{ label: 'Sheet1', value: 'Sheet1' }],
+      currentSheet,
+      previewColumns,
+      previewRows,
+      mappings: buildImportMappings(headers),
     };
   }
 
@@ -338,6 +417,10 @@ export function useMultiviewImportExport(
         reject(reader.error ?? new Error('read file failed'));
       reader.readAsText(file);
     });
+  }
+
+  function isExcelFile(file: File) {
+    return /\.(xlsx|xls)$/i.test(file.name);
   }
 
   function splitCsvLine(line: string) {

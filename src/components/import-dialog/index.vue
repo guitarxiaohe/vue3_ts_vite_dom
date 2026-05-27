@@ -137,7 +137,7 @@ const uploadFileName = computed<string>(() => {
 const sourceColumnOptions = computed(() => {
   return previewColumns.value.map((column) => ({
     label: column.label,
-    value: column.prop,
+    value: column.label,
   }));
 });
 

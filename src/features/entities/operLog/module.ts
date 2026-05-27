@@ -45,7 +45,6 @@ const entityModule = createEntityModule({
     table: {
       rowKey: 'operId',
       height: 560,
-      pageSize: 20,
       defaultSort: { field: 'operTime', order: 'desc' },
     },
     detail: {

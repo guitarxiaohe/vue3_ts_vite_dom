@@ -32,10 +32,12 @@
     <div v-if="showPagination" class="table-entlty__pagination">
       <el-pagination
         :current-page="props.currentPage ?? 1"
-        :page-size="props.pageSize ?? 20"
+        :page-size="pageSizes[0]"
         :total="props.total != null ? props.total : pagination.total"
-        layout="total, prev, pager, next"
+        layout="total, sizes, prev, pager, next, jumper"
         background
+        :page-sizes="pageSizes"
+        @size-change="handleSizeChange"
         @current-change="onPageChange"
       />
     </div>
@@ -80,6 +82,29 @@ import { useEntityDelete } from './composables/use-entity-delete';
 import RowDetailDrawer from './row-detail-drawer.vue';
 import TableToolbar from './table-toolbar.vue';
 
+const DEFAULT_PAGE_SIZES: number[] = [100, 200, 300, 400, 800, 1000];
+
+/******************************** 配置解析 ********************************/
+
+// 解析分页配置，缺失或非法时回退默认值，避免生产环境初始化崩溃
+function resolvePageSizes(raw: string | undefined): number[] {
+  if (!raw) return [...DEFAULT_PAGE_SIZES];
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [...DEFAULT_PAGE_SIZES];
+
+    const normalized = parsed
+      .map((item) => Number(item))
+      .filter((item) => Number.isFinite(item) && item > 0);
+
+    return normalized.length ? normalized : [...DEFAULT_PAGE_SIZES];
+  } catch {
+    return [...DEFAULT_PAGE_SIZES];
+  }
+}
+
+const pageSizes = resolvePageSizes(import.meta.env.VITE_PAGE_SIZES);
 /******************************** 组件入参 ********************************/
 
 const props = withDefaults(defineProps<TableEntlty>(), {
@@ -88,7 +113,7 @@ const props = withDefaults(defineProps<TableEntlty>(), {
   multiple: true,
   rowKey: 'id',
   selectedKeys: () => [],
-  pageSize: 20,
+  pageSize: 100,
   currentPage: 1,
   showPagination: false,
   columns: () => [],
@@ -104,6 +129,7 @@ const { t } = useI18n();
 const emit = defineEmits<{
   'update:selectedKeys': [keys: any[]];
   'update:currentPage': [page: number];
+  'update:pageSize': [size: number];
   'update:hiddenColumnKeys': [keys: string[]];
   'selection-change': [rows: Record<string, any>[]];
   'page-change': [page: number];
@@ -122,7 +148,7 @@ const hiddenColumnKeysState = ref<string[]>([]);
 const pagination = reactive({
   total: 0,
   pageNum: props.currentPage ?? 1,
-  pageSize: props.pageSize ?? 10,
+  pageSize: props.pageSize ?? pageSizes[0],
 });
 
 const detailDrawerVisible = ref(false);
@@ -148,7 +174,7 @@ watch(
 watch(
   () => props.pageSize,
   (s) => {
-    pagination.pageSize = s ?? 10;
+    pagination.pageSize = s ?? pageSizes[0];
   }
 );
 
@@ -571,6 +597,11 @@ function onPageChange(page: number) {
   emit('update:currentPage', page);
   emit('page-change', page);
   pagination.pageNum = page;
+  void initData();
+}
+function handleSizeChange(size: number) {
+  emit('update:pageSize', size);
+  pagination.pageSize = size;
   void initData();
 }
 

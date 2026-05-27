@@ -293,7 +293,7 @@ export const useFileUpload = (options: UseFileUploadOptions) => {
       const attachmentData = toAttachmentData(file, uploadResponse);
       pendingFileData.value = attachmentData;
 
-      options.onUpdate(attachmentData);
+      options.onUpdate(attachmentData.url || attachmentData.fileUrl);
       options.onUploadSuccess?.(attachmentData);
 
       ElMessage.success(t('fileUpload.uploadSuccess'));

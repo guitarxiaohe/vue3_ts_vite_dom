@@ -125,17 +125,10 @@ import type {
 } from '@/types/entity-config';
 import type { FieldConfig } from '@/types/user';
 import type { TableListQuery } from '@/components/table-entity/index.type';
-import type {
-  ImportDialogMappingItem,
-  ImportDialogParsePayload,
-  ImportDialogParseResult,
-  ImportDialogSubmitPayload,
-  ImportDialogSubmitResult,
-  ImportDialogTargetField,
-} from '@/components/import-dialog';
 import type { FilterFormValue } from '@/features/multiview/types';
 import { normalizeTimestampValue } from '@/utils/datetime';
 import { useMultiviewActions } from '@/features/multiview/composables/use-multiview-actions';
+import { useMultiviewImportExport } from '@/features/multiview/composables/use-multiview-import-export';
 import {
   resolveBackendFilterFields,
   resolveFallbackFilterFields,
@@ -194,8 +187,9 @@ const { t } = useI18n();
 useAllDictDataQuery();
 
 // 导出
-function handleExport() {
+async function handleExport() {
   ElMessage.info(t('multiview.exporting', { entity: props.entityKey }));
+  await exportExcel();
 }
 
 /******************************** 基础状态 ********************************/
@@ -208,8 +202,6 @@ const currentPage = ref<number>(1);
 const total = ref<number>(0);
 const tableReady = ref<boolean>(false);
 const filterForm = reactive<Record<string, FilterFormValue>>({});
-const importDialogVisible = ref(false);
-const importTargetFields = ref<ImportDialogTargetField[]>([]);
 const backendFieldConfigs = ref<FieldConfig[]>([]);
 
 const entityConfig = computed(() => getEntityConfig(props.entityKey));
@@ -234,6 +226,20 @@ const resolvedActions = computed(() => {
 
 const tableConfig = computed<EntityTableConfig>(() =>
   getEntityTableConfig(props.entityKey)
+);
+const entityKeyRef = computed(() => props.entityKey);
+const {
+  importDialogVisible,
+  importTargetFields,
+  handleExport: exportExcel,
+  handleDownloadTemplate,
+  buildImportTargetFields,
+  parseImportFile,
+  submitImportData,
+} = useMultiviewImportExport(
+  entityKeyRef,
+  tableRef as any,
+  tableConfig
 );
 
 const detailConfig = computed<EntityDetailConfig>(
@@ -591,137 +597,9 @@ function openImportDialog() {
   importDialogVisible.value = true;
 }
 
-// 从当前表格列构建导入字段
-function buildImportTargetFields(): ImportDialogTargetField[] {
-  const columns =
-    tableRef.value?.getColumns?.() ?? tableConfig.value.columns ?? [];
-
-  return columns
-    .filter((column) => column.dataKey != null && column.dataKey !== '')
-    .map((column) => {
-      const field = String(column.dataKey);
-      return {
-        field,
-        label: String(column.title ?? field),
-        required: false,
-        allowDuplicateCheck: true,
-      };
-    });
-}
-
-// 读取导入文件文本内容
-function readImportFileText(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () =>
-      reject(reader.error ?? new Error('read file failed'));
-    reader.readAsText(file);
-  });
-}
-
-// 轻量解析 CSV 行，满足通用导入组件预览联动
-function splitCsvLine(line: string) {
-  const cells: string[] = [];
-  let current = '';
-  let inQuote = false;
-
-  for (const char of line) {
-    if (char === '"') {
-      inQuote = !inQuote;
-      continue;
-    }
-    if (char === ',' && !inQuote) {
-      cells.push(current.trim());
-      current = '';
-      continue;
-    }
-    current += char;
-  }
-  cells.push(current.trim());
-  return cells;
-}
-
-// 默认文件解析：优先按 CSV 文本预览，真实 Excel 解析可按实体替换为接口
-async function parseImportFile(
-  payload: ImportDialogParsePayload
-): Promise<ImportDialogParseResult> {
-  const text = await readImportFileText(payload.file);
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const headerCells = lines[0] ? splitCsvLine(lines[0]).filter(Boolean) : [];
-  const fallbackHeaders = importTargetFields.value.map((field) => field.label);
-  const headers = headerCells.length ? headerCells : fallbackHeaders;
-  const previewColumns = headers.map((label, index) => ({
-    prop: `col_${index}`,
-    label,
-    width: 140,
-  }));
-  const previewRows = lines.slice(1, 21).map((line) => {
-    const cells = splitCsvLine(line);
-    return previewColumns.reduce<Record<string, unknown>>(
-      (row, column, index) => {
-        row[column.prop] = cells[index] ?? '';
-        return row;
-      },
-      {}
-    );
-  });
-  const mappings = buildImportMappings(headers);
-
-  return {
-    fileName: payload.file.name,
-    total: Math.max(0, lines.length - 1),
-    sheets: [{ label: 'Sheet1', value: 'Sheet1' }],
-    currentSheet: 'Sheet1',
-    previewColumns,
-    previewRows,
-    mappings,
-  };
-}
-
-// 根据导入表头匹配目标字段
-function buildImportMappings(headers: string[]): ImportDialogMappingItem[] {
-  return importTargetFields.value.map((field) => {
-    const sourceColumn =
-      headers.find(
-        (header) => header === field.label || header === field.field
-      ) ?? '';
-
-    return {
-      targetField: field.field,
-      targetLabel: field.label,
-      sourceColumn,
-      required: field.required ?? false,
-      duplicateCheck: false,
-      allowDuplicateCheck: field.allowDuplicateCheck ?? true,
-    };
-  });
-}
-
-// 默认导入提交：先打通组件流程，后续实体可替换成真实后端接口
-async function submitImportData(
-  payload: ImportDialogSubmitPayload
-): Promise<ImportDialogSubmitResult> {
-  for (const progress of [20, 45, 70, 92]) {
-    await new Promise((resolve) => window.setTimeout(resolve, 120));
-    payload.onProgress?.(progress);
-  }
-
-  return {
-    success: true,
-    successCount: 0,
-    failureCount: 0,
-  };
-}
-
 // 下载模板占位
-function onDownloadTemplate() {
-  ElMessage.info(
-    `${pageTitle.value}${t('components.importDialog.downloadTemplate')}`
-  );
+async function onDownloadTemplate() {
+  await handleDownloadTemplate(pageTitle.value);
 }
 
 // 导入成功后刷新列表

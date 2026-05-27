@@ -10,6 +10,7 @@
     "format:check": "prettier --check .",
     "pre-commit:check": "pnpm type-check && pnpm format:check",
     "build": "vue-tsc -b && vite build",
+    "build:prod": "vue-tsc -b && vite build --mode production",
     "preview": "vite preview",
     "prepare": "husky"
   },
@@ -27,7 +28,8 @@
     "vue": "^3.5.30",
     "vue-draggable-plus": "^0.6.1",
     "vue-i18n": "^11.2.8",
-    "vue-router": "^4.2.5"
+    "vue-router": "^4.2.5",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

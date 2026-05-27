@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import type { RowActionRuntimeActions } from '../../_shared/row-actions-types';
 
+/******************************** 组件入参 ********************************/
+
 const props = defineProps<{
   row: Record<string, any>;
   actions: RowActionRuntimeActions;
 }>();
 
-const emit = defineEmits<{
-  (e: 'action', payload: { actionKey: string; row: Record<string, any> }): void;
-}>();
+/******************************** 事件方法 ********************************/
 
-console.log(props);
+// 查看当前菜单的直接子项
+function openSubItems() {
+  void props.actions.subItems?.(props.row);
+}
 </script>
 
 <template>
-  <el-button link size="small">子项</el-button>
+  <el-button type="primary" link size="small" @click.stop="openSubItems">
+    子项
+  </el-button>
 </template>
-<style scoped lang="scss"></style>
