@@ -510,8 +510,8 @@ function onPicRemove(file: AttachmentData) {
           </div>
         </div>
         <p class="demo-section__note">
-          根据文件名后缀自动匹配图标和颜色：PDF / Word / Excel / PowerPoint / 图片 /
-          视频 / 音频 / 压缩包 / 文本 / 代码 / 未知类型。颜色和图标均来自
+          根据文件名后缀自动匹配图标和颜色：PDF / Word / Excel / PowerPoint /
+          图片 / 视频 / 音频 / 压缩包 / 文本 / 代码 / 未知类型。颜色和图标均来自
           use-file-type.ts 的 FILE_TYPE_CONFIG 配置。
         </p>
       </div>

@@ -210,10 +210,16 @@
         <!-- 标题 -->
         <div class="form-header">
           <h1>
-            {{ isRegisterMode ? t('login.createAccount') : t('login.welcomeBack') }}
+            {{
+              isRegisterMode ? t('login.createAccount') : t('login.welcomeBack')
+            }}
           </h1>
           <p>
-            {{ isRegisterMode ? t('login.enterRegisterDetails') : t('login.enterDetails') }}
+            {{
+              isRegisterMode
+                ? t('login.enterRegisterDetails')
+                : t('login.enterDetails')
+            }}
           </p>
         </div>
 
@@ -280,7 +286,11 @@
                 :placeholder="t('login.captchaPlaceholder')"
                 autocomplete="off"
               />
-              <button type="button" class="captcha-image-btn" @click="loadCaptcha">
+              <button
+                type="button"
+                class="captcha-image-btn"
+                @click="loadCaptcha"
+              >
                 <img
                   v-if="captchaImageSrc"
                   :src="captchaImageSrc"
@@ -328,8 +338,16 @@
 
         <!-- 注册链接 -->
         <div class="signup-link">
-          <button type="button" class="switch-link" @click="switchMode(nextMode)">
-            {{ isRegisterMode ? t('login.switchToLogin') : t('login.switchToRegister') }}
+          <button
+            type="button"
+            class="switch-link"
+            @click="switchMode(nextMode)"
+          >
+            {{
+              isRegisterMode
+                ? t('login.switchToLogin')
+                : t('login.switchToRegister')
+            }}
           </button>
         </div>
       </div>
@@ -1129,7 +1147,9 @@ onUnmounted(() => {
           padding: 0;
           overflow: hidden;
           cursor: pointer;
-          transition: border-color 0.2s ease, transform 0.2s ease;
+          transition:
+            border-color 0.2s ease,
+            transform 0.2s ease;
 
           &:hover {
             border-color: var(--color-primary);

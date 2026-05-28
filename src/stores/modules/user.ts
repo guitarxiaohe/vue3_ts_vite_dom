@@ -1,11 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import {
-  login,
-  register,
-  getInfoApi,
-  getRoutersApi,
-} from '@/api/modules/user';
+import { login, register, getInfoApi, getRoutersApi } from '@/api/modules/user';
 import { ROUTER_TREE_QUERY_KEY } from '@/api/modules/menu';
 import { queryClient } from '@/api/query-client';
 import { useSystemStore } from '@/stores';

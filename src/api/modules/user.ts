@@ -494,11 +494,16 @@ export const login = (data: LoginParams) => {
 };
 
 export const register = (data: RegisterParams) => {
-  return httpClient.post('/register', data) as unknown as Promise<RegisterResponse>;
+  return httpClient.post(
+    '/register',
+    data
+  ) as unknown as Promise<RegisterResponse>;
 };
 
 export const getCaptchaImage = () => {
-  return httpClient.get('/captchaImage') as unknown as Promise<CaptchaImageResponse>;
+  return httpClient.get(
+    '/captchaImage'
+  ) as unknown as Promise<CaptchaImageResponse>;
 };
 
 export const getInfoApi = (): Promise<GetInfoResponse> => {

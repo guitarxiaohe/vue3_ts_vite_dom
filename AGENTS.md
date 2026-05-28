@@ -306,14 +306,14 @@ export const useSystemStore = defineStore('system', () => {
 
 ### **关键文件**
 
-| 职责 | 路径 |
-|------|------|
-| WebSocket URL 生成 | `src/composables/use-websocket.utils.ts` |
-| WebSocket 建连/断线/重连 | `src/composables/use-websocket.ts` |
-| WebSocket 消息分流 | `src/composables/use-websocket.message.ts` |
-| 通知消息存储 | `src/stores/modules/notification.ts` |
-| 在线用户快照存储 | `src/stores/modules/presence.ts` |
-| 在线头像组件 | `src/components/user-avatar-info/index.vue` |
+| 职责                     | 路径                                        |
+| ------------------------ | ------------------------------------------- |
+| WebSocket URL 生成       | `src/composables/use-websocket.utils.ts`    |
+| WebSocket 建连/断线/重连 | `src/composables/use-websocket.ts`          |
+| WebSocket 消息分流       | `src/composables/use-websocket.message.ts`  |
+| 通知消息存储             | `src/stores/modules/notification.ts`        |
+| 在线用户快照存储         | `src/stores/modules/presence.ts`            |
+| 在线头像组件             | `src/components/user-avatar-info/index.vue` |
 
 ### **开发规则**
 
