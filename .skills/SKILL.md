@@ -56,3 +56,14 @@ metadata:
 
 - 保持最小改动，只补当前改动必须的注释。
 - 注释风格与现有文件保持一致，不主动重构已有结构。
+
+## 当前架构补充约定
+
+- 涉及 WebSocket 在线状态时，优先复用现有链路：
+  - `src/composables/use-websocket.ts`
+  - `src/composables/use-websocket.message.ts`
+  - `src/stores/modules/presence.ts`
+  - `src/components/user-avatar-info/index.vue`
+- 页面层需要展示在线状态时，优先传 `userId` 给 `user-avatar-info`，不要在页面中重复拼接在线逻辑
+- `presence_snapshot` 属于在线状态快照，不属于通知消息；不要把它塞进 `notification store`
+- 新增或修改这条链路时，注释只说明“消息分流”“在线快照”“组件自助判断”等关键语义，不要重复解释明显代码

@@ -1,10 +1,13 @@
 import { httpClient } from '../client';
 import type {
+  CaptchaImageResponse,
   DataStructure,
   FieldConfig,
   GetInfoResponse,
   LoginParams,
   LoginResponse,
+  RegisterParams,
+  RegisterResponse,
   SysUser,
   SysUserDetailApiResponse,
 } from '@/types/user';
@@ -488,6 +491,14 @@ export const login = (data: LoginParams) => {
   }
 
   return httpClient.post<LoginResponse>('/login', data);
+};
+
+export const register = (data: RegisterParams) => {
+  return httpClient.post('/register', data) as unknown as Promise<RegisterResponse>;
+};
+
+export const getCaptchaImage = () => {
+  return httpClient.get('/captchaImage') as unknown as Promise<CaptchaImageResponse>;
 };
 
 export const getInfoApi = (): Promise<GetInfoResponse> => {

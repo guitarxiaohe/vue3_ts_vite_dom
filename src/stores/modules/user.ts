@@ -1,10 +1,20 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { login, getInfoApi, getRoutersApi } from '@/api/modules/user';
+import {
+  login,
+  register,
+  getInfoApi,
+  getRoutersApi,
+} from '@/api/modules/user';
 import { ROUTER_TREE_QUERY_KEY } from '@/api/modules/menu';
 import { queryClient } from '@/api/query-client';
 import { useSystemStore } from '@/stores';
-import type { GetInfoResponse, LoginParams, SysUser } from '@/types/user';
+import type {
+  GetInfoResponse,
+  LoginParams,
+  RegisterParams,
+  SysUser,
+} from '@/types/user';
 import type { SysRouter } from '@/types/menu';
 import { ElMessage } from 'element-plus';
 
@@ -157,6 +167,23 @@ export const useUserStore = defineStore('user', () => {
     }
   };
 
+  // 注册
+  const registerAction = async (params: RegisterParams) => {
+    try {
+      const response = await register(params);
+      if (response.code === 200) {
+        ElMessage.success(response.msg || '注册成功');
+        return { ok: true, msg: response.msg || '' };
+      }
+      ElMessage.error(response.msg || '注册失败');
+      return { ok: false, msg: response.msg || '注册失败' };
+    } catch (error: any) {
+      const message = error?.message || error || '注册失败';
+      ElMessage.error(message);
+      return { ok: false, msg: String(message) };
+    }
+  };
+
   const logout = () => {
     token.value = null;
     setUserInfo(null, [], []);
@@ -194,6 +221,7 @@ export const useUserStore = defineStore('user', () => {
     avatarText,
     isLoggedIn,
     loginAction,
+    registerAction,
     getInfoAction,
     bootstrapSession,
     logout,

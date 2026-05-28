@@ -60,6 +60,8 @@ src/
     modules/          # 按模块划分的 store
       system.ts       # 系统设置（主题、国际化、界面模式）
       user.ts         # 用户状态
+      notification.ts # WebSocket 通知消息
+      presence.ts     # 实时在线用户快照
   styles/             # 全局样式
     base.scss         # 基础样式
     variables.scss    # CSS 变量定义
@@ -291,6 +293,37 @@ export const useSystemStore = defineStore('system', () => {
 
 ---
 
+## 📡 5.1 WebSocket 与实时在线状态
+
+### **当前实现约定**
+
+- WebSocket 统一入口：`/ws/notify`
+- 在线定义：只有当前用户 WebSocket 活跃时，才视为“实时在线”
+- 消息分流：
+  - 普通通知 -> `notification store`
+  - `presence_snapshot` -> `presence store`
+- 在线头像组件：统一复用 `src/components/user-avatar-info/index.vue`
+
+### **关键文件**
+
+| 职责 | 路径 |
+|------|------|
+| WebSocket URL 生成 | `src/composables/use-websocket.utils.ts` |
+| WebSocket 建连/断线/重连 | `src/composables/use-websocket.ts` |
+| WebSocket 消息分流 | `src/composables/use-websocket.message.ts` |
+| 通知消息存储 | `src/stores/modules/notification.ts` |
+| 在线用户快照存储 | `src/stores/modules/presence.ts` |
+| 在线头像组件 | `src/components/user-avatar-info/index.vue` |
+
+### **开发规则**
+
+- 需要显示用户在线状态时，优先传 `userId` 给 `user-avatar-info`，不要在页面里重复维护在线/离线布尔值
+- 不要把在线状态混进 `notification store`；在线快照统一由 `presence store` 管理
+- 开发环境默认走当前页面域名下的 `/dev-api/ws/notify` 代理；只有显式配置 `VITE_WS_URL` 时才允许直连后端
+- 生产环境默认走同域名 `/prod-api/ws/notify` 反向代理；不要在组件中硬编码 `ws://` 或 `wss://`
+
+---
+
 ## 🧩 6. 界面模式
 
 ### **简洁模式 (Simple Mode)**
@@ -515,6 +548,14 @@ export default entityModule;
 | `/tool/gen`       | 代码生成器     |
 | `/tool/build`     | 表单构建器     |
 | `/tool/swagger`   | API 文档       |
+
+### 在线状态接入
+
+```
+1. 页面或表格只传 userId 给 user-avatar-info
+2. use-websocket 接收 presence_snapshot 并更新 presence store
+3. user-avatar-info 自助判断是否在线并渲染状态圆点
+```
 
 ### 新增独立页面
 

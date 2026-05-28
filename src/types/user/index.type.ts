@@ -53,9 +53,29 @@ export interface User {
   createdAt?: string;
 }
 
+/******************************** 认证类型 ********************************/
+
 export interface LoginParams {
   username: string;
   password: string;
+  code?: string;
+  uuid?: string;
+}
+
+export interface RegisterParams extends LoginParams {}
+
+export interface CaptchaImageData {
+  captchaOnOff: boolean;
+  uuid?: string;
+  img?: string;
+}
+
+export interface CaptchaImageResponse {
+  code: number;
+  msg?: string;
+  captchaOnOff: boolean;
+  uuid?: string;
+  img?: string;
 }
 
 export interface LoginResponse {
@@ -63,6 +83,11 @@ export interface LoginResponse {
   code: number;
   token: string;
   user?: SysUser;
+}
+
+export interface RegisterResponse {
+  msg?: string;
+  code: number;
 }
 
 export interface GetInfoResponse extends ApiResponse<SysUser> {
@@ -142,6 +167,9 @@ export interface SysUser {
 
   /** 用户昵称 */
   nickName: string;
+
+  /** 用户类型（00系统用户 01注册用户） */
+  userType?: string;
 
   /** 用户邮箱 */
   email?: string;

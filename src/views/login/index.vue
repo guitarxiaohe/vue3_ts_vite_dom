@@ -209,14 +209,38 @@
 
         <!-- 标题 -->
         <div class="form-header">
-          <h1>{{ t('login.welcomeBack') }}</h1>
-          <p>{{ t('login.enterDetails') }}</p>
+          <h1>
+            {{ isRegisterMode ? t('login.createAccount') : t('login.welcomeBack') }}
+          </h1>
+          <p>
+            {{ isRegisterMode ? t('login.enterRegisterDetails') : t('login.enterDetails') }}
+          </p>
+        </div>
+
+        <!-------------------------- 登录注册切换 -------------------------->
+        <div class="mode-switch">
+          <button
+            type="button"
+            class="mode-btn"
+            :class="{ active: !isRegisterMode }"
+            @click="switchMode('login')"
+          >
+            {{ t('login.logIn') }}
+          </button>
+          <button
+            type="button"
+            class="mode-btn"
+            :class="{ active: isRegisterMode }"
+            @click="switchMode('register')"
+          >
+            {{ t('login.register') }}
+          </button>
         </div>
 
         <!-- 登录表单 -->
         <form @submit.prevent="handleSubmit" class="login-form">
           <div class="form-field">
-            <label>{{ t('login.email') }}</label>
+            <label>{{ t('login.account') }}</label>
             <input
               v-model="formData.username"
               type="text"
@@ -243,12 +267,38 @@
             </div>
           </div>
 
-          <div class="form-options">
+          <!-------------------------- 注册验证码 -------------------------->
+          <div
+            v-if="isRegisterMode && captchaState.captchaOnOff"
+            class="form-field captcha-field"
+          >
+            <label>{{ t('login.captcha') }}</label>
+            <div class="captcha-row">
+              <input
+                v-model="formData.code"
+                type="text"
+                :placeholder="t('login.captchaPlaceholder')"
+                autocomplete="off"
+              />
+              <button type="button" class="captcha-image-btn" @click="loadCaptcha">
+                <img
+                  v-if="captchaImageSrc"
+                  :src="captchaImageSrc"
+                  :alt="t('login.refreshCaptcha')"
+                />
+                <span v-else>{{ t('login.refreshCaptcha') }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div v-if="!isRegisterMode" class="form-options">
             <label class="checkbox-label">
               <input type="checkbox" v-model="rememberMe" />
               <span>{{ t('login.rememberFor30Days') }}</span>
             </label>
-            <a href="#" class="forgot-link">{{ t('user.forgotPassword') }}</a>
+            <button type="button" class="forgot-link">
+              {{ t('user.forgotPassword') }}
+            </button>
           </div>
 
           <div v-if="error" class="error-message">
@@ -256,12 +306,20 @@
           </div>
 
           <button type="submit" class="login-btn" :disabled="isLoading">
-            {{ isLoading ? t('login.signIn') : t('login.logIn') }}
+            {{
+              isLoading
+                ? isRegisterMode
+                  ? t('login.signUpLoading')
+                  : t('login.signIn')
+                : isRegisterMode
+                  ? t('login.register')
+                  : t('login.logIn')
+            }}
           </button>
         </form>
 
         <!-- 社交登录 -->
-        <div class="social-login">
+        <div v-if="!isRegisterMode" class="social-login">
           <button type="button" class="google-btn">
             <Mail :size="20" />
             {{ t('login.loginWithGoogle') }}
@@ -270,8 +328,9 @@
 
         <!-- 注册链接 -->
         <div class="signup-link">
-          {{ t('user.noAccount') }}
-          <a href="#">{{ t('user.signUp') }}</a>
+          <button type="button" class="switch-link" @click="switchMode(nextMode)">
+            {{ isRegisterMode ? t('login.switchToLogin') : t('login.switchToRegister') }}
+          </button>
         </div>
       </div>
     </div>
@@ -285,21 +344,44 @@ import { useI18n } from 'vue-i18n';
 import Pupil from '@/components/login/Pupil.vue';
 import EyeBall from '@/components/login/EyeBall.vue';
 import { useSystemStore, useUserStore } from '@/stores';
+import { getCaptchaImage } from '@/api/modules/user';
 import router from '@/router';
+import type { CaptchaImageResponse } from '@/types/user';
 
 const { t } = useI18n();
 const systemStore = useSystemStore();
 const isDark = computed(() => systemStore.isDark);
+const userStore = useUserStore();
+
+type AuthMode = 'login' | 'register';
 
 // 响应式数据
+const authMode = ref<AuthMode>('login');
 const showPassword = ref(false);
 const formData = ref({
   username: '',
   password: '',
+  code: '',
+  uuid: '',
 });
 const error = ref('');
 const isLoading = ref(false);
 const rememberMe = ref(false);
+const captchaState = ref<CaptchaImageResponse>({
+  code: 200,
+  captchaOnOff: true,
+  uuid: '',
+  img: '',
+});
+const isRegisterMode = computed(() => authMode.value === 'register');
+const nextMode = computed<AuthMode>(() =>
+  isRegisterMode.value ? 'login' : 'register'
+);
+const captchaImageSrc = computed(() =>
+  captchaState.value.img
+    ? `data:image/jpeg;base64,${captchaState.value.img}`
+    : ''
+);
 
 const mouseX = ref(0);
 const mouseY = ref(0);
@@ -577,22 +659,97 @@ watch(
     }
   }
 );
-const userStore = useUserStore();
+
+/******************************** 表单逻辑 ********************************/
+
+// 切换模式
+const switchMode = async (mode: AuthMode) => {
+  if (authMode.value === mode) {
+    return;
+  }
+  authMode.value = mode;
+  error.value = '';
+  showPassword.value = false;
+  formData.value.password = '';
+  formData.value.code = '';
+  formData.value.uuid = '';
+  if (mode === 'register') {
+    await loadCaptcha();
+  }
+};
+
+// 加载验证码
+const loadCaptcha = async () => {
+  try {
+    const response = await getCaptchaImage();
+    captchaState.value = {
+      code: response.code,
+      captchaOnOff: Boolean(response.captchaOnOff),
+      uuid: response.uuid || '',
+      img: response.img || '',
+      msg: response.msg,
+    };
+    formData.value.code = '';
+    formData.value.uuid = response.uuid || '';
+  } catch (err) {
+    captchaState.value = {
+      code: 500,
+      captchaOnOff: false,
+      uuid: '',
+      img: '',
+    };
+  }
+};
+
+// 提交注册
+const handleRegister = async () => {
+  if (
+    captchaState.value.captchaOnOff &&
+    (!formData.value.code.trim() || !formData.value.uuid)
+  ) {
+    error.value = t('login.captchaPlaceholder');
+    return;
+  }
+  const result = await userStore.registerAction({
+    username: formData.value.username.trim(),
+    password: formData.value.password,
+    code: formData.value.code.trim(),
+    uuid: formData.value.uuid,
+  });
+  if (!result.ok) {
+    error.value = result.msg;
+    await loadCaptcha();
+    return;
+  }
+  error.value = '';
+  formData.value.password = '';
+  formData.value.code = '';
+  formData.value.uuid = '';
+  authMode.value = 'login';
+};
 
 // 表单提交
 const handleSubmit = async () => {
   error.value = '';
   isLoading.value = true;
   try {
+    if (isRegisterMode.value) {
+      await handleRegister();
+      return;
+    }
     userStore.logout();
-    await userStore.loginAction(formData.value);
-    router.push('/components');
-  } catch (error: any) {
-    // error.value = error.message || t('user.loginFailed');
+    const success = await userStore.loginAction({
+      username: formData.value.username.trim(),
+      password: formData.value.password,
+    });
+    if (success) {
+      router.push('/components');
+    }
   } finally {
     isLoading.value = false;
   }
 };
+
 // 生命周期
 onMounted(() => {
   window.addEventListener('mousemove', handleMouseMove);
@@ -956,6 +1113,43 @@ onUnmounted(() => {
             }
           }
         }
+
+        .captcha-row {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 8.5rem;
+          gap: 0.75rem;
+          align-items: center;
+        }
+
+        .captcha-image-btn {
+          height: 3rem;
+          border: 1px solid var(--color-border);
+          border-radius: 0.5rem;
+          background: var(--color-bg-card);
+          padding: 0;
+          overflow: hidden;
+          cursor: pointer;
+          transition: border-color 0.2s ease, transform 0.2s ease;
+
+          &:hover {
+            border-color: var(--color-primary);
+            transform: translateY(-1px);
+          }
+
+          img,
+          span {
+            width: 100%;
+            height: 100%;
+            display: block;
+          }
+
+          span {
+            line-height: 3rem;
+            text-align: center;
+            color: var(--color-text-secondary);
+            font-size: 0.8125rem;
+          }
+        }
       }
 
       .form-options {
@@ -985,8 +1179,11 @@ onUnmounted(() => {
         .forgot-link {
           font-size: 0.875rem;
           color: var(--color-primary);
-          text-decoration: none;
+          background: none;
+          border: none;
+          padding: 0;
           font-weight: 500;
+          cursor: pointer;
 
           &:hover {
             text-decoration: underline;
@@ -1026,6 +1223,41 @@ onUnmounted(() => {
       }
     }
 
+    .mode-switch {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+
+      .mode-btn {
+        height: 2.75rem;
+        border-radius: 0.75rem;
+        border: 1px solid var(--color-border);
+        background: var(--color-bg-card);
+        color: var(--color-text-secondary);
+        font-size: 0.9375rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+          border-color: var(--color-primary);
+          color: var(--color-text-primary);
+        }
+
+        &.active {
+          border-color: transparent;
+          background: linear-gradient(
+            135deg,
+            var(--color-primary),
+            var(--color-primary-dark)
+          );
+          color: #fff;
+          box-shadow: 0 10px 24px rgba(108, 63, 245, 0.2);
+        }
+      }
+    }
+
     .social-login {
       margin-top: 1.5rem;
 
@@ -1057,10 +1289,13 @@ onUnmounted(() => {
       font-size: 0.875rem;
       color: var(--color-text-secondary);
 
-      a {
+      .switch-link {
+        background: none;
+        border: none;
+        padding: 0;
         color: var(--color-text-primary);
         font-weight: 500;
-        text-decoration: none;
+        cursor: pointer;
 
         &:hover {
           text-decoration: underline;
