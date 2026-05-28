@@ -23,6 +23,7 @@
         :data="dataList"
         :width="resolvedTableWidth"
         :height="props.height ?? 400"
+        :row-height="props.rowHeight ?? 40"
         :row-event-handlers="selectable ? rowEventHandlers : undefined"
         fixed
         @column-resize="onColumnResize"

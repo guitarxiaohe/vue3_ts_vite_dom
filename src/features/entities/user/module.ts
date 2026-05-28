@@ -12,9 +12,15 @@ const entityModule: EntityModule = {
       {
         key: 'resetPassword',
         label: '重置密码',
-        order: 40,
         component: defineAsyncComponent(
           () => import('./row-actions/reset-button.vue')
+        ),
+      },
+      {
+        key: 'sendMsg',
+        label: '发送消息',
+        component: defineAsyncComponent(
+          () => import('./row-actions/send-msg.vue')
         ),
       },
     ],

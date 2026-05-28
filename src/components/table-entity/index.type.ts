@@ -75,6 +75,7 @@ export type TableEntlty = {
   data?: Record<string, any>[] | TableDataFetcher;
   columns?: ColumnsItem[];
   height?: number;
+  rowHeight?: number;
   width?: number;
   selectable?: boolean;
   multiple?: boolean;
