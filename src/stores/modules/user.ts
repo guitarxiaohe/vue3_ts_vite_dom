@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { login, getInfoApi, getRoutersApi } from '@/api/modules/user';
+import { ROUTER_TREE_QUERY_KEY } from '@/api/modules/menu';
+import { queryClient } from '@/api/query-client';
 import { useSystemStore } from '@/stores';
 import type { GetInfoResponse, LoginParams, SysUser } from '@/types/user';
 import type { SysRouter } from '@/types/menu';
@@ -25,6 +27,8 @@ function readJsonStorage<T>(key: string, fallback: T): T {
 }
 
 export const useUserStore = defineStore('user', () => {
+  let bootstrapPromise: Promise<boolean> | null = null;
+
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY));
   const userName = ref<string>(localStorage.getItem(USER_NAME_KEY) || '');
   const avatar = ref<string>(localStorage.getItem(USER_AVATAR_KEY) || '');
@@ -96,6 +100,34 @@ export const useUserStore = defineStore('user', () => {
     }
   };
 
+  // 页面刷新后首次进入时，强制补一次用户详情与权限缓存
+  const bootstrapSession = async (): Promise<boolean> => {
+    if (!token.value) {
+      return false;
+    }
+
+    if (bootstrapPromise) {
+      return bootstrapPromise;
+    }
+
+    bootstrapPromise = (async () => {
+      const user = await getInfoAction();
+      if (!user) {
+        return false;
+      }
+
+      // 刷新时同步补一次动态路由缓存，确保菜单与按钮权限一致
+      await getRouters();
+      return true;
+    })();
+
+    try {
+      return await bootstrapPromise;
+    } finally {
+      bootstrapPromise = null;
+    }
+  };
+
   const loginAction = async (params: LoginParams) => {
     try {
       const response = (await login(params)) as any;
@@ -144,6 +176,7 @@ export const useUserStore = defineStore('user', () => {
       const routers = Array.isArray(response.data) ? response.data : [];
       treeRouters.value = routers;
       localStorage.setItem(ROUTER_KEY, JSON.stringify(routers));
+      queryClient.setQueryData(ROUTER_TREE_QUERY_KEY, routers);
       return routers;
     } catch (error: any) {
       ElMessage.error(error.message || '获取路由失败');
@@ -162,6 +195,7 @@ export const useUserStore = defineStore('user', () => {
     isLoggedIn,
     loginAction,
     getInfoAction,
+    bootstrapSession,
     logout,
     getRouters,
     treeRouters,

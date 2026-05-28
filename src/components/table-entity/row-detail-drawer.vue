@@ -214,7 +214,7 @@ const detailColumnSpan = computed(() =>
 // textarea / 长文本字段独占一行
 function isFullWidthColumn(col: ColumnsItem) {
   const type = String(col.fieldType ?? '').toLowerCase();
-  return type === 'textarea' || type === 'text';
+  return type === 'textarea';
 }
 
 function colSpan(col: ColumnsItem) {
@@ -365,7 +365,6 @@ watch(
 }
 
 .row-detail-drawer__rich-value {
-  flex: 1;
   min-width: 0;
   font-size: 12px;
 }

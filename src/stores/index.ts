@@ -9,3 +9,4 @@ export {
   type PageTransition,
 } from './modules/system';
 export { useNotificationStore } from './modules/notification';
+export { usePresenceStore } from './modules/presence';

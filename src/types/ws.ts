@@ -5,6 +5,7 @@ export interface WsMessage {
   text?: string;
   path?: string;
   params?: Record<string, string>;
+  userIds?: number[];
 }
 
 /** 消息日志（后端返回） */

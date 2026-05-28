@@ -181,9 +181,7 @@ export function useMultiviewImportExport(
     return parseCsvPreview(payload.file);
   }
 
-  async function parseCsvPreview(
-    file: File
-  ): Promise<ImportDialogParseResult> {
+  async function parseCsvPreview(file: File): Promise<ImportDialogParseResult> {
     const text = await readFileText(file);
     const lines = text
       .split(/\r?\n/)
@@ -273,10 +271,13 @@ export function useMultiviewImportExport(
     }));
     const dataRows = normalizedRows.slice(1);
     const previewRows = dataRows.slice(0, 20).map((row) =>
-      previewColumns.reduce<Record<string, unknown>>((record, column, index) => {
-        record[column.prop] = row[index] ?? '';
-        return record;
-      }, {})
+      previewColumns.reduce<Record<string, unknown>>(
+        (record, column, index) => {
+          record[column.prop] = row[index] ?? '';
+          return record;
+        },
+        {}
+      )
     );
 
     return {

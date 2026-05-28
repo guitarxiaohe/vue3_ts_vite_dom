@@ -11,6 +11,7 @@ import {
 } from 'vue';
 import { useQuery } from '@tanstack/vue-query';
 import { useI18n } from 'vue-i18n';
+import { usePresenceStore } from '@/stores';
 import { getSysUserById } from '@/api/modules/user';
 import { UserSex, type SysUserDetailApiResponse } from '@/types/user';
 import { getApiErrorText, isApiSuccess } from '@/utils/api-success';
@@ -28,7 +29,7 @@ import {
   Venus,
 } from 'lucide-vue-next';
 import { useImageUrl } from '@/composables/use-image-url';
-const { ensureImageBaseUrl } = useImageUrl();
+const { ensureImageBaseUrl, resolveImageUrl } = useImageUrl();
 void ensureImageBaseUrl();
 /******************************** 类型 ********************************/
 
@@ -63,7 +64,7 @@ const props = withDefaults(
     /** 头像尺寸，对应 el-avatar size */
     size?: number;
     /** 透传 el-avatar（会与 src、size、shape 合并，后者优先） */
-    avatarProps?: Record<string, unknown>;
+    avatar?: Record<string, unknown>;
     /** 抽屉内头像尺寸（基础信息 el-descriptions 首行） */
     drawerAvatarSize?: number;
     /** 年龄 */
@@ -86,14 +87,24 @@ const props = withDefaults(
     drawerSize?: string | number;
     /** 透传 el-drawer */
     drawerProps?: Record<string, unknown>;
+    /** 昵称（props 直传，不调接口时用） */
+    nickName?: string;
+    /** 部门名称（props 直传，不调接口时用） */
+    deptName?: string;
+    /** 性别（props 直传，不调接口时用） */
+    sex?: string;
   }>(),
   {
+    nickName: '',
+    deptName: '',
+
     userId: undefined,
     name: undefined,
     subtitle: '',
     size: 30,
+    sex: '',
     gender: undefined,
-    avatarProps: undefined,
+    avatar: undefined,
     age: undefined,
     workYears: undefined,
     email: undefined,
@@ -129,6 +140,7 @@ function onDrawerClosed() {
 
 const { t } = useI18n();
 const slots = useSlots();
+const presenceStore = usePresenceStore();
 
 /******************************** 远程 SysUser ********************************/
 
@@ -145,7 +157,7 @@ const { data: remoteDetail, isFetching } = useQuery({
     }
     return res;
   },
-  enabled: remoteEnabled,
+  enabled: computed(() => remoteEnabled.value && drawerVisible.value),
   staleTime: 5 * 60 * 1000,
 });
 
@@ -156,30 +168,22 @@ const showRemoteLoading = computed(
   () => remoteEnabled.value && isFetching.value && !remoteDetail.value
 );
 
-/** 显式 props 优先于接口 */
-const displayName = computed(
-  () =>
-    props.name ?? remoteUser.value?.nickName ?? remoteUser.value?.userName ?? ''
-);
-
-const displaySubtitle = computed(
-  () => props.subtitle || remoteUser.value?.dept?.deptName || ''
-);
-
-const displaySrc = computed(() => props.src ?? remoteUser.value?.avatar ?? '');
-
-const displayEmail = computed(
-  () => props.email ?? remoteUser.value?.email ?? ''
-);
-
-const displayPhone = computed(
-  () => props.phone ?? remoteUser.value?.phonenumber ?? ''
-);
-
+// ==================== 显示区（仅 props，不依赖接口） ====================
+const displayName = computed(() => props.name ?? props.nickName ?? '');
+const displaySubtitle = computed(() => props.subtitle || props.deptName || '');
+const displaySrc = computed(() => props.src ?? props.avatar ?? '');
 const displayAge = computed(() => props.age);
 const displayWorkYears = computed(() => props.workYears);
 const displayJobLevel = computed(() => props.jobLevel);
-const displayUserId = computed(() => remoteUser.value?.userId ?? props.userId);
+
+// ==================== 抽屉（接口数据） ====================
+const drawerName = computed(
+  () => remoteUser.value?.nickName ?? remoteUser.value?.userName ?? ''
+);
+const drawerAvatarSrc = computed(() => remoteUser.value?.avatar ?? '');
+const drawerEmail = computed(() => remoteUser.value?.email ?? '');
+const drawerPhone = computed(() => remoteUser.value?.phonenumber ?? '');
+const drawerUserId = computed(() => remoteUser.value?.userId ?? props.userId);
 
 // 默认插槽存在时，抽屉内展示插槽内容，否则展示内置字段
 const hasDrawerDefaultSlot = computed(() => !!slots.default);
@@ -192,21 +196,33 @@ const genderSource = computed<'male' | 'female' | 'unknown'>(() => {
   ) {
     return props.gender as 'male' | 'female' | 'unknown';
   }
+  const sex = props.sex;
+  if (sex === UserSex.MALE || sex === '0') return 'male';
+  if (sex === UserSex.FEMALE || sex === '1') return 'female';
+  return 'unknown';
+});
+
+const drawerGenderSource = computed<'male' | 'female' | 'unknown'>(() => {
   const sex = remoteUser.value?.sex;
   if (sex === UserSex.MALE || sex === '0') return 'male';
   if (sex === UserSex.FEMALE || sex === '1') return 'female';
   return 'unknown';
 });
 
-const genderLabel = computed(() => {
-  if (genderSource.value === 'male') {
+const drawerGenderLabel = computed(() => {
+  if (drawerGenderSource.value === 'male') {
     return t('components.userAvatarInfo.genderMale');
   }
-  if (genderSource.value === 'female') {
+  if (drawerGenderSource.value === 'female') {
     return t('components.userAvatarInfo.genderFemale');
   }
   return t('components.userAvatarInfo.genderUnknown');
 });
+
+const drawerShowGenderBadge = computed(
+  () =>
+    drawerGenderSource.value === 'male' || drawerGenderSource.value === 'female'
+);
 
 const metaClass = computed(() => ({
   'user-avatar-info__meta--male': genderSource.value === 'male',
@@ -218,18 +234,25 @@ const showGenderBadge = computed(
   () => genderSource.value === 'male' || genderSource.value === 'female'
 );
 
+/** 头像右下角在线状态角标 */
+const showPresenceBadge = computed(
+  () => props.userId != null && String(props.userId) !== ''
+);
+
+const isUserOnline = computed(() => presenceStore.isUserOnline(props.userId));
+
 const genderIconSize = computed(() =>
   Math.max(10, Math.min(16, Math.round(props.size * 0.36)))
 );
 
 const mergedAvatarProps = computed(() => ({
-  ...props.avatarProps,
+  ...props.avatar,
   size: props.size,
-  src: displaySrc.value,
+  src: resolveImageUrl(displaySrc.value),
   shape: 'circle',
 }));
 
-const drawerAvatarUrl = computed(() => displaySrc.value);
+const drawerAvatarUrl = computed(() => drawerAvatarSrc.value);
 const drawerTitleText = computed(
   () => props.drawerTitle ?? t('components.userAvatarInfo.drawerTitle')
 );
@@ -253,20 +276,20 @@ const drawerDetailItems = computed(() => [
     label: t('components.userAvatarInfo.fieldAvatar'),
     icon: drawerIconMap.avatar,
     value: drawerAvatarUrl.value
-      ? displayName.value || t('components.userAvatarInfo.fieldAvatar')
+      ? drawerName.value || t('components.userAvatarInfo.fieldAvatar')
       : t('components.userAvatarInfo.defaultAvatar'),
   },
   {
     key: 'name',
     label: t('components.userAvatarInfo.fieldName'),
     icon: drawerIconMap.name,
-    value: displayName.value,
+    value: drawerName.value,
   },
   {
     key: 'gender',
     label: t('components.userAvatarInfo.fieldGender'),
     icon: drawerIconMap.gender,
-    value: genderLabel.value,
+    value: drawerGenderLabel.value,
   },
   {
     key: 'age',
@@ -290,19 +313,19 @@ const drawerDetailItems = computed(() => [
     key: 'phone',
     label: t('components.userAvatarInfo.fieldPhone'),
     icon: drawerIconMap.phone,
-    value: displayField(displayPhone.value),
+    value: displayField(drawerPhone.value),
   },
   {
     key: 'email',
     label: t('components.userAvatarInfo.fieldEmail'),
     icon: drawerIconMap.email,
-    value: displayField(displayEmail.value),
+    value: displayField(drawerEmail.value),
   },
   {
     key: 'department',
     label: t('components.userAvatarInfo.fieldDepartment'),
     icon: drawerIconMap.department,
-    value: departmentDisplay.value,
+    value: drawerDepartment.value,
   },
 ]);
 
@@ -325,10 +348,8 @@ function displayField(v: unknown) {
   return String(v);
 }
 
-const departmentDisplay = computed(() =>
-  displayField(
-    props.department ?? props.subtitle ?? remoteUser.value?.dept?.deptName ?? ''
-  )
+const drawerDepartment = computed(() =>
+  displayField(remoteUser.value?.dept?.deptName ?? '')
 );
 
 function onTriggerClick() {
@@ -440,6 +461,14 @@ defineExpose({
           />
           <Venus v-else :size="genderIconSize" :stroke-width="2.5" />
         </span>
+        <span
+          v-if="showPresenceBadge"
+          class="user-avatar-info__presence-badge"
+          :class="{
+            'user-avatar-info__presence-badge--online': isUserOnline,
+          }"
+          aria-hidden="true"
+        />
       </div>
 
       <div class="user-avatar-info__meta" :class="metaClass">
@@ -498,7 +527,7 @@ defineExpose({
           <div class="user-avatar-info__hero-avatar">
             <slot name="drawer-avatar">
               <el-avatar :size="props.drawerAvatarSize" :src="drawerAvatarUrl">
-                {{ displayName?.slice(0, 1) }}
+                {{ drawerName?.slice(0, 1) }}
               </el-avatar>
             </slot>
           </div>
@@ -506,22 +535,22 @@ defineExpose({
             <div class="user-avatar-info__hero-name-row">
               <slot name="drawer-name">
                 <strong class="user-avatar-info__hero-name">
-                  {{ displayName }}
+                  {{ drawerName }}
                 </strong>
               </slot>
               <span
-                v-if="showGenderBadge"
+                v-if="drawerShowGenderBadge"
                 class="user-avatar-info__hero-gender"
               >
-                {{ genderLabel }}
+                {{ drawerGenderLabel }}
               </span>
             </div>
             <div class="user-avatar-info__hero-meta">
-              <span v-if="displayUserId">
-                {{ t('field.id') }}: {{ displayUserId }}
+              <span v-if="drawerUserId">
+                {{ t('field.id') }}: {{ drawerUserId }}
               </span>
-              <span v-if="departmentDisplay">
-                {{ departmentDisplay }}
+              <span v-if="drawerDepartment">
+                {{ drawerDepartment }}
               </span>
             </div>
           </div>
@@ -623,6 +652,24 @@ defineExpose({
   color: var(--color-gender-female-text);
 }
 
+.user-avatar-info__presence-badge {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--color-bg-card);
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: var(--el-text-color-placeholder);
+  pointer-events: none;
+}
+
+.user-avatar-info__presence-badge--online {
+  background: var(--el-color-success);
+}
+
 .user-avatar-info__gender-badge--drawer {
   width: 22px;
   height: 22px;
@@ -651,11 +698,12 @@ defineExpose({
 }
 
 .user-avatar-info__name {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
 }
 
 .user-avatar-info__subtitle-wrap {
@@ -682,6 +730,7 @@ defineExpose({
   word-break: break-word;
   white-space: normal;
   line-height: 1.45;
+  font-size: 10px;
 }
 
 .user-avatar-info__drawer-avatar {

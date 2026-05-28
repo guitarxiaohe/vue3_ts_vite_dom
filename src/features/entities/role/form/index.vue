@@ -19,6 +19,10 @@ import {
   type PermissionTreeNode,
   type RolePermissionPayload,
 } from './service';
+import {
+  collectCheckedTreeKeys,
+  resolveTreeCheckedKeysForDisplay,
+} from './tree-selection';
 
 /******************************** 角色表单 ********************************/
 
@@ -110,10 +114,12 @@ const rules = computed<FormRules>(() => ({
 
 // 标准化 ID 列表
 function normalizeIds(value: unknown): Array<number | string> {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => (typeof item === 'string' ? item.trim() : item))
-    .filter((item) => item !== '' && item != null) as Array<number | string>;
+  return collectCheckedTreeKeys(
+    {
+      getCheckedKeys: () => value,
+    },
+    false
+  );
 }
 
 // 构建默认角色表单
@@ -135,7 +141,7 @@ function createDefaultForm() {
 
 // 获取树组件已勾选节点
 function getCheckedTreeKeys(treeRef: any): Array<number | string> {
-  return normalizeIds(treeRef?.getCheckedKeys?.(false) ?? []);
+  return collectCheckedTreeKeys(treeRef);
 }
 
 // 设置树组件勾选节点
@@ -191,8 +197,19 @@ async function loadRolePermissionOptions() {
       ),
     };
 
-    await setCheckedTreeKeys(menuTreeRef.value, checkedMenuIds);
-    await setCheckedTreeKeys(deptTreeRef.value, checkedDeptIds);
+    const menuDisplayIds = resolveTreeCheckedKeysForDisplay(
+      menuTree.value,
+      checkedMenuIds,
+      formData.value.menuCheckStrictly
+    );
+    const deptDisplayIds = resolveTreeCheckedKeysForDisplay(
+      deptTree.value,
+      checkedDeptIds,
+      formData.value.deptCheckStrictly
+    );
+
+    await setCheckedTreeKeys(menuTreeRef.value, menuDisplayIds);
+    await setCheckedTreeKeys(deptTreeRef.value, deptDisplayIds);
   } finally {
     optionsLoading.value = false;
   }

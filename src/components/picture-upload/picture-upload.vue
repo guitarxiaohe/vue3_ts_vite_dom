@@ -97,7 +97,15 @@ const imageUrl = computed(() =>
       ''
   )
 );
-
+console.log(
+  'imageUrl ==>',
+  resolveImageUrl(
+    upload.fileUrl.value ||
+      upload.fileData.value?.fileUrl ||
+      upload.fileData.value?.url ||
+      ''
+  )
+);
 const isEmpty = computed(() => !imageUrl.value && !upload.loading.value);
 
 const acceptAttr = computed(() => upload.acceptAttr.value);

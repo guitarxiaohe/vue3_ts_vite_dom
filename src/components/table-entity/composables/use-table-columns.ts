@@ -329,6 +329,7 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
         row: rowData,
         value: cellData,
         userId: rowData.userId,
+        ...rowData,
       });
   }
 
@@ -350,6 +351,7 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
         ...auditUser,
         row: rowData,
         value: cellData,
+        ...rowData,
       });
     };
   }

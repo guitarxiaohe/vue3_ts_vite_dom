@@ -11,24 +11,30 @@
 
       <div v-if="!hideHeaderActions" class="multiview-shell__actions">
         <el-button
-          v-if="resolvedActions.showCreate"
+          v-if="permittedHeaderActions.showCreate"
           type="primary"
           @click="emit('create')"
         >
           {{ resolvedActions.createName }}
         </el-button>
         <el-button
-          v-if="resolvedActions.showDelete"
+          v-if="permittedHeaderActions.showDelete"
           type="danger"
           :disabled="selectedKeys.length === 0"
           @click="onDeleteSelected"
         >
           {{ t('common.delete') }}
         </el-button>
-        <el-button v-if="resolvedActions.showImport" @click="openImportDialog">
+        <el-button
+          v-if="permittedHeaderActions.showImport"
+          @click="openImportDialog"
+        >
           {{ t('common.import') }}
         </el-button>
-        <el-button v-if="resolvedActions.showExport" @click="handleExport">
+        <el-button
+          v-if="permittedHeaderActions.showExport"
+          @click="handleExport"
+        >
           {{ t('common.export') }}
         </el-button>
       </div>
@@ -129,6 +135,7 @@ import type { FilterFormValue } from '@/features/multiview/types';
 import { normalizeTimestampValue } from '@/utils/datetime';
 import { useMultiviewActions } from '@/features/multiview/composables/use-multiview-actions';
 import { useMultiviewImportExport } from '@/features/multiview/composables/use-multiview-import-export';
+import { usePermission } from '@/utils/permission';
 import {
   resolveBackendFilterFields,
   resolveFallbackFilterFields,
@@ -182,6 +189,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const { hasPermission, resolvePermissionId } = usePermission();
 
 // 确保字典数据缓存已填充（TableEntity 的 dict 字段标签解析依赖此缓存）
 useAllDictDataQuery();
@@ -224,6 +232,21 @@ const resolvedActions = computed(() => {
   return getEntityActionsConfig(props.entityKey);
 });
 
+const permittedHeaderActions = computed(() => ({
+  showCreate:
+    resolvedActions.value.showCreate &&
+    hasPermission(resolvePermissionId(props.entityKey, 'CREATE')),
+  showDelete:
+    resolvedActions.value.showDelete &&
+    hasPermission(resolvePermissionId(props.entityKey, 'DELETE')),
+  showImport:
+    resolvedActions.value.showImport &&
+    hasPermission(resolvePermissionId(props.entityKey, 'IMPORT')),
+  showExport:
+    resolvedActions.value.showExport &&
+    hasPermission(resolvePermissionId(props.entityKey, 'EXPORT')),
+}));
+
 const tableConfig = computed<EntityTableConfig>(() =>
   getEntityTableConfig(props.entityKey)
 );
@@ -236,11 +259,7 @@ const {
   buildImportTargetFields,
   parseImportFile,
   submitImportData,
-} = useMultiviewImportExport(
-  entityKeyRef,
-  tableRef as any,
-  tableConfig
-);
+} = useMultiviewImportExport(entityKeyRef, tableRef as any, tableConfig);
 
 const detailConfig = computed<EntityDetailConfig>(
   () => entityConfig.value?.detail ?? {}

@@ -4,6 +4,7 @@ import { TableV2FixedDir } from 'element-plus';
 import ActionColumn from '@/features/multiview/components/action-column.vue';
 import { getEntityRowActionsConfig } from '@/features/entities/registry';
 import { getEntityActionsConfig } from '@/utils/entity-config';
+import { usePermission } from '@/utils/permission';
 import type { ColumnsItem } from '@/components/table-entity/index.type';
 import type {
   RowActionComponentConfig,
@@ -27,12 +28,20 @@ export function useMultiviewActions(
   hasEntityConfig: Ref<boolean>
 ) {
   const { t } = useI18n();
+  const { hasPermission, resolvePermissionId } = usePermission();
   const rowActionsConfig = computed(() =>
     getEntityRowActionsConfig(entityKey.value)
   );
   const entityActionsConfig = computed(() =>
     getEntityActionsConfig(entityKey.value)
   );
+
+  // 判断当前实体某个按钮权限是否允许
+  function canAccessAction(permissionCode?: string, permissionId?: string) {
+    return hasPermission(
+      resolvePermissionId(entityKey.value, permissionCode, permissionId)
+    );
+  }
 
   const customButtons = computed<RowActionComponentConfig[]>(() =>
     [...(rowActionsConfig.value.customButtons ?? [])].sort(
@@ -57,40 +66,48 @@ export function useMultiviewActions(
     }
 
     if (config.showView ?? true) {
-      items.push({
-        key: '__builtin_view__',
-        label: t('common.view'),
-        actionKey: 'view',
-        order: 10,
-      });
+      if (canAccessAction('VIEW')) {
+        items.push({
+          key: '__builtin_view__',
+          label: t('common.view'),
+          actionKey: 'view',
+          order: 10,
+        });
+      }
     }
 
     if (config.showEdit ?? pageActions.showEdit) {
-      items.push({
-        key: '__builtin_edit__',
-        label: t('common.edit'),
-        actionKey: 'edit',
-        order: 20,
-      });
+      if (canAccessAction('EDIT')) {
+        items.push({
+          key: '__builtin_edit__',
+          label: t('common.edit'),
+          actionKey: 'edit',
+          order: 20,
+        });
+      }
     }
 
     if (config.showCopy ?? pageActions.showCopy) {
-      items.push({
-        key: '__builtin_copy__',
-        label: t('common.copy'),
-        actionKey: 'copy',
-        order: 25,
-      });
+      if (canAccessAction('COPY')) {
+        items.push({
+          key: '__builtin_copy__',
+          label: t('common.copy'),
+          actionKey: 'copy',
+          order: 25,
+        });
+      }
     }
 
     if (config.showDelete ?? pageActions.showDelete) {
-      items.push({
-        key: '__builtin_delete__',
-        label: t('common.delete'),
-        actionKey: 'delete',
-        order: 30,
-        danger: true,
-      });
+      if (canAccessAction('DELETE')) {
+        items.push({
+          key: '__builtin_delete__',
+          label: t('common.delete'),
+          actionKey: 'delete',
+          order: 30,
+          danger: true,
+        });
+      }
     }
 
     return items;
@@ -125,8 +142,10 @@ export function useMultiviewActions(
   // 获取当前行可见按钮
   function getVisibleActions(row: Record<string, any>) {
     const customActions: RowActionRenderConfig[] = customButtons.value
-      .filter((action) =>
-        action.visible ? action.visible(row, actions) : true
+      .filter(
+        (action) =>
+          canAccessAction(action.permissionCode, action.permissionId) &&
+          (action.visible ? action.visible(row, actions) : true)
       )
       .map(
         (action): RowActionRenderConfig => ({

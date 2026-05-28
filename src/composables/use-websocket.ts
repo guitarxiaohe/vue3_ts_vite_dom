@@ -1,9 +1,10 @@
 import { h, ref } from 'vue';
 import { ElNotification } from 'element-plus';
-import { useNotificationStore } from '@/stores';
+import { useNotificationStore, usePresenceStore } from '@/stores';
 import type { WsMessage } from '@/types/ws';
 import SocketMsg from '@/components/socket-msg/index.vue';
-const wsBaseUrl = String(import.meta.env.VITE_WS_URL || '').replace(/\/$/, '');
+import { buildNotifyWebSocketUrl } from './use-websocket.utils';
+import { applyIncomingWsPayload } from './use-websocket.message';
 
 export function useWebSocket() {
   const ws = ref<WebSocket | null>(null);
@@ -15,28 +16,23 @@ export function useWebSocket() {
   const HEARTBEAT_TIMEOUT = 45000; // 45s 未收到 ping 判定断线
 
   const notificationStore = useNotificationStore();
+  const presenceStore = usePresenceStore();
 
   function connect() {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    // 拼接 WS URL，通过 Vite 代理或直连
-    let url: string;
-    if (wsBaseUrl) {
-      const normalizedBaseUrl = wsBaseUrl
-        .replace(/^http:\/\//, 'ws://')
-        .replace(/^https:\/\//, 'wss://');
-      url = `${normalizedBaseUrl}/ws/notify?token=${encodeURIComponent(token)}`;
-    } else {
-      // 走 Vite 代理：同域 + 代理前缀
-      const baseApi = import.meta.env.VITE_APP_BASE_API || '/dev-api';
-      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      url = `${protocol}//${location.host}${baseApi}/ws/notify?token=${encodeURIComponent(token)}`;
-    }
-
+    const url = buildNotifyWebSocketUrl({
+      token,
+      wsBaseUrl: String(import.meta.env.VITE_WS_URL || ''),
+      httpBaseUrl: String(import.meta.env.VITE_BASE_URL || ''),
+      apiBaseUrl: String(import.meta.env.VITE_APP_BASE_API || '/dev-api'),
+      pageUrl: location.href,
+    });
     try {
       ws.value = new WebSocket(url);
-    } catch {
+    } catch (err) {
+      console.log('err ==>', err);
       scheduleReconnect();
       return;
     }
@@ -53,23 +49,27 @@ export function useWebSocket() {
         resetHeartbeatCheck();
         return;
       }
-      try {
-        const msg: WsMessage = JSON.parse(e.data);
-        notificationStore.push(msg);
-
-        ElNotification({
-          title: msg.title || '新消息',
-          message: h(SocketMsg, { msgInfo: msg }),
-          type: msgTypeToElType(msg.type),
-          duration: 5000,
-        });
-      } catch {
-        // 忽略非 JSON 消息
+      const result = applyIncomingWsPayload({
+        payload: String(e.data),
+        setOnlineUserIds: (userIds) => presenceStore.setOnlineUserIds(userIds),
+        pushNotification: (message) => notificationStore.push(message),
+      });
+      if (result.kind !== 'notification') {
+        return;
       }
+      const msg: WsMessage = result.message;
+
+      ElNotification({
+        title: msg.title || '新消息',
+        message: h(SocketMsg, { msgInfo: msg }),
+        type: msgTypeToElType(msg.type),
+        duration: 5000,
+      });
     };
 
     ws.value.onclose = () => {
       isConnected.value = false;
+      presenceStore.setOnlineUserIds([]);
       stopHeartbeatCheck();
       scheduleReconnect();
     };
@@ -109,6 +109,7 @@ export function useWebSocket() {
     if (reconnectTimer) clearTimeout(reconnectTimer);
     stopHeartbeatCheck();
     reconnectAttempts.value = MAX_RECONNECT; // 阻止自动重连
+    presenceStore.setOnlineUserIds([]);
     ws.value?.close();
     ws.value = null;
     isConnected.value = false;

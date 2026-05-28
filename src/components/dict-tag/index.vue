@@ -10,7 +10,6 @@ const props = withDefaults(
     value?: string | number | null;
     label?: string | number | null;
     color?: string | null;
-    semanticColor?: 'primary' | 'success' | 'danger' | 'warning' | 'info' | '';
   }>(),
   {
     dictType: '',
@@ -33,7 +32,6 @@ const matchedItem = computed(() => {
     ) ?? null
   );
 });
-
 const label = computed(
   () =>
     props.label ?? matchedItem.value?.dictLabel ?? String(props.value ?? '--')
@@ -42,19 +40,14 @@ const color = computed<string | undefined>(() => {
   const c = props.color ?? matchedItem.value?.color;
   return typeof c === 'string' ? c : undefined;
 });
-const semanticColor = computed(
-  () => props.semanticColor || matchedItem.value?.semanticColor || 'primary'
-);
+
 const customStyle = computed<CSSProperties>(() =>
-  color.value ? ({ '--dict-tag-color': color.value } as CSSProperties) : {}
+  color.value ? ({ 'background-color': color.value } as CSSProperties) : {}
 );
 </script>
 
 <template>
-  <span v-if="color" class="dict-tag dict-tag--colored" :style="customStyle">
-    {{ label }}
-  </span>
-  <span v-else class="dict-tag" :class="`dict-tag--${semanticColor}`">
+  <span class="dict-tag" :style="customStyle">
     {{ label }}
   </span>
 </template>
@@ -63,12 +56,14 @@ const customStyle = computed<CSSProperties>(() =>
 .dict-tag {
   display: inline-flex;
   align-items: center;
+  width: fit-content;
   max-width: 100%;
+  flex-shrink: 0;
   padding: 2px 10px;
   border: 1px solid var(--color-primary-bg);
   border-radius: 4px;
   background: var(--color-primary-bg);
-  color: var(--color-primary);
+  color: #ffffff;
   font-size: 12px;
   font-weight: 500;
   line-height: 18px;

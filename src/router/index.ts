@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router';
 import { ElMessageBox } from 'element-plus';
 import { i18n } from '@/i18n';
 import { getEntityModule } from '@/features/entities/registry';
+import { useUserStore } from '@/stores/modules/user';
 import Layout from '@/layout/index.vue';
 
 const APP_TITLE = import.meta.env.VITE_APP_TITLE || 'XiaoHe';
@@ -124,6 +125,7 @@ router.afterEach((to) => {
 const whiteList = ['/login', '/NotFound'];
 
 router.beforeEach(async (to, _from, next) => {
+  const userStore = useUserStore();
   const token = localStorage.getItem('token');
   const { t } = i18n.global;
 
@@ -131,6 +133,12 @@ router.beforeEach(async (to, _from, next) => {
     if (to.path === '/login') {
       next({ path: '/' });
     } else {
+      const ready = await userStore.bootstrapSession();
+      if (!ready) {
+        userStore.logout();
+        next({ path: '/login', replace: true });
+        return;
+      }
       next();
     }
   } else {

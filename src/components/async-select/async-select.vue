@@ -10,6 +10,7 @@ import type {
   ColumnsItem,
   TableListQuery,
 } from '@/components/table-entity/index.type';
+import { loadMissingSelectedOptions } from './async-select.utils';
 import type {
   AsyncSelectEntityConfig,
   AsyncSelectFetchParams,
@@ -150,6 +151,15 @@ function toOpt(item: Record<string, any>): Opt {
   };
 }
 
+// 合并已选项缓存，避免重复插入
+function appendSelectedOptions(options: Opt[]) {
+  for (const option of options) {
+    if (!selectedOpts.value.find((item) => item.value === option.value)) {
+      selectedOpts.value.push(option);
+    }
+  }
+}
+
 // 解析选项主文案
 function resolveOptionLabel(item: Record<string, any>) {
   const keys = [props.labelKey, ...DEFAULT_LABEL_KEYS].filter(Boolean);
@@ -241,6 +251,25 @@ async function fetchList(params: AsyncSelectFetchParams) {
   return props.fetcher(params);
 }
 
+// 为回显补拉候选行数据
+async function loadRowsForSelectedValues() {
+  if (resolvedDictCode.value) {
+    const result = await createDictDataFetcher(resolvedDictCode.value)({
+      page: 1,
+      pageSize: 9999,
+    });
+    return result.rows ?? [];
+  }
+
+  // 无精确按值查询能力时，兜底拉一批选项用于回显
+  const result = await fetchList({
+    page: 1,
+    pageSize: 9999,
+  });
+
+  return result.items ?? [];
+}
+
 const dropdownQueryKey = computed(() => [
   ...resolvedQueryKey.value,
   1,
@@ -273,37 +302,18 @@ watch(
       selectedOpts.value = [];
       return;
     }
-    const missedValues = values.filter(
-      (value) => !selectedOpts.value.find((item) => item.value === value)
-    );
-    if (!missedValues.length) return;
+    const options = await loadMissingSelectedOptions({
+      activeValues: values,
+      selectedValues: selectedOpts.value.map((item) => item.value),
+      loadRows: () =>
+        props.entityConfig?.loadByValues
+          ? props.entityConfig.loadByValues(values)
+          : loadRowsForSelectedValues(),
+      resolveValue: resolveOptionValue,
+      toOption: toOpt,
+    });
 
-    if (props.entityConfig?.loadByValues) {
-      const rows = await props.entityConfig.loadByValues(missedValues);
-      for (const row of rows) {
-        const opt = toOpt(row);
-        if (!selectedOpts.value.find((item) => item.value === opt.value)) {
-          selectedOpts.value.push(opt);
-        }
-      }
-      return;
-    }
-
-    if (resolvedDictCode.value) {
-      const result = await createDictDataFetcher(resolvedDictCode.value)({
-        page: 1,
-        pageSize: 9999,
-      });
-      const rows = (result.rows ?? []).filter((row) =>
-        missedValues.includes(resolveOptionValue(row))
-      );
-      for (const row of rows) {
-        const opt = toOpt(row);
-        if (!selectedOpts.value.find((item) => item.value === opt.value)) {
-          selectedOpts.value.push(opt);
-        }
-      }
-    }
+    appendSelectedOptions(options);
   },
   { immediate: true }
 );
@@ -320,12 +330,7 @@ function openDialog() {
 }
 
 function onDialogConfirm(rows: Record<string, any>[]) {
-  for (const row of rows) {
-    const opt = toOpt(row);
-    if (!selectedOpts.value.find((o) => o.value === opt.value)) {
-      selectedOpts.value.push(opt);
-    }
-  }
+  appendSelectedOptions(rows.map(toOpt));
 
   const newVal: SelectVal = props.multiple
     ? rows.map((r) => r[props.valueKey] as string | number)
