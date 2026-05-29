@@ -83,6 +83,7 @@
         :detail-visible-count="detailConfig.visibleCount"
         :detail-hidden-keys="detailConfig.hiddenKeys"
         :detail-children="tableConfig.children"
+        :delete-rows="tableConfig.deleteRows"
         @selection-change="onSelectionChange"
         @page-change="onPageChange"
         @delete-success="onTableDeleteSuccess"

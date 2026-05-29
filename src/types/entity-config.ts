@@ -71,6 +71,8 @@ export interface EntityTableConfig {
   fetcher?: (
     query: TableListQuery
   ) => Promise<{ total: number; rows: Record<string, any>[] }>;
+  /** 自定义删除；未配置时走动态实体 deleteByEntityKeyAndIdApi */
+  deleteRows?: (ids: string[]) => Promise<void>;
   children?: EntityTableChildConfig[];
 }
 

@@ -23,22 +23,26 @@ export function useEntityDelete(
 ) {
   // 调用通用删除接口，ids 逗号拼接
   async function deleteRowsByIds(ids: string[]): Promise<boolean> {
-    const entityKey = props.entityKey?.trim();
-    if (!entityKey) {
-      ElMessage.warning('请配置 entityKey 后再使用内置删除');
-      return false;
-    }
     if (ids.length === 0) return false;
-    const idsStr = ids.join(',');
     try {
       tableLoading.value = true;
-      const res = (await deleteByEntityKeyAndIdApi(entityKey, idsStr)) as {
-        code?: number;
-        msg?: string;
-        message?: string;
-      };
-      if (!isApiSuccess(res.code ?? 0)) {
-        throw new Error(getApiErrorText(res));
+      if (props.deleteRows) {
+        await props.deleteRows(ids);
+      } else {
+        const entityKey = props.entityKey?.trim();
+        if (!entityKey) {
+          ElMessage.warning('请配置 entityKey 后再使用内置删除');
+          return false;
+        }
+        const idsStr = ids.join(',');
+        const res = (await deleteByEntityKeyAndIdApi(entityKey, idsStr)) as {
+          code?: number;
+          msg?: string;
+          message?: string;
+        };
+        if (!isApiSuccess(res.code ?? 0)) {
+          throw new Error(getApiErrorText(res));
+        }
       }
       ElMessage.success('删除成功');
       clearSelection();

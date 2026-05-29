@@ -99,6 +99,8 @@ export type TableEntlty = {
   sortableColumnKeys?: string[];
   sortField?: string;
   sortOrder?: 'asc' | 'desc';
+  /** 自定义删除；未配置时走动态实体 deleteByEntityKeyAndIdApi */
+  deleteRows?: (ids: string[]) => Promise<void>;
 };
 
 /******************************** 顶部工具区 ********************************/
