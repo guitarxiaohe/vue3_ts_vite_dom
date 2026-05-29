@@ -3,8 +3,88 @@ import { ElNotification } from 'element-plus';
 import { useNotificationStore, usePresenceStore } from '@/stores';
 import type { WsMessage } from '@/types/ws';
 import SocketMsg from '@/components/socket-msg/index.vue';
-import { buildNotifyWebSocketUrl } from './use-websocket.utils';
-import { applyIncomingWsPayload } from './use-websocket.message';
+
+/******************************** WebSocket URL 构建 ********************************/
+
+interface BuildNotifyWebSocketUrlOptions {
+  token: string;
+  wsBaseUrl?: string;
+  httpBaseUrl?: string;
+  apiBaseUrl?: string;
+  pageUrl?: string;
+}
+
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+function buildNotifyWebSocketUrl(options: BuildNotifyWebSocketUrlOptions) {
+  const pageUrl = options.pageUrl || window.location.href;
+  const page = new URL(pageUrl);
+  const directOrigin = resolveDirectWebSocketOrigin(options.wsBaseUrl, page);
+
+  if (directOrigin) {
+    return `${directOrigin}/ws/notify?token=${encodeURIComponent(options.token)}`;
+  }
+
+  const baseApi = options.apiBaseUrl || '/dev-api';
+  const protocol = page.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${page.host}${baseApi}/ws/notify?token=${encodeURIComponent(options.token)}`;
+}
+
+function resolveDirectWebSocketOrigin(rawBaseUrl: string | undefined, page: URL) {
+  const normalized = String(rawBaseUrl || '')
+    .trim()
+    .replace(/\/$/, '');
+  if (!/^(https?|wss?):\/\//i.test(normalized)) {
+    return '';
+  }
+
+  const directUrl = new URL(
+    normalized.replace(/^http:\/\//i, 'ws://').replace(/^https:\/\//i, 'wss://')
+  );
+  const hostname = shouldReplaceLocalHostname(directUrl.hostname, page.hostname)
+    ? page.hostname
+    : directUrl.hostname;
+  return `${directUrl.protocol}//${hostname}${directUrl.port ? `:${directUrl.port}` : ''}`;
+}
+
+function shouldReplaceLocalHostname(targetHostname: string, pageHostname: string) {
+  return LOCAL_HOSTS.has(targetHostname) && !LOCAL_HOSTS.has(pageHostname);
+}
+
+/******************************** WebSocket 消息分流 ********************************/
+
+interface ApplyIncomingWsPayloadOptions {
+  payload: string;
+  setOnlineUserIds: (userIds: number[]) => void;
+  pushNotification: (message: WsMessage) => void;
+}
+
+type ApplyIncomingWsPayloadResult =
+  | { kind: 'presence'; message: WsMessage }
+  | { kind: 'notification'; message: WsMessage }
+  | { kind: 'invalid' };
+
+function applyIncomingWsPayload(options: ApplyIncomingWsPayloadOptions): ApplyIncomingWsPayloadResult {
+  let message: WsMessage;
+  try {
+    message = JSON.parse(options.payload) as WsMessage;
+  } catch {
+    return { kind: 'invalid' };
+  }
+
+  if (message.type === 'presence_snapshot') {
+    const normalizedUserIds = Array.isArray(message.userIds)
+      ? message.userIds
+          .map((userId) => Number(userId))
+          .filter((userId) => !Number.isNaN(userId))
+      : [];
+    options.setOnlineUserIds(normalizedUserIds);
+    return { kind: 'presence', message };
+  }
+
+  options.pushNotification(message);
+  return { kind: 'notification', message };
+}
 
 export function useWebSocket() {
   const ws = ref<WebSocket | null>(null);
