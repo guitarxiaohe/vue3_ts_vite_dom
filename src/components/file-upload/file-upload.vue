@@ -29,7 +29,7 @@ import { useImageUrl } from '@/composables/use-image-url';
 const props = withDefaults(defineProps<FileUploadProps>(), {
   modelValue: '',
   disabled: false,
-  maxSize: 5,
+  maxSize: 2000,
   accept: () => [],
   width: 200,
   height: 40,
@@ -344,11 +344,46 @@ const handleFileRemove = (file?: AttachmentData) => {
       </template>
     </el-upload>
 
-    <!-- 多文件模式：文件列表 -->
-    <div v-if="isMultiple && !isEmpty" class="file-list">
+    <!-- 多文件模式：文件列表（含上传中的文件） -->
+    <div
+      v-if="
+        isMultiple &&
+        (!isEmpty || multipleFileUpload.uploadItems.value.size > 0)
+      "
+      class="file-list"
+    >
+      <!-- 上传中的文件 -->
+      <div
+        v-for="[fileId, item] in multipleFileUpload.uploadItems.value"
+        :key="fileId"
+        class="file-item"
+      >
+        <FileStatus
+          :status="
+            item.status === 'uploading' || item.status === 'pending'
+              ? 'loading'
+              : item.status === 'error'
+                ? 'error'
+                : 'success'
+          "
+          :disabled="disabled"
+          :file="item.result"
+          :file-name="item.file.name"
+          :progress="item.progress"
+          :progress-text="`${item.progress}%`"
+          :error-message="item.error"
+          :show-preview="showPreview"
+          :show-download="showDownload"
+          :show-remove="showRemove"
+          :on-preview="handleFilePreview"
+          :on-download="handleFileDownload"
+          :on-remove="handleFileRemove"
+        />
+      </div>
+      <!-- 已上传的文件 -->
       <div
         v-for="(file, index) in multipleFileUpload.fileList.value"
-        :key="index"
+        :key="`uploaded-${index}`"
         class="file-item"
         :class="{
           'file-item--selected': selected && index === 0,

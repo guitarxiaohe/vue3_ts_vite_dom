@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import type { UploadProps, UploadRequestOptions } from 'element-plus';
 import { uploadFile, toAttachmentData } from '@/services/file-upload';
+import { useChunkedUpload } from '@/composables/use-chunked-upload';
 import type { AttachmentData } from '../file-upload.type';
 import { useFileType } from './use-file-type';
 import { useImageUrl } from '@/composables/use-image-url';
@@ -163,7 +164,16 @@ export const useMultipleFileUpload = (
   };
 
   /**
-   * 单个文件上传
+   * 更新上传项（强制触发 Map 响应式）
+   */
+  const updateUploadItem = (fileId: string, patch: Partial<FileUploadItem>) => {
+    const existing = uploadItems.value.get(fileId);
+    if (!existing) return;
+    uploadItems.value.set(fileId, { ...existing, ...patch });
+  };
+
+  /**
+   * 单个文件上传（大于 20MB 自动分片）
    */
   const uploadSingleFile = async (
     file: File,
@@ -174,22 +184,40 @@ export const useMultipleFileUpload = (
       throw new Error(t('fileUpload.uploadItemNotFound'));
     }
 
-    item.status = 'uploading';
-    item.progress = 0;
+    updateUploadItem(fileId, { status: 'uploading', progress: 0 });
+
+    const CHUNKED_THRESHOLD = 20 * 1024 * 1024; // 20MB
 
     try {
-      const uploadResponse = await uploadFile(file);
-      const attachmentData = toAttachmentData(file, uploadResponse);
+      let attachmentData: AttachmentData;
 
-      item.status = 'success';
-      item.progress = 100;
-      item.result = attachmentData;
+      if (file.size > CHUNKED_THRESHOLD) {
+        // 大文件：分片上传
+        const { startUpload } = useChunkedUpload();
+        attachmentData = await startUpload(file, (percent) => {
+          updateUploadItem(fileId, { progress: percent });
+        });
+      } else {
+        // 小文件：整文件上传
+        const uploadResponse = await uploadFile(file, (percent) => {
+          updateUploadItem(fileId, { progress: percent });
+        });
+        attachmentData = toAttachmentData(file, uploadResponse);
+      }
+
+      updateUploadItem(fileId, {
+        status: 'success',
+        progress: 100,
+        result: attachmentData,
+      });
 
       return attachmentData;
     } catch (error) {
       const err = error as Error;
-      item.status = 'error';
-      item.error = err.message || t('fileUpload.uploadRetryFailed');
+      updateUploadItem(fileId, {
+        status: 'error',
+        error: err.message || t('fileUpload.uploadRetryFailed'),
+      });
       throw err;
     }
   };
@@ -219,19 +247,23 @@ export const useMultipleFileUpload = (
       options.onUpdate(currentList);
       options.onUploadSuccess?.(attachmentData);
 
+      // 成功后从 uploadItems 移除（fileList 已接管），避免重复显示
+      uploadItems.value.delete(fileId);
+
       ElMessage.success(t('fileUpload.uploadSuccess'));
     } catch (error) {
+      // 上传失败保留 uploadItems 中的 error 状态供 UI 展示
       const err = error as Error;
       options.onUploadError?.(err, file);
       ElMessage.error(err.message || t('fileUpload.uploadRetryFailed'));
     } finally {
-      // 延迟清理上传项，以便显示最终状态
-      setTimeout(() => {
-        uploadItems.value.delete(fileId);
-        if (uploadItems.value.size === 0) {
-          loading.value = false;
-        }
-      }, 1000);
+      // 检查是否所有文件都已处理完毕
+      const hasActive = Array.from(uploadItems.value.values()).some(
+        (item) => item.status === 'uploading' || item.status === 'pending'
+      );
+      if (!hasActive) {
+        loading.value = false;
+      }
     }
   };
 

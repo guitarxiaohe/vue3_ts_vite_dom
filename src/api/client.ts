@@ -91,7 +91,11 @@ class HttpClient {
     return this.request<T>({ method: 'POST', url, data });
   }
 
-  postUpload<T = any>(url: string, data: FormData): Promise<T> {
+  postUpload<T = any>(
+    url: string,
+    data: FormData,
+    onProgress?: (percent: number) => void
+  ): Promise<T> {
     return this.instance.request<T, T>({
       method: 'POST',
       url,
@@ -99,6 +103,13 @@ class HttpClient {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      onUploadProgress: onProgress
+        ? (e) => {
+            if (e.total) {
+              onProgress(Math.round((e.loaded / e.total) * 100));
+            }
+          }
+        : undefined,
     });
   }
 

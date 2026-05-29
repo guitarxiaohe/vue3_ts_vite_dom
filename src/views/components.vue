@@ -421,7 +421,7 @@ function onPicRemove(file: AttachmentData) {
           <el-tag type="success" size="small" effect="dark">成功</el-tag>
           单文件已上传
         </p>
-        <FileUpload v-model="fileSuccess" :max-size="10" />
+        <FileUpload v-model="fileSuccess" :max-size="2000" />
         <span class="demo-block__value">
           modelValue:
           {{
@@ -480,7 +480,7 @@ function onPicRemove(file: AttachmentData) {
           <el-tag size="small" effect="dark">批量</el-tag>
           多文件上传
         </p>
-        <FileUpload v-model="multiFiles" :max-count="5" :max-size="10" />
+        <FileUpload v-model="multiFiles" :max-count="5" :max-size="2000" />
         <span class="demo-block__value" v-if="multiFiles.length">
           已选 {{ multiFiles.length }} 个文件
         </span>

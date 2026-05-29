@@ -30,7 +30,10 @@ function buildNotifyWebSocketUrl(options: BuildNotifyWebSocketUrlOptions) {
   return `${protocol}//${page.host}${baseApi}/ws/notify?token=${encodeURIComponent(options.token)}`;
 }
 
-function resolveDirectWebSocketOrigin(rawBaseUrl: string | undefined, page: URL) {
+function resolveDirectWebSocketOrigin(
+  rawBaseUrl: string | undefined,
+  page: URL
+) {
   const normalized = String(rawBaseUrl || '')
     .trim()
     .replace(/\/$/, '');
@@ -47,7 +50,10 @@ function resolveDirectWebSocketOrigin(rawBaseUrl: string | undefined, page: URL)
   return `${directUrl.protocol}//${hostname}${directUrl.port ? `:${directUrl.port}` : ''}`;
 }
 
-function shouldReplaceLocalHostname(targetHostname: string, pageHostname: string) {
+function shouldReplaceLocalHostname(
+  targetHostname: string,
+  pageHostname: string
+) {
   return LOCAL_HOSTS.has(targetHostname) && !LOCAL_HOSTS.has(pageHostname);
 }
 
@@ -64,7 +70,9 @@ type ApplyIncomingWsPayloadResult =
   | { kind: 'notification'; message: WsMessage }
   | { kind: 'invalid' };
 
-function applyIncomingWsPayload(options: ApplyIncomingWsPayloadOptions): ApplyIncomingWsPayloadResult {
+function applyIncomingWsPayload(
+  options: ApplyIncomingWsPayloadOptions
+): ApplyIncomingWsPayloadResult {
   let message: WsMessage;
   try {
     message = JSON.parse(options.payload) as WsMessage;

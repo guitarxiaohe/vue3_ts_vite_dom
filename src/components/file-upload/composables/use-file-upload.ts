@@ -8,8 +8,10 @@ import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import type { UploadProps, UploadRequestOptions } from 'element-plus';
 import { uploadFile, toAttachmentData } from '@/services/file-upload';
+import { useChunkedUpload } from '@/composables/use-chunked-upload';
 import type { AttachmentData } from '../file-upload.type';
 import { useFileType } from './use-file-type';
+import { resolvePendingFileData } from './use-file-upload.utils';
 import { useImageUrl } from '@/composables/use-image-url';
 
 export interface UseFileUploadOptions {
@@ -53,67 +55,6 @@ export const formatFileSize = (bytes: number): string => {
 };
 
 /**
- * 带进度追踪的文件上传
- */
-export const uploadToQiniuWithProgress = (
-  file: File,
-  uploadInfo: { name: string; host: string; url: string },
-  onProgress: (progress: number) => void,
-  t: (key: string, params?: Record<string, unknown>) => string
-): Promise<{ hash: string; key: string }> => {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const formData = new FormData();
-    formData.append('file', file);
-
-    // 监听上传进度
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        const progress = Math.round((e.loaded / e.total) * 100);
-        onProgress(progress);
-      }
-    });
-
-    // 监听完成
-    xhr.addEventListener('load', () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const response = JSON.parse(xhr.responseText);
-          resolve(response);
-        } catch {
-          reject(new Error(t('fileUpload.parseResponseFailed')));
-        }
-      } else {
-        reject(
-          new Error(
-            t('fileUpload.uploadFailedWithStatus', {
-              status: xhr.statusText,
-            })
-          )
-        );
-      }
-    });
-
-    // 监听错误
-    xhr.addEventListener('error', () => {
-      reject(new Error(t('fileUpload.networkError')));
-    });
-
-    // 监听取消
-    xhr.addEventListener('abort', () => {
-      reject(new Error(t('fileUpload.uploadCancelled')));
-    });
-
-    // 发送请求
-    xhr.open(
-      'POST',
-      `${uploadInfo.host}?key=${encodeURIComponent('/common/upload')}`
-    );
-    xhr.send(formData);
-  });
-};
-
-/**
  * 文件上传 Composable
  */
 export const useFileUpload = (options: UseFileUploadOptions) => {
@@ -148,13 +89,11 @@ export const useFileUpload = (options: UseFileUploadOptions) => {
   watch(
     () => options.modelValue.value,
     (value) => {
-      if (value) {
-        pendingFileData.value = null;
-        return;
-      }
-      if (!uploadingFile.value) {
-        pendingFileData.value = null;
-      }
+      pendingFileData.value = resolvePendingFileData({
+        incomingValue: value,
+        pendingFileData: pendingFileData.value,
+        isUploading: Boolean(uploadingFile.value),
+      });
     }
   );
 
@@ -286,11 +225,26 @@ export const useFileUpload = (options: UseFileUploadOptions) => {
     uploadProgress.value = 0;
     uploadError.value = '';
 
+    const CHUNKED_THRESHOLD = 20 * 1024 * 1024; // 20MB
+
     try {
-      const uploadResponse = await uploadFile(file);
+      let attachmentData: AttachmentData;
+
+      if (file.size > CHUNKED_THRESHOLD) {
+        // 大文件：分片上传
+        const { startUpload } = useChunkedUpload();
+        attachmentData = await startUpload(file, (percent) => {
+          uploadProgress.value = percent;
+        });
+      } else {
+        // 小文件：整文件上传
+        const uploadResponse = await uploadFile(file, (percent) => {
+          uploadProgress.value = percent;
+        });
+        attachmentData = toAttachmentData(file, uploadResponse);
+      }
       uploadProgress.value = 100;
 
-      const attachmentData = toAttachmentData(file, uploadResponse);
       pendingFileData.value = attachmentData;
 
       options.onUpdate(attachmentData.url || attachmentData.fileUrl);
