@@ -1,9 +1,6 @@
 import { defineAsyncComponent } from 'vue';
 import type { EntityModule } from '@/features/entities/types';
-import {
-  deleteProjectTypes,
-  listProjectTypeRows,
-} from './form/service';
+import { deleteProjectTypes, listProjectTypeRows } from './form/service';
 
 const entityModule: EntityModule = {
   entityKey: 'projectType',
