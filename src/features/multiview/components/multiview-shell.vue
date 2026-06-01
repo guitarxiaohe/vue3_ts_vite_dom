@@ -39,12 +39,18 @@
         </el-button>
 
         <!-- 自定义表格操作按钮（左侧） -->
-        <template v-for="(action, index) in tableActionsLeft" :key="`table-action-left-${index}`">
+        <template
+          v-for="(action, index) in tableActionsLeft"
+          :key="`table-action-left-${index}`"
+        >
           <component :is="getTableActionComponent(action)" />
         </template>
 
         <!-- 自定义表格操作按钮（右侧） -->
-        <template v-for="(action, index) in tableActionsRight" :key="`table-action-right-${index}`">
+        <template
+          v-for="(action, index) in tableActionsRight"
+          :key="`table-action-right-${index}`"
+        >
           <component :is="getTableActionComponent(action)" />
         </template>
       </div>
@@ -274,9 +280,11 @@ const tableActionsRight = computed(() => {
 });
 
 // 判断是否是 EntityTableActionConfig 类型
-function isTableActionConfig(
-  action: any
-): action is { component: any; permissionId?: string; permissionCode?: string } {
+function isTableActionConfig(action: any): action is {
+  component: any;
+  permissionId?: string;
+  permissionCode?: string;
+} {
   return action && typeof action === 'object' && 'component' in action;
 }
 
