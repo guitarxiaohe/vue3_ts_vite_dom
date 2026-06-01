@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
+import UserAvatarInfo from '@/components/user-avatar-info/index.vue';
 const { t } = useI18n();
 const router = useRouter();
 const userStore = useUserStore();
@@ -34,9 +35,12 @@ function handleUserCommand(command: string) {
     @command="handleUserCommand"
   >
     <button type="button" class="layout-header__user-trigger">
-      <el-avatar :size="32" :src="avatarSrc" class="layout-header__avatar">
-        {{ userStore.avatarText }}
-      </el-avatar>
+      <UserAvatarInfo
+        :enableDrawer="false"
+        :src="avatarSrc"
+        :name="userStore.displayName"
+        :user-id="userStore.userInfo?.userId"
+      />
     </button>
 
     <template #dropdown>

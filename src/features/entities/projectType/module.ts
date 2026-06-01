@@ -27,8 +27,6 @@ const entityModule: EntityModule = {
       pageSize: 20,
       defaultSort: { field: 'typeId', order: 'asc' },
       showColumnSettings: true,
-      fetcher: listProjectTypeRows,
-      deleteRows: (ids) => deleteProjectTypes(ids),
     },
     detail: {
       title: '项目详情',
