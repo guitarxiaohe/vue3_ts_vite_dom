@@ -12,14 +12,7 @@ const entityModule: EntityModule = {
   config: {
     entityKey: 'projectConfig',
     title: '项目配置',
-    actions: {
-      showCreate: true,
-      showEdit: true,
-      showCopy: true,
-      showDelete: true,
-      showImport: true,
-      showExport: true,
-    },
+
     table: {
       rowKey: 'projectId',
       height: 520,

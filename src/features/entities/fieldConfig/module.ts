@@ -15,14 +15,7 @@ const entityModule: EntityModule = {
   config: {
     entityKey: 'fieldConfig',
     title: '字段配置',
-    actions: {
-      showCreate: true,
-      showEdit: true,
-      showCopy: true,
-      showDelete: true,
-      showImport: false,
-      showExport: true,
-    },
+
     filters: {
       fields: {
         entityKey: {

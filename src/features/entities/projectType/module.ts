@@ -1,6 +1,5 @@
 import { defineAsyncComponent } from 'vue';
 import type { EntityModule } from '@/features/entities/types';
-import { deleteProjectTypes, listProjectTypeRows } from './form/service';
 
 const entityModule: EntityModule = {
   entityKey: 'projectType',
@@ -13,14 +12,7 @@ const entityModule: EntityModule = {
   config: {
     entityKey: 'projectType',
     title: '项目配置',
-    actions: {
-      showCreate: true,
-      showEdit: true,
-      showCopy: true,
-      showDelete: true,
-      showImport: true,
-      showExport: true,
-    },
+
     table: {
       rowKey: 'typeId',
       height: 520,

@@ -37,6 +37,16 @@
         >
           {{ t('common.export') }}
         </el-button>
+
+        <!-- 自定义表格操作按钮（左侧） -->
+        <template v-for="(action, index) in tableActionsLeft" :key="`table-action-left-${index}`">
+          <component :is="getTableActionComponent(action)" />
+        </template>
+
+        <!-- 自定义表格操作按钮（右侧） -->
+        <template v-for="(action, index) in tableActionsRight" :key="`table-action-right-${index}`">
+          <component :is="getTableActionComponent(action)" />
+        </template>
       </div>
     </section>
 
@@ -125,6 +135,7 @@ import {
   getEntityFilterComponentRegistrations,
   getEntityTableConfig,
 } from '@/utils/entity-config';
+import { getEntityTableActions } from '@/features/entities/registry';
 import type {
   EntityDetailConfig,
   EntityFilterFieldConfig,
@@ -247,6 +258,35 @@ const permittedHeaderActions = computed(() => ({
     resolvedActions.value.showExport &&
     hasPermission(resolvePermissionId(props.entityKey, 'EXPORT')),
 }));
+
+// 获取自定义表格操作按钮
+const tableActionsConfig = computed(() => {
+  return getEntityTableActions(props.entityKey);
+});
+
+// 渲染表格操作按钮组件
+const tableActionsLeft = computed(() => {
+  return tableActionsConfig.value?.left ?? [];
+});
+
+const tableActionsRight = computed(() => {
+  return tableActionsConfig.value?.right ?? [];
+});
+
+// 判断是否是 EntityTableActionConfig 类型
+function isTableActionConfig(
+  action: any
+): action is { component: any; permissionId?: string; permissionCode?: string } {
+  return action && typeof action === 'object' && 'component' in action;
+}
+
+// 获取表格操作按钮的组件
+function getTableActionComponent(action: any) {
+  if (isTableActionConfig(action)) {
+    return action.component;
+  }
+  return action;
+}
 
 const tableConfig = computed<EntityTableConfig>(() =>
   getEntityTableConfig(props.entityKey)
