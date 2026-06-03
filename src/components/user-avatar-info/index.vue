@@ -180,7 +180,6 @@ const displayJobLevel = computed(() => props.jobLevel);
 const drawerName = computed(
   () => remoteUser.value?.nickName ?? remoteUser.value?.userName ?? ''
 );
-const drawerAvatarSrc = computed(() => remoteUser.value?.avatar ?? '');
 const drawerEmail = computed(() => remoteUser.value?.email ?? '');
 const drawerPhone = computed(() => remoteUser.value?.phonenumber ?? '');
 const drawerUserId = computed(() => remoteUser.value?.userId ?? props.userId);
@@ -252,7 +251,6 @@ const mergedAvatarProps = computed(() => ({
   shape: 'circle',
 }));
 
-const drawerAvatarUrl = computed(() => drawerAvatarSrc.value);
 const drawerTitleText = computed(
   () => props.drawerTitle ?? t('components.userAvatarInfo.drawerTitle')
 );
@@ -271,14 +269,6 @@ const drawerIconMap: Record<string, Component> = {
 };
 
 const drawerDetailItems = computed(() => [
-  {
-    key: 'avatar',
-    label: t('components.userAvatarInfo.fieldAvatar'),
-    icon: drawerIconMap.avatar,
-    value: drawerAvatarUrl.value
-      ? drawerName.value || t('components.userAvatarInfo.fieldAvatar')
-      : t('components.userAvatarInfo.defaultAvatar'),
-  },
   {
     key: 'name',
     label: t('components.userAvatarInfo.fieldName'),
@@ -526,7 +516,10 @@ defineExpose({
         <section class="user-avatar-info__hero">
           <div class="user-avatar-info__hero-avatar">
             <slot name="drawer-avatar">
-              <el-avatar :size="props.drawerAvatarSize" :src="drawerAvatarUrl">
+              <el-avatar
+                :size="props.drawerAvatarSize"
+                :src="mergedAvatarProps.src"
+              >
                 {{ drawerName?.slice(0, 1) }}
               </el-avatar>
             </slot>

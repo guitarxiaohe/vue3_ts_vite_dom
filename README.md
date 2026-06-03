@@ -1,6 +1,6 @@
 # XiaoHe Frontend
 
-XiaoHe Frontend 是一个基于 `Vue 3 + TypeScript + Vite` 的配置化后台前端项目。  
+XiaoHe Frontend 是一个基于 `Vue 3 + TypeScript + Vite` 的配置化后台前端项目。
 它和后端的 `entity_config`、`field_config` 元数据表协作，通过一套通用渲染链路完成列表、筛选、表单、详情抽屉和字典展示，目标是减少重复 CRUD 开发。
 
 ## 线上演示
