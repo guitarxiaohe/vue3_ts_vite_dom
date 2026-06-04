@@ -104,6 +104,14 @@ export function getFieldConfigFormFields(t: Translate): EntityFormField[] {
       max: 9999,
     },
     {
+      prop: 'width',
+      label: t('fieldConfig.width'),
+      type: 'number',
+      defaultValue: 200,
+      min: 60,
+      max: 2000,
+    },
+    {
       prop: 'isFuzzySearch',
       label: t('fieldConfig.isFuzzySearch'),
       type: 'select',

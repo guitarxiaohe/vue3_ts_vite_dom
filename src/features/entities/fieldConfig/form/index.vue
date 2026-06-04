@@ -53,6 +53,7 @@ function normalizePayload(data: Record<string, unknown>): FieldConfig {
   return {
     ...(data as FieldConfig),
     sort: Number(data.sort ?? 0),
+    width: Number(data.width ?? 200),
     isFuzzySearch: Number(data.isFuzzySearch ?? 0),
     isVisible: Number(data.isVisible ?? 1),
     fieldType: String(data.fieldType ?? 'input'),

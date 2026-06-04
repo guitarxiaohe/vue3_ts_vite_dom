@@ -35,6 +35,7 @@ const createMockField = (
   dictCode: (field.dictCode as string | null | undefined) ?? null,
   selectEntityKey: (field.selectEntityKey as string | null | undefined) ?? null,
   sort: Number(field.sort ?? 0),
+  width: Number(field.width ?? 200),
   isFuzzySearch: Boolean(field.isFuzzySearch ?? false),
   isVisible: Boolean(field.isVisible ?? true),
   createdBy: null,

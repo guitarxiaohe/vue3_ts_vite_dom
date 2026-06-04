@@ -381,10 +381,10 @@ async function handleSheetChange(value: string) {
 
 // 校验映射数据
 function validateMappings(): boolean {
-  if (!mappings.value.length) {
-    ElMessage.warning(t('components.importDialog.mappingEmpty'));
-    return false;
-  }
+  // if (!mappings.value.length) {
+  //   ElMessage.warning(t('components.importDialog.mappingEmpty'));
+  //   return false;
+  // }
 
   const requiredField = mappings.value.find(
     (item) => item.required && !item.sourceColumn

@@ -146,6 +146,7 @@ export interface FieldConfig {
   createdTime: number | null;
   updatedBy: number | null;
   updatedTime: number | null;
+  width?: number | null;
   fixed: 'left' | 'right' | null;
 }
 

@@ -347,6 +347,7 @@ export function useMultiviewImportExport(
       }>({
         method: 'POST',
         url: `/system/dynamic/excel/import/${entityKey.value}`,
+        timeout: 5 * 60 * 1000,
         data: formData,
         headers: {
           'Content-Type': 'multipart/form-data',

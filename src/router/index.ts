@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
-import { ElMessageBox } from 'element-plus';
 import { i18n } from '@/i18n';
 import { getEntityModule } from '@/features/entities/registry';
 import { useUserStore } from '@/stores/modules/user';
@@ -127,7 +126,6 @@ const whiteList = ['/login', '/NotFound'];
 router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore();
   const token = localStorage.getItem('token');
-  const { t } = i18n.global;
 
   if (token) {
     if (to.path === '/login') {
@@ -145,18 +143,19 @@ router.beforeEach(async (to, _from, next) => {
     if (whiteList.includes(to.path)) {
       next();
     } else {
-      ElMessageBox.confirm(t('user.tokenExpiredDesc'), t('user.tokenExpired'), {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: 'warning',
-      })
-        .then(() => {
-          window.location.href = '/login';
-          next({ path: '/login', replace: true });
-        })
-        .catch(() => {
-          next(false);
-        });
+      next({ path: '/login', replace: true });
+      // ElMessageBox.confirm(t('user.tokenExpiredDesc'), t('user.tokenExpired'), {
+      //   confirmButtonText: t('common.confirm'),
+      //   cancelButtonText: t('common.cancel'),
+      //   type: 'warning',
+      // })
+      //   .then(() => {
+      //     window.location.href = '/login';
+      //     next({ path: '/login', replace: true });
+      //   })
+      //   .catch(() => {
+      //     next(false);
+      //   });
     }
   }
 });

@@ -338,6 +338,7 @@ export default {
     dictCode: '字典编码',
     selectEntityKey: '下拉实体Key',
     sort: '排序',
+    width: '列宽',
     createdTime: '创建时间',
     updatedTime: '更新时间',
     isFuzzySearch: '模糊查询',

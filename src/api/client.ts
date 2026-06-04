@@ -1,14 +1,16 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import type { ApiResponse } from '@/types/api';
 import { useUserStore } from '@/stores';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { i18n } from '@/i18n';
+
 class HttpClient {
   private instance: AxiosInstance;
 
   constructor() {
     this.instance = axios.create({
       baseURL: import.meta.env.VITE_APP_BASE_API || '/dev-api',
-      timeout: 10000,
+      timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -41,12 +43,25 @@ class HttpClient {
     this.instance.interceptors.response.use(
       (response) => {
         if (response.data?.code === 401) {
+          const { t } = i18n.global;
+
           // 统一错误处理
           const { logout } = useUserStore();
 
-          logout();
-          // 未授权，跳转登录
-          window.location.href = '/login';
+          ElMessageBox.confirm(
+            t('user.tokenExpiredDesc'),
+            t('user.tokenExpired'),
+            {
+              confirmButtonText: t('common.confirm'),
+              cancelButtonText: t('common.cancel'),
+              type: 'warning',
+            }
+          )
+            .then(() => {
+              logout();
+              window.location.href = '/login';
+            })
+            .catch(() => {});
         }
 
         if (response.data?.code == 500) {

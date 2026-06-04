@@ -13,6 +13,7 @@ export interface FieldConfig {
   dictCode?: string | null;
   selectEntityKey?: string | null;
   sort?: number;
+  width?: number | null;
   isFuzzySearch?: number;
   isVisible?: number;
   createdBy?: number | null;

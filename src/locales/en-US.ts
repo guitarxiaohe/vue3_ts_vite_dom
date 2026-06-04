@@ -352,6 +352,7 @@ export default {
     dictCode: 'Dictionary Code',
     selectEntityKey: 'Select Entity Key',
     sort: 'Sort',
+    width: 'Width',
     createdTime: 'Created Time',
     updatedTime: 'Updated Time',
     isFuzzySearch: 'Fuzzy Search',

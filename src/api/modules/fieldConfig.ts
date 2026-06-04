@@ -20,6 +20,7 @@ let mockFieldConfigs: FieldConfig[] = [
     fieldType: 'input',
     fieldRole: null,
     sort: 1,
+    width: 200,
     isFuzzySearch: 1,
     isVisible: 1,
     fixed: null,
@@ -37,6 +38,7 @@ let mockFieldConfigs: FieldConfig[] = [
     fieldRole: null,
     selectEntityKey: 'dept',
     sort: 2,
+    width: 200,
     isFuzzySearch: 0,
     isVisible: 1,
     fixed: null,
@@ -53,6 +55,7 @@ let mockFieldConfigs: FieldConfig[] = [
     fieldType: 'input',
     fieldRole: null,
     sort: 1,
+    width: 200,
     isFuzzySearch: 1,
     isVisible: 1,
     fixed: 'left',
@@ -134,6 +137,7 @@ export function addFieldConfig(data: FieldConfig) {
     mockFieldConfigs.unshift({
       ...data,
       id: mockIdSeed,
+      width: Number(data.width ?? 200),
       createdTime: nowTs(),
       updatedTime: nowTs(),
     });

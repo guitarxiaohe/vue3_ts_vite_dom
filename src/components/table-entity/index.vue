@@ -321,14 +321,20 @@ const autoFitBusinessColumns = computed(() =>
     }
 
     const titleText = String(column.title ?? dataKey);
-    const valueWidth = dataList.value.reduce((maxWidth, row) => {
-      const text = formatCellText(dataKey ? row[dataKey] : '');
-      return Math.max(maxWidth, textDisplayWidth(text));
-    }, textDisplayWidth(titleText));
-    const nextWidth = Math.min(
-      TEXT_COLUMN_MAX_WIDTH,
-      Math.max(TEXT_COLUMN_MIN_WIDTH, valueWidth + TEXT_COLUMN_PADDING)
-    );
+    const configuredWidth = Number(column.width);
+    const nextWidth =
+      Number.isFinite(configuredWidth) && configuredWidth > 0
+        ? configuredWidth
+        : Math.min(
+            TEXT_COLUMN_MAX_WIDTH,
+            Math.max(
+              TEXT_COLUMN_MIN_WIDTH,
+              dataList.value.reduce((maxWidth, row) => {
+                const text = formatCellText(dataKey ? row[dataKey] : '');
+                return Math.max(maxWidth, textDisplayWidth(text));
+              }, textDisplayWidth(titleText)) + TEXT_COLUMN_PADDING
+            )
+          );
 
     const sortable = props.sortableColumnKeys?.includes(dataKey) ?? false;
     const isCurrentSort = props.sortField === dataKey;

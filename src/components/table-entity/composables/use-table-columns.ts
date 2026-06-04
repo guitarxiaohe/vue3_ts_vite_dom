@@ -6,7 +6,7 @@ import { queryClient } from '@/api/query-client';
 import { DICT_DATA_ALL_QUERY_KEY } from '@/api/modules/dict';
 import type { DictDataItem } from '@/types/dict';
 import type { ColumnsItem, TableEntlty } from '../index.type';
-import { fontWidth, normalizeColumnFixed } from '../utils/column-utils';
+import { normalizeColumnFixed } from '../utils/column-utils';
 import { applyColumnSlots } from '../utils/column-slots';
 import UserCell from '../cells/avatar-cell.vue';
 import FileCell from '../cells/file-cell.vue';
@@ -18,7 +18,15 @@ import { formatTimestampText } from '@/utils/datetime';
 
 // 兼容字段配置的 camelCase 与 snake_case
 function resolveFieldValue(field: Record<string, any>, camelKey: string) {
-  return field[camelKey];
+  if (field[camelKey] !== undefined) {
+    return field[camelKey];
+  }
+
+  const snakeKey = camelKey.replace(
+    /[A-Z]/g,
+    (value) => `_${value.toLowerCase()}`
+  );
+  return field[snakeKey];
 }
 
 // 解析字段角色配置
@@ -438,7 +446,8 @@ export function mapFieldConfigRowsToColumns(
     ).toLowerCase();
     const rawTitle = resolveFieldValue(col, 'fieldName') ?? '--';
     const labelKey = resolveFieldValue(col, 'labelKey') as string | undefined;
-
+    const configuredWidth = Number(resolveFieldValue(col, 'width'));
+    console.log('configuredWidth ==>', configuredWidth);
     // i18n key 优先，field_name 兜底；t() 找不到翻译时返回 key 本身，需排除
     let title = rawTitle;
     if (t && labelKey) {
@@ -448,15 +457,12 @@ export function mapFieldConfigRowsToColumns(
       }
     }
 
-    // by/createUser/updateUser 类型展示头像+姓名，需要更大宽度
-    const defaultWidth =
-      fieldType === 'by' ||
-      fieldType === 'createuser' ||
-      fieldType === 'updateuser'
-        ? 120
-        : (fontWidth(rawTitle) ?? 150);
+    const defaultWidth = 200;
     return {
-      width: col.width ? col.width : defaultWidth,
+      width:
+        Number.isFinite(configuredWidth) && configuredWidth > 0
+          ? configuredWidth
+          : defaultWidth,
       title,
       key: col.id ?? '--',
       dataKey: snakeToCamel(resolveFieldValue(col, 'fieldKey') ?? '--'),
