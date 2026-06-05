@@ -11,7 +11,7 @@ describe('use-login-entrance.utils', () => {
     expect(
       shouldPlayEntranceAnimation({
         isDesktop: true,
-        hasPlayedEntrance: false,
+        hasPlayed: false,
         prefersReducedMotion: false,
       })
     ).toBe(true);
@@ -21,7 +21,7 @@ describe('use-login-entrance.utils', () => {
     expect(
       shouldPlayEntranceAnimation({
         isDesktop: true,
-        hasPlayedEntrance: true,
+        hasPlayed: true,
         prefersReducedMotion: false,
       })
     ).toBe(false);
@@ -31,7 +31,7 @@ describe('use-login-entrance.utils', () => {
     expect(
       shouldPlayEntranceAnimation({
         isDesktop: false,
-        hasPlayedEntrance: false,
+        hasPlayed: false,
         prefersReducedMotion: false,
       })
     ).toBe(false);
@@ -41,21 +41,21 @@ describe('use-login-entrance.utils', () => {
     expect(
       shouldPlayEntranceAnimation({
         isDesktop: true,
-        hasPlayedEntrance: false,
+        hasPlayed: false,
         prefersReducedMotion: true,
       })
     ).toBe(false);
   });
 
   test('getEntranceClipPathTargets returns desktop clip-path targets', () => {
-    expect(getEntranceClipPathTargets('desktop')).toEqual({
+    expect(getEntranceClipPathTargets(true)).toEqual({
       from: 'inset(0 0% 0 0 round 0px)',
       to: 'inset(0 50% 0 0 round 0px)',
     });
   });
 
   test('getEntranceClipPathTargets returns mobile clip-path targets', () => {
-    expect(getEntranceClipPathTargets('mobile')).toEqual({
+    expect(getEntranceClipPathTargets(false)).toEqual({
       from: 'inset(0 0% 0 0 round 0px)',
       to: 'inset(0 0 58% 0 round 0px)',
     });

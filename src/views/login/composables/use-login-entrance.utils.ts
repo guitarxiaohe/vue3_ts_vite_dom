@@ -1,6 +1,6 @@
 export interface EntranceAnimationContext {
   isDesktop: boolean;
-  hasPlayedEntrance: boolean;
+  hasPlayed: boolean;
   prefersReducedMotion: boolean;
 }
 
@@ -23,15 +23,15 @@ export function shouldPlayEntranceAnimation(
 ): boolean {
   return (
     context.isDesktop &&
-    !context.hasPlayedEntrance &&
+    !context.hasPlayed &&
     !context.prefersReducedMotion
   );
 }
 
 export function getEntranceClipPathTargets(
-  viewport: 'desktop' | 'mobile'
+  isDesktop: boolean
 ): EntranceClipPathTargets {
-  return viewport === 'desktop'
+  return isDesktop
     ? {
         from: 'inset(0 0% 0 0 round 0px)',
         to: 'inset(0 50% 0 0 round 0px)',
