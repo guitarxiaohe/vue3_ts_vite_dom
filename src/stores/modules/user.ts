@@ -45,7 +45,9 @@ export const useUserStore = defineStore('user', () => {
     readJsonStorage<string[]>(USER_PERMISSIONS_KEY, [])
   );
   const needUpdatePassword = ref<boolean>(
-    Boolean(readJsonStorage<SysUser | null>(USER_INFO_KEY, null)?.needUpdatePassword)
+    Boolean(
+      readJsonStorage<SysUser | null>(USER_INFO_KEY, null)?.needUpdatePassword
+    )
   );
   const treeRouters = ref<SysRouter[] | null>(
     readJsonStorage<SysRouter[]>(ROUTER_KEY, [])
@@ -95,8 +97,8 @@ export const useUserStore = defineStore('user', () => {
       if (response.code === 200) {
         const needPasswordUpdate = Boolean(
           response.needUpdatePassword ??
-            response.user?.needUpdatePassword ??
-            response.data?.needUpdatePassword
+          response.user?.needUpdatePassword ??
+          response.data?.needUpdatePassword
         );
         const rawUser = response.user ?? response.data ?? null;
         const user = rawUser

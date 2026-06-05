@@ -34,7 +34,11 @@ const rules = {
       trigger: 'blur',
     },
     {
-      validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+      validator: (
+        _rule: unknown,
+        value: string,
+        callback: (error?: Error) => void
+      ) => {
         if (!passwordPattern.test(String(value ?? ''))) {
           callback(new Error(t('passwordDialog.passwordRule')));
           return;
@@ -51,7 +55,11 @@ const rules = {
       trigger: 'blur',
     },
     {
-      validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+      validator: (
+        _rule: unknown,
+        value: string,
+        callback: (error?: Error) => void
+      ) => {
         if (String(value ?? '') !== form.newPassword) {
           callback(new Error(t('passwordDialog.confirmPasswordMismatch')));
           return;
