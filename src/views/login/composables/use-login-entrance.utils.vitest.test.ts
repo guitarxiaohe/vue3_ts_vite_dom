@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   getEntranceClipPathTargets,
   getEntranceTimings,
+  getPullerPoseMap,
   shouldPlayEntranceAnimation,
 } from './use-login-entrance.utils';
 
@@ -69,6 +70,15 @@ describe('use-login-entrance.utils', () => {
       formRevealDelay: 0.2,
       formReveal: 0.45,
       bounceBack: 0.35,
+    });
+  });
+
+  test('getPullerPoseMap returns the expected puller and support roles', () => {
+    expect(getPullerPoseMap()).toEqual({
+      black: 'puller',
+      yellow: 'puller',
+      orange: 'support',
+      purple: 'support',
     });
   });
 });

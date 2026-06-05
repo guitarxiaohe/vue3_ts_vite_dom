@@ -18,6 +18,15 @@ export interface EntranceTimings {
   bounceBack: number;
 }
 
+export type PullerPose = 'puller' | 'support';
+
+export interface PullerPoseMap {
+  black: PullerPose;
+  yellow: PullerPose;
+  orange: PullerPose;
+  purple: PullerPose;
+}
+
 export function shouldPlayEntranceAnimation(
   context: EntranceAnimationContext
 ): boolean {
@@ -50,5 +59,14 @@ export function getEntranceTimings(): EntranceTimings {
     formRevealDelay: 0.2,
     formReveal: 0.45,
     bounceBack: 0.35,
+  };
+}
+
+export function getPullerPoseMap(): PullerPoseMap {
+  return {
+    black: 'puller',
+    yellow: 'puller',
+    orange: 'support',
+    purple: 'support',
   };
 }
