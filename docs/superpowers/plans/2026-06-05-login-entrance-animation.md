@@ -67,7 +67,7 @@ Update `package.json` with these exact blocks:
     "jsdom": "^26.1.0",
     "typescript": "~5.9.3",
     "vite": "^8.0.1",
-    "vitest": "^3.2.4",
+    "vitest": "^4.1.8",
     "vue-tsc": "^3.2.5"
   }
 }
@@ -94,6 +94,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     include: ['src/**/*.vitest.test.ts'],
+    passWithNoTests: true,
   },
 });
 ```
