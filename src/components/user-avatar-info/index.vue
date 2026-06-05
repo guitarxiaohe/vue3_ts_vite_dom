@@ -169,7 +169,7 @@ const showRemoteLoading = computed(
 );
 
 // ==================== 显示区（仅 props，不依赖接口） ====================
-const displayName = computed(() => props.name ?? props.nickName ?? '');
+const displayName = computed(() => props.nickName || props.name || '');
 const displaySubtitle = computed(() => props.subtitle || props.deptName || '');
 const displaySrc = computed(() => props.src ?? props.avatar ?? '');
 const displayAge = computed(() => props.age);

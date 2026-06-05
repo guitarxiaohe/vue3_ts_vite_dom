@@ -1,5 +1,6 @@
 import { h, ref, watch, type ComputedRef, type Ref } from 'vue';
 import type { Slots } from 'vue';
+import { ElTooltip } from 'element-plus';
 import { getByEntityKeyAndFieldKeyApi } from '@/api/modules/dynamic-entity';
 import { isEmptyValue, snakeToCamel } from '@/utils/value';
 import { queryClient } from '@/api/query-client';
@@ -241,7 +242,7 @@ function resolveDetailTextByFieldType(
     fieldType === 'updateuser'
   ) {
     const auditUser = resolveAuditUser(field, rowData);
-    return String(auditUser?.userName ?? cellData ?? '--');
+    return String(auditUser?.nickName ?? auditUser?.userName ?? cellData ?? '--');
   }
 
   if (
@@ -276,7 +277,7 @@ function resolveDetailTextByFieldType(
   }
 
   if (fieldType === 'user') {
-    return String(rowData.userName ?? rowData.nickName ?? cellData ?? '--');
+    return String(rowData.nickName ?? rowData.userName ?? cellData ?? '--');
   }
 
   if (
@@ -355,19 +356,51 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
     }) => {
       const auditUser = resolveAuditUser(field, rowData);
       if (!auditUser) return h('div', '--');
+      // 审计列统一使用后端增强后的操作人对象，避免误用当前行用户数据
       return h(UserCell, {
         ...auditUser,
-        row: rowData,
+        row: auditUser,
         value: cellData,
-        ...rowData,
       });
     };
   }
-  if (
-    fieldType === 'text' ||
-    fieldType === 'input' ||
-    fieldType === 'textarea'
-  ) {
+  if (fieldType === 'textarea') {
+    return ({ cellData }: { cellData: unknown }) => {
+      const text =
+        cellData == null || cellData === '' ? '--' : String(cellData);
+      return h(
+        ElTooltip,
+        {
+          content: text,
+          placement: 'right',
+          showAfter: 300,
+          popperStyle: {
+            maxWidth: '500px',
+            maxHeight: '500px',
+            overflow: 'auto',
+          },
+        },
+        {
+          default: () =>
+            h(
+              'span',
+              {
+                style: {
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  display: 'block',
+                  cursor: 'pointer',
+                },
+              },
+              text
+            ),
+        }
+      );
+    };
+  }
+
+  if (fieldType === 'text' || fieldType === 'input') {
     return ({ cellData }: { cellData: unknown }) =>
       h(
         'span',
