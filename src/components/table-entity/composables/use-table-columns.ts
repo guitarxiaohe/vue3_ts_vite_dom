@@ -242,7 +242,9 @@ function resolveDetailTextByFieldType(
     fieldType === 'updateuser'
   ) {
     const auditUser = resolveAuditUser(field, rowData);
-    return String(auditUser?.nickName ?? auditUser?.userName ?? cellData ?? '--');
+    return String(
+      auditUser?.nickName ?? auditUser?.userName ?? cellData ?? '--'
+    );
   }
 
   if (

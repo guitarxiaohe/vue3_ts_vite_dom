@@ -1,7 +1,10 @@
 <template>
   <div class="login-container" :class="{ 'is-dark': isDark }">
     <!-- 左侧内容区 -->
-    <div class="login-left">
+    <div
+      class="login-left"
+      :class="{ 'is-stage-hidden': interactionLocked || overlayVisible }"
+    >
       <div class="left-content">
         <div class="logo-area">
           <div class="logo-icon">
@@ -12,7 +15,7 @@
 
         <!-- 卡通角色区 -->
         <div class="characters-area">
-          <div class="characters-wrapper">
+          <div ref="stageAnchorRef" class="characters-wrapper">
             <!-- 紫色高个角色 - 背景层 -->
             <div
               ref="purpleRef"
@@ -197,7 +200,10 @@
     </div>
 
     <!-- 右侧登录区 -->
-    <div class="login-right">
+    <div
+      class="login-right"
+      :class="{ 'is-interaction-locked': interactionLocked }"
+    >
       <div class="login-form-wrapper">
         <!-- 移动端 Logo -->
         <div class="mobile-logo">
@@ -352,6 +358,73 @@
         </div>
       </div>
     </div>
+
+    <!-------------------------- 入场动画层 -------------------------->
+    <LoginEntranceOverlay
+      :visible="overlayVisible"
+      v-model:overlay-ref="overlayRef"
+      v-model:curtain-ref="curtainRef"
+      v-model:form-reveal-ref="formRevealRef"
+      v-model:black-puller-ref="blackPullerRef"
+      v-model:yellow-puller-ref="yellowPullerRef"
+      v-model:support-group-ref="supportGroupRef"
+    >
+      <template #logo>
+        <div class="logo-area entrance-logo-area">
+          <div class="logo-icon">
+            <Sparkles :size="16" />
+          </div>
+          <span>YourBrand</span>
+        </div>
+      </template>
+
+      <template #support-characters>
+        <div class="entrance-support-scene">
+          <div class="entrance-character entrance-character--purple">
+            <div class="entrance-eyes entrance-eyes--purple">
+              <span class="entrance-eye" />
+              <span class="entrance-eye" />
+            </div>
+          </div>
+
+          <div class="entrance-character entrance-character--orange">
+            <div class="entrance-pupils entrance-pupils--orange">
+              <span class="entrance-pupil" />
+              <span class="entrance-pupil" />
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template #black-puller>
+        <div class="entrance-puller-scene">
+          <div class="entrance-character entrance-character--black">
+            <div class="entrance-eyes entrance-eyes--black">
+              <span class="entrance-eye entrance-eye--small" />
+              <span class="entrance-eye entrance-eye--small" />
+            </div>
+          </div>
+          <div class="entrance-pull-line entrance-pull-line--black" />
+        </div>
+      </template>
+
+      <template #yellow-puller>
+        <div class="entrance-puller-scene entrance-puller-scene--yellow">
+          <div class="entrance-character entrance-character--yellow">
+            <div class="entrance-pupils entrance-pupils--yellow">
+              <span class="entrance-pupil" />
+              <span class="entrance-pupil" />
+            </div>
+            <div class="entrance-mouth" />
+          </div>
+          <div class="entrance-pull-line entrance-pull-line--yellow" />
+        </div>
+      </template>
+
+      <template #form-ghost>
+        <div class="entrance-form-glow" />
+      </template>
+    </LoginEntranceOverlay>
   </div>
 </template>
 
@@ -365,6 +438,8 @@ import { useSystemStore, useUserStore } from '@/stores';
 import { getCaptchaImage } from '@/api/modules/user';
 import router from '@/router';
 import type { CaptchaImageResponse } from '@/types/user';
+import LoginEntranceOverlay from './components/login-entrance-overlay.vue';
+import { useLoginEntrance } from './composables/use-login-entrance';
 
 const { t } = useI18n();
 const systemStore = useSystemStore();
@@ -372,6 +447,22 @@ const isDark = computed(() => systemStore.isDark);
 const userStore = useUserStore();
 
 type AuthMode = 'login' | 'register';
+
+/******************************** 入场动画 ********************************/
+const stageAnchorRef = ref<HTMLElement | null>(null);
+const {
+  overlayRef,
+  curtainRef,
+  formRevealRef,
+  blackPullerRef,
+  yellowPullerRef,
+  supportGroupRef,
+  overlayVisible,
+  interactionLocked,
+} = useLoginEntrance(stageAnchorRef);
+const shouldFreezeCharacterInteraction = computed(
+  () => interactionLocked.value
+);
 
 // 响应式数据
 const authMode = ref<AuthMode>('login');
@@ -417,13 +508,16 @@ const orangeRef = ref<HTMLElement | null>(null);
 
 // 鼠标移动监听
 const handleMouseMove = (e: MouseEvent) => {
+  if (shouldFreezeCharacterInteraction.value) return;
   mouseX.value = e.clientX;
   mouseY.value = e.clientY;
 };
 
 // 计算角色变换
 const calculatePosition = (ref: HTMLElement | null) => {
-  if (!ref) return { faceX: 0, faceY: 0, bodySkew: 0 };
+  if (shouldFreezeCharacterInteraction.value || !ref) {
+    return { faceX: 0, faceY: 0, bodySkew: 0 };
+  }
 
   const rect = ref.getBoundingClientRect();
   const centerX = rect.left + rect.width / 2;
@@ -642,6 +736,10 @@ const startBlinking = () => {
 
 // 监听 typing 状态
 watch(isTyping, (newVal) => {
+  if (shouldFreezeCharacterInteraction.value) {
+    isLookingAtEachOther.value = false;
+    return;
+  }
   if (newVal) {
     isLookingAtEachOther.value = true;
     setTimeout(() => {
@@ -658,6 +756,11 @@ let peekTimeout: ReturnType<typeof setTimeout>;
 watch(
   [() => formData.value.password, showPassword],
   ([newPassword, newShowPassword]) => {
+    if (shouldFreezeCharacterInteraction.value) {
+      isPurplePeeking.value = false;
+      if (peekTimeout) clearTimeout(peekTimeout);
+      return;
+    }
     if (newPassword.length > 0 && newShowPassword) {
       const schedulePeek = () => {
         peekTimeout = setTimeout(
@@ -784,9 +887,11 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 .login-container {
+  position: relative;
   min-height: 100vh;
   display: grid;
   grid-template-columns: 1fr 1fr;
+  overflow: hidden;
 
   @media (max-width: 1024px) {
     grid-template-columns: 1fr;
@@ -806,6 +911,12 @@ onUnmounted(() => {
 
   @media (max-width: 1024px) {
     display: none;
+  }
+
+  &.is-stage-hidden {
+    .left-content {
+      opacity: 0;
+    }
   }
 
   .left-content {
@@ -906,6 +1017,207 @@ onUnmounted(() => {
 // 暗色模式左侧面板
 .is-dark .login-left {
   background: linear-gradient(135deg, #1a1040 0%, #140a35 50%, #0d0624 100%);
+}
+
+/******************************** 入场动画演出层 ********************************/
+.entrance-logo-area {
+  color: #fff;
+}
+
+.entrance-support-scene {
+  position: relative;
+  width: 34.375rem;
+  height: 25rem;
+}
+
+.entrance-puller-scene {
+  position: relative;
+  width: 12.75rem;
+  height: 22rem;
+}
+
+.entrance-puller-scene--yellow {
+  width: 11.75rem;
+  height: 18rem;
+}
+
+.entrance-character {
+  position: absolute;
+  bottom: 0;
+  transform-origin: bottom center;
+}
+
+.entrance-character--purple {
+  left: 4.375rem;
+  width: 11.25rem;
+  height: 25rem;
+  background-color: #6c3ff5;
+  border-radius: 0.875rem 0.875rem 0 0;
+}
+
+.entrance-character--orange {
+  left: 0;
+  width: 15rem;
+  height: 12.5rem;
+  background-color: #ff9b6b;
+  border-radius: 7.5rem 7.5rem 0 0;
+}
+
+.entrance-character--black {
+  width: 7.5rem;
+  height: 19.5rem;
+  background-color: #2d2d2d;
+  border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.entrance-character--yellow {
+  width: 8.75rem;
+  height: 14.5rem;
+  background-color: #e8d754;
+  border-radius: 4.5rem 4.5rem 0 0;
+}
+
+.entrance-eyes,
+.entrance-pupils {
+  position: absolute;
+  display: flex;
+  align-items: center;
+}
+
+.entrance-eyes--purple {
+  top: 2.75rem;
+  left: 3.25rem;
+  gap: 1.85rem;
+}
+
+.entrance-eyes--black {
+  top: 2rem;
+  left: 1.5rem;
+  gap: 1.35rem;
+}
+
+.entrance-pupils--orange {
+  top: 5.75rem;
+  left: 5rem;
+  gap: 2rem;
+}
+
+.entrance-pupils--yellow {
+  top: 2.5rem;
+  left: 3rem;
+  gap: 1.35rem;
+}
+
+.entrance-eye {
+  position: relative;
+  width: 1rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.entrance-eye::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0.32rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #2d2d2d;
+  transform: translateX(-50%);
+}
+
+.entrance-eye--small {
+  width: 0.9rem;
+  height: 1.25rem;
+}
+
+.entrance-eye--small::after {
+  width: 0.4rem;
+  height: 0.4rem;
+}
+
+.entrance-pupil {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  background: #2d2d2d;
+}
+
+.entrance-mouth {
+  position: absolute;
+  top: 5.5rem;
+  left: 2.25rem;
+  width: 4rem;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: #2d2d2d;
+}
+
+.entrance-pull-line {
+  position: absolute;
+  top: 5.1rem;
+  left: 6.8rem;
+  width: var(--black-line-width);
+  height: 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 2px rgba(45, 45, 45, 0.08);
+  transform-origin: left center;
+}
+
+.entrance-pull-line::after {
+  content: '';
+  position: absolute;
+  right: -0.45rem;
+  top: 50%;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+
+.entrance-pull-line--black {
+  transform: rotate(-16deg);
+}
+
+.entrance-pull-line--yellow {
+  top: 4.15rem;
+  left: 7.35rem;
+  width: var(--yellow-line-width);
+  transform: rotate(-9deg);
+}
+
+.entrance-form-glow {
+  width: 100%;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-bg-card) 42%, transparent) 0%,
+    color-mix(in srgb, #fff 22%, transparent) 100%
+  );
+  min-height: 24rem;
+  border-radius: 1.5rem;
+  opacity: 0.55;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 24%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.is-dark .entrance-character--purple {
+  background-color: #4a2fd6;
+}
+
+.is-dark .entrance-character--black {
+  background-color: #1a1a2e;
+}
+
+.is-dark .entrance-character--orange {
+  background-color: #d9784a;
+}
+
+.is-dark .entrance-character--yellow {
+  background-color: #c4b440;
 }
 
 // 角色样式
@@ -1018,6 +1330,11 @@ onUnmounted(() => {
   justify-content: center;
   padding: 2rem;
   background: var(--color-bg-page);
+
+  &.is-interaction-locked {
+    pointer-events: none;
+    user-select: none;
+  }
 
   .login-form-wrapper {
     width: 100%;

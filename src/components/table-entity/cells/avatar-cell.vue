@@ -18,7 +18,9 @@ const nickName = computed(() => props.row?.nickName ?? '');
 const userName = computed(() => props.row?.userName ?? '');
 const avatar = computed(() => props.row?.avatar ?? '');
 const sex = computed(() => props.row?.sex ?? '');
-const deptName = computed(() => props.row?.deptName ?? props.row?.dept?.deptName ?? '');
+const deptName = computed(
+  () => props.row?.deptName ?? props.row?.dept?.deptName ?? ''
+);
 </script>
 <template>
   <UserAvatarInfo

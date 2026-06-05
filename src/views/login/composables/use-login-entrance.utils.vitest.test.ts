@@ -64,12 +64,12 @@ describe('use-login-entrance.utils', () => {
 
   test('getEntranceTimings returns the expected motion timings', () => {
     expect(getEntranceTimings()).toEqual({
-      establish: 0.35,
-      pullPrep: 0.25,
-      curtainPull: 0.5,
-      formRevealDelay: 0.2,
-      formReveal: 0.45,
-      bounceBack: 0.35,
+      establish: 0.42,
+      pullPrep: 0.34,
+      curtainPull: 0.78,
+      formRevealDelay: 0.24,
+      formReveal: 0.56,
+      bounceBack: 0.42,
     });
   });
 

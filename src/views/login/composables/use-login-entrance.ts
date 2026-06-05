@@ -19,7 +19,13 @@ interface EntranceElementRefs {
   blackPullerRef: Ref<MaybeElement>;
   yellowPullerRef: Ref<MaybeElement>;
   supportGroupRef: Ref<MaybeElement>;
+  stageAnchorRef: Ref<MaybeElement>;
 }
+
+const BLACK_PULLER_LEFT = 240;
+const YELLOW_PULLER_LEFT = 310;
+const BLACK_LINE_START = 109;
+const YELLOW_LINE_START = 118;
 
 function isDesktopViewport(): boolean {
   return window.innerWidth >= DESKTOP_MIN_WIDTH;
@@ -29,7 +35,7 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-export function useLoginEntrance() {
+export function useLoginEntrance(stageAnchorRef: Ref<MaybeElement>) {
   /******************************** DOM 引用 ********************************/
   const overlayRef = ref<MaybeElement>(null);
   const curtainRef = ref<MaybeElement>(null);
@@ -53,6 +59,7 @@ export function useLoginEntrance() {
     blackPullerRef,
     yellowPullerRef,
     supportGroupRef,
+    stageAnchorRef,
   };
 
   // 统一跳过动画后的界面状态。
@@ -72,6 +79,7 @@ export function useLoginEntrance() {
       blackPullerRef: blackPuller,
       yellowPullerRef: yellowPuller,
       supportGroupRef: supportGroup,
+      stageAnchorRef: stageAnchor,
     } = Object.fromEntries(
       Object.entries(elementRefs).map(([key, elementRef]) => [
         key,
@@ -85,7 +93,8 @@ export function useLoginEntrance() {
       !formReveal ||
       !blackPuller ||
       !yellowPuller ||
-      !supportGroup
+      !supportGroup ||
+      !stageAnchor
     ) {
       skipAnimation();
       return;
@@ -94,6 +103,21 @@ export function useLoginEntrance() {
     const clipPathTargets = getEntranceClipPathTargets(isDesktop);
     const timings = getEntranceTimings();
     const pullerPoseMap = getPullerPoseMap();
+    const stageTravelX = Math.round(window.innerWidth * 0.3);
+    const stageRect = stageAnchor.getBoundingClientRect();
+    const curtainBoundaryX = Math.round(window.innerWidth * 0.5);
+    const blackLineWidth = Math.max(
+      curtainBoundaryX - stageRect.left - BLACK_PULLER_LEFT - BLACK_LINE_START,
+      112
+    );
+    const yellowLineWidth = Math.max(
+      curtainBoundaryX -
+        stageRect.left -
+        YELLOW_PULLER_LEFT -
+        YELLOW_LINE_START +
+        8,
+      104
+    );
     const pullerTargets = [
       pullerPoseMap.black === 'puller' ? blackPuller : null,
       pullerPoseMap.yellow === 'puller' ? yellowPuller : null,
@@ -103,7 +127,7 @@ export function useLoginEntrance() {
         ? [supportGroup]
         : [];
 
-    gsap.set(overlay, { autoAlpha: 1 });
+    gsap.set(overlay, { autoAlpha: 1, pointerEvents: 'auto' });
     gsap.set(curtain, {
       clipPath: clipPathTargets.from,
       transformOrigin: 'left center',
@@ -122,11 +146,29 @@ export function useLoginEntrance() {
       transformOrigin: 'center center',
     });
     gsap.set(supportTargets, {
-      x: 0,
-      y: 10,
-      autoAlpha: 0,
-      transformOrigin: 'center center',
+      left: stageRect.left,
+      top: stageRect.top,
+      width: stageRect.width,
+      height: stageRect.height,
+      x: stageTravelX,
+      y: 54,
+      scale: 1.46,
+      autoAlpha: 1,
+      transformOrigin: 'center bottom',
     });
+    supportGroup.style.setProperty(
+      '--black-puller-left',
+      `${BLACK_PULLER_LEFT}px`
+    );
+    supportGroup.style.setProperty(
+      '--yellow-puller-left',
+      `${YELLOW_PULLER_LEFT}px`
+    );
+    supportGroup.style.setProperty('--black-line-width', `${blackLineWidth}px`);
+    supportGroup.style.setProperty(
+      '--yellow-line-width',
+      `${yellowLineWidth}px`
+    );
 
     timeline = gsap.timeline({
       defaults: {
@@ -141,16 +183,15 @@ export function useLoginEntrance() {
 
     timeline
       .to(supportTargets, {
-        autoAlpha: 1,
-        y: 0,
+        y: 46,
         duration: timings.establish,
       })
       .to(
         pullerTargets,
         {
-          x: (index) => (index === 0 ? -18 : 18),
-          y: -8,
-          rotation: (index) => (index === 0 ? -8 : 8),
+          x: (index) => (index === 0 ? -22 : -14),
+          y: -10,
+          rotation: (index) => (index === 0 ? -12 : -8),
           duration: timings.pullPrep,
           ease: 'power1.inOut',
         },
@@ -164,6 +205,28 @@ export function useLoginEntrance() {
           ease: 'power3.inOut',
         },
         '<0.08'
+      )
+      .to(
+        supportTargets,
+        {
+          x: 0,
+          y: 0,
+          scale: 1,
+          duration: timings.curtainPull + 0.1,
+          ease: 'power3.inOut',
+        },
+        '<'
+      )
+      .to(
+        pullerTargets,
+        {
+          x: (index) => (index === 0 ? -36 : -26),
+          y: -14,
+          rotation: (index) => (index === 0 ? -16 : -11),
+          duration: timings.curtainPull,
+          ease: 'power3.inOut',
+        },
+        '<'
       )
       .to(
         formReveal,

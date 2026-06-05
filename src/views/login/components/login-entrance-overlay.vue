@@ -1,28 +1,34 @@
 <template>
-  <transition name="login-entrance-overlay">
-    <div
-      v-if="visible"
-      :ref="bindOverlayRef"
-      class="login-entrance-overlay"
-      aria-hidden="true"
-    >
-      <!-------------------------- 幕布层 -------------------------->
-      <div :ref="bindCurtainRef" class="login-entrance-overlay__curtain">
-        <div class="login-entrance-overlay__edge-highlight" />
+  <div
+    v-if="visible"
+    :ref="bindOverlayRef"
+    class="login-entrance-overlay"
+    aria-hidden="true"
+  >
+    <!-------------------------- 幕布层 -------------------------->
+    <div :ref="bindCurtainRef" class="login-entrance-overlay__curtain">
+      <div class="login-entrance-overlay__edge-highlight" />
+    </div>
+
+    <!-------------------------- 动画场景层 -------------------------->
+    <div class="login-entrance-overlay__scene">
+      <div class="login-entrance-overlay__bg-grid" />
+      <div
+        class="login-entrance-overlay__blur login-entrance-overlay__blur--one"
+      />
+      <div
+        class="login-entrance-overlay__blur login-entrance-overlay__blur--two"
+      />
+
+      <div class="login-entrance-overlay__logo">
+        <slot name="logo" />
       </div>
 
-      <!-------------------------- 动画场景层 -------------------------->
-      <div class="login-entrance-overlay__scene">
-        <div class="login-entrance-overlay__logo">
-          <slot name="logo" />
-        </div>
-
-        <div
-          :ref="bindSupportGroupRef"
-          class="login-entrance-overlay__support-group"
-        >
-          <slot name="support-characters" />
-        </div>
+      <div
+        :ref="bindSupportGroupRef"
+        class="login-entrance-overlay__support-group"
+      >
+        <slot name="support-characters" />
 
         <div
           :ref="bindBlackPullerRef"
@@ -37,16 +43,13 @@
         >
           <slot name="yellow-puller" />
         </div>
+      </div>
 
-        <div
-          :ref="bindFormRevealRef"
-          class="login-entrance-overlay__form-ghost"
-        >
-          <slot name="form-ghost" />
-        </div>
+      <div :ref="bindFormRevealRef" class="login-entrance-overlay__form-ghost">
+        <slot name="form-ghost" />
       </div>
     </div>
-  </transition>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -106,24 +109,13 @@ const bindSupportGroupRef = (element: OverlayBindableRef) => {
   inset: 0;
   z-index: 12;
   overflow: hidden;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .login-entrance-overlay__curtain {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(
-      circle at 20% 20%,
-      color-mix(in srgb, var(--color-primary) 18%, transparent) 0%,
-      transparent 52%
-    ),
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-bg-card) 88%, var(--color-primary) 12%) 0%,
-      color-mix(in srgb, var(--color-bg-page) 74%, var(--color-primary) 26%)
-        100%
-    );
+  background: linear-gradient(135deg, #6c3ff5 0%, #5b2ee3 50%, #4a1ed1 100%);
   border-inline-end: 1px solid
     color-mix(in srgb, var(--color-border) 70%, transparent);
   box-shadow: var(--shadow-lg);
@@ -136,33 +128,34 @@ const bindSupportGroupRef = (element: OverlayBindableRef) => {
 
 .login-entrance-overlay__logo {
   position: absolute;
-  top: clamp(1.5rem, 4vw, 3rem);
-  left: clamp(1.5rem, 4vw, 3rem);
+  top: 3rem;
+  left: 3rem;
   z-index: 2;
 }
 
 .login-entrance-overlay__support-group {
   position: absolute;
-  inset-inline: 0;
-  bottom: clamp(7rem, 14vw, 10rem);
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
+  left: 0;
+  top: 0;
+  --black-puller-left: 15rem;
+  --yellow-puller-left: 19.375rem;
+  --black-line-width: 7rem;
+  --yellow-line-width: 6.9rem;
   z-index: 2;
 }
 
 .login-entrance-overlay__puller {
   position: absolute;
-  bottom: clamp(5rem, 12vw, 8.5rem);
+  bottom: 0;
   z-index: 3;
 }
 
 .login-entrance-overlay__puller--left {
-  left: clamp(8%, 14vw, 16%);
+  left: var(--black-puller-left);
 }
 
 .login-entrance-overlay__puller--right {
-  right: clamp(8%, 14vw, 16%);
+  left: var(--yellow-puller-left);
 }
 
 .login-entrance-overlay__edge-highlight {
@@ -183,6 +176,41 @@ const bindSupportGroupRef = (element: OverlayBindableRef) => {
   opacity: 0.85;
 }
 
+.login-entrance-overlay__bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.05) 1px,
+    transparent 1px
+  );
+  background-size: 20px 20px;
+  pointer-events: none;
+}
+
+.login-entrance-overlay__blur {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.login-entrance-overlay__blur--one {
+  top: 25%;
+  right: 25%;
+  width: 16rem;
+  height: 16rem;
+  background: rgba(255, 255, 255, 0.1);
+  filter: blur(64px);
+}
+
+.login-entrance-overlay__blur--two {
+  bottom: 25%;
+  left: 25%;
+  width: 24rem;
+  height: 24rem;
+  background: rgba(255, 255, 255, 0.05);
+  filter: blur(96px);
+}
+
 .login-entrance-overlay__form-ghost {
   position: absolute;
   top: 50%;
@@ -190,25 +218,17 @@ const bindSupportGroupRef = (element: OverlayBindableRef) => {
   width: min(32rem, 42vw);
   min-height: min(36rem, 74vh);
   transform: translateY(-50%);
-  padding: clamp(1rem, 2vw, 1.5rem);
-  border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--color-bg-card) 72%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
-  box-shadow: var(--shadow-xl);
-  backdrop-filter: blur(16px);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
   z-index: 1;
+  pointer-events: none;
 }
 
-.login-entrance-overlay-enter-active,
-.login-entrance-overlay-leave-active {
-  transition:
-    opacity var(--transition-normal),
-    visibility var(--transition-normal);
-}
-
-.login-entrance-overlay-enter-from,
-.login-entrance-overlay-leave-to {
-  opacity: 0;
-  visibility: hidden;
+.is-dark .login-entrance-overlay__curtain {
+  background: linear-gradient(135deg, #1a1040 0%, #140a35 50%, #0d0624 100%);
 }
 </style>
