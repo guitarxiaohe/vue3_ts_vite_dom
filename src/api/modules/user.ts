@@ -502,6 +502,16 @@ export const register = (data: RegisterParams) => {
 };
 
 export const getCaptchaImage = () => {
+  if (isMockEnabled()) {
+    return Promise.resolve({
+      code: 200,
+      msg: 'mock',
+      captchaOnOff: false,
+      registerOnOff: true,
+      uuid: '',
+      img: '',
+    } as CaptchaImageResponse);
+  }
   return httpClient.get(
     '/captchaImage'
   ) as unknown as Promise<CaptchaImageResponse>;
@@ -546,6 +556,17 @@ export const getRoutersApi = () => {
   }
 
   return httpClient.get<SysRouter[]>('/getRouters');
+};
+
+export const updateProfilePasswordApi = (data: {
+  oldPassword: string;
+  newPassword: string;
+}) => {
+  return httpClient.request({
+    method: 'PUT',
+    url: '/system/user/profile/updatePwd',
+    params: data,
+  }) as Promise<{ code: number; msg?: string }>;
 };
 
 // 根据实体标识查询字段配置列表

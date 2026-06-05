@@ -44,6 +44,9 @@ export const useUserStore = defineStore('user', () => {
   const permissions = ref<string[]>(
     readJsonStorage<string[]>(USER_PERMISSIONS_KEY, [])
   );
+  const needUpdatePassword = ref<boolean>(
+    Boolean(readJsonStorage<SysUser | null>(USER_INFO_KEY, null)?.needUpdatePassword)
+  );
   const treeRouters = ref<SysRouter[] | null>(
     readJsonStorage<SysRouter[]>(ROUTER_KEY, [])
   );
@@ -66,6 +69,7 @@ export const useUserStore = defineStore('user', () => {
     nextPermissions: string[] = permissions.value
   ) => {
     userInfo.value = user;
+    needUpdatePassword.value = Boolean(user?.needUpdatePassword);
     userName.value = user?.nickName || user?.userName || '';
     avatar.value = user?.avatar || '';
     roles.value = nextRoles;
@@ -89,7 +93,15 @@ export const useUserStore = defineStore('user', () => {
     try {
       const response = (await getInfoApi()) as GetInfoResponse;
       if (response.code === 200) {
-        const user = response.user ?? response.data ?? null;
+        const needPasswordUpdate = Boolean(
+          response.needUpdatePassword ??
+            response.user?.needUpdatePassword ??
+            response.data?.needUpdatePassword
+        );
+        const rawUser = response.user ?? response.data ?? null;
+        const user = rawUser
+          ? { ...rawUser, needUpdatePassword: needPasswordUpdate }
+          : null;
         const nextRoles = Array.isArray(response.roles) ? response.roles : [];
         const nextPermissions = Array.isArray(response.permissions)
           ? response.permissions
@@ -205,6 +217,21 @@ export const useUserStore = defineStore('user', () => {
       return [];
     }
   };
+
+  const markPasswordUpdated = () => {
+    if (!userInfo.value) {
+      needUpdatePassword.value = false;
+      return;
+    }
+    setUserInfo(
+      {
+        ...userInfo.value,
+        needUpdatePassword: false,
+      },
+      roles.value,
+      permissions.value
+    );
+  };
   return {
     token,
     userName,
@@ -212,6 +239,7 @@ export const useUserStore = defineStore('user', () => {
     userInfo,
     roles,
     permissions,
+    needUpdatePassword,
     displayName,
     avatarText,
     isLoggedIn,
@@ -222,5 +250,6 @@ export const useUserStore = defineStore('user', () => {
     logout,
     getRouters,
     treeRouters,
+    markPasswordUpdated,
   };
 });

@@ -46,4 +46,4 @@ ssh "${SSH_OPTS[@]}" "$SSH_TARGET" "
   docker compose ps
 "
 
-echo "==> 前端部署完成：http://$DEPLOY_HOST"
+echo "==> 前端部署完成：https://$DEPLOY_HOST"

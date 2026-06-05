@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import SettingsPanel from '@/components/settings-panel/index.vue';
+import ForcePasswordDialog from '@/components/force-password-dialog/index.vue';
 import { useSystemStore } from '@/stores';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import en from 'element-plus/es/locale/lang/en';
@@ -25,6 +26,7 @@ const showFloatingSettings = computed(
 <template>
   <el-config-provider :locale="elementLocale">
     <SettingsPanel v-if="showFloatingSettings" floating />
+    <ForcePasswordDialog />
     <router-view></router-view>
   </el-config-provider>
 </template>

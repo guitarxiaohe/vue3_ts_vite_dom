@@ -66,6 +66,7 @@ export interface RegisterParams extends LoginParams {}
 
 export interface CaptchaImageData {
   captchaOnOff: boolean;
+  registerOnOff?: boolean;
   uuid?: string;
   img?: string;
 }
@@ -74,6 +75,7 @@ export interface CaptchaImageResponse {
   code: number;
   msg?: string;
   captchaOnOff: boolean;
+  registerOnOff?: boolean;
   uuid?: string;
   img?: string;
 }
@@ -95,6 +97,7 @@ export interface GetInfoResponse extends ApiResponse<SysUser> {
   user?: SysUser;
   roles?: string[];
   permissions?: string[];
+  needUpdatePassword?: boolean;
 }
 
 // ----------------- 菜单相关 -----------------
@@ -234,6 +237,9 @@ export interface SysUser {
 
   /** 若依：是否管理员 */
   admin?: boolean;
+
+  /** 是否需要登录后修改初始密码 */
+  needUpdatePassword?: boolean;
 }
 
 /**

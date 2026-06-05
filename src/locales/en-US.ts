@@ -79,6 +79,23 @@ export default {
     termsOfService: 'Terms of Service',
     contact: 'Contact',
   },
+  passwordDialog: {
+    title: 'Change password on first login',
+    description:
+      'This account is still using the initial password. Please change it before continuing.',
+    oldPassword: 'Current Password',
+    newPassword: 'New Password',
+    confirmPassword: 'Confirm Password',
+    oldPasswordRequired: 'Please enter the current password',
+    newPasswordRequired: 'Please enter a new password',
+    confirmPasswordRequired: 'Please confirm the new password',
+    confirmPasswordMismatch: 'The two passwords do not match',
+    passwordRule:
+      'Password must be 6-12 characters and include both letters and numbers',
+    submit: 'Change Password',
+    logout: 'Logout',
+    updateSuccess: 'Password updated successfully',
+  },
   menu: {
     home: 'Home',
     threeScene: '3D Scene',

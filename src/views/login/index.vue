@@ -356,7 +356,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
+import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { Sparkles, Eye, EyeOff, Mail } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import Pupil from '@/components/login/Pupil.vue';
@@ -629,10 +629,10 @@ const startBlinking = () => {
   const scheduleBlackBlink = () => {
     blackBlinkInterval = setTimeout(() => {
       isBlackBlinking.value = true;
-      setTimeout(() => {
+      nextTick(() => {
         isBlackBlinking.value = false;
         scheduleBlackBlink();
-      }, 150);
+      });
     }, getRandomInterval());
   };
 
