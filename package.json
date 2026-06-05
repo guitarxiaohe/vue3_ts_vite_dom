@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "vitest",
+    "test:run": "vitest run",
     "type-check": "vue-tsc -b --pretty false",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -21,6 +23,7 @@
     "@vueuse/core": "^14.2.1",
     "axios": "^1.6.0",
     "element-plus": "^2.5.0",
+    "gsap": "^3.12.7",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^2.1.7",
     "scss": "^0.2.4",
@@ -37,6 +40,7 @@
     "@types/node": "^24.12.0",
     "@vitejs/plugin-vue": "^6.0.5",
     "@vue/tsconfig": "^0.9.0",
+    "jsdom": "^26.1.0",
     "eslint": "^10.2.1",
     "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-vue": "^10.9.0",
@@ -48,6 +52,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.59.1",
     "vite": "^8.0.1",
+    "vitest": "^3.2.4",
     "vue-tsc": "^3.2.5"
   },
   "pnpm": {
