@@ -73,7 +73,10 @@ export function useLoginEntrance() {
       yellowPullerRef: yellowPuller,
       supportGroupRef: supportGroup,
     } = Object.fromEntries(
-      Object.entries(elementRefs).map(([key, elementRef]) => [key, elementRef.value])
+      Object.entries(elementRefs).map(([key, elementRef]) => [
+        key,
+        elementRef.value,
+      ])
     ) as Record<keyof EntranceElementRefs, MaybeElement>;
 
     if (

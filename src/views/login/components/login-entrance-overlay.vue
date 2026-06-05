@@ -121,7 +121,8 @@ const bindSupportGroupRef = (element: OverlayBindableRef) => {
     linear-gradient(
       135deg,
       color-mix(in srgb, var(--color-bg-card) 88%, var(--color-primary) 12%) 0%,
-      color-mix(in srgb, var(--color-bg-page) 74%, var(--color-primary) 26%) 100%
+      color-mix(in srgb, var(--color-bg-page) 74%, var(--color-primary) 26%)
+        100%
     );
   border-inline-end: 1px solid
     color-mix(in srgb, var(--color-border) 70%, transparent);

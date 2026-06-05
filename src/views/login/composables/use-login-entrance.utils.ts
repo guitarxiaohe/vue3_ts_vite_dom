@@ -31,9 +31,7 @@ export function shouldPlayEntranceAnimation(
   context: EntranceAnimationContext
 ): boolean {
   return (
-    context.isDesktop &&
-    !context.hasPlayed &&
-    !context.prefersReducedMotion
+    context.isDesktop && !context.hasPlayed && !context.prefersReducedMotion
   );
 }
 
