@@ -1,8 +1,11 @@
 export interface ApiResponse<T = any> {
   code: number;
   message: string;
-  data: T;
+  data?: T;
+  total?: number;
   timestamp: string;
+
+  rows?: T[];
 }
 
 export interface PaginationParams {
