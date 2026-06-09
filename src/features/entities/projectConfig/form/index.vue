@@ -49,6 +49,8 @@ async function handleSave(data: Record<string, unknown>) {
       projectName: String(data.projectName ?? '').trim(),
       projectType: String(data.projectType ?? '').trim(),
       projectAddress: String(data.projectAddress ?? '').trim(),
+      images: String(data.images ?? '').trim(),
+      companyName: String(data.companyName ?? '').trim(),
     };
     await createUser(payload);
     emit('save');
@@ -65,6 +67,8 @@ const handEdit = async (data: Record<string, unknown>) => {
       projectName: String(data.projectName ?? '').trim(),
       projectType: String(data.projectType ?? '').trim(),
       projectAddress: String(data.projectAddress ?? '').trim(),
+      images: String(data.images ?? '').trim(),
+      companyName: String(data.companyName ?? '').trim(),
     };
 
     await editUser(payload);

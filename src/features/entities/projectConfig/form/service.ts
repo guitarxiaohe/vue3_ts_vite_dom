@@ -22,6 +22,14 @@ export interface CreateUserPayload {
    * 项目类型（字典） code: project_type
    */
   projectType?: string;
+  /**
+   * 图片
+   */
+  images?: string;
+  /**
+   * 公司名称
+   */
+  companyName?: string;
 }
 
 export interface EditUserPayload {
@@ -41,6 +49,14 @@ export interface EditUserPayload {
    * 项目类型（字典） code: project_type
    */
   projectType?: string;
+  /**
+   * 图片
+   */
+  images?: string;
+  /**
+   * 公司名称
+   */
+  companyName?: string;
 }
 
 // 用户表单选项响应

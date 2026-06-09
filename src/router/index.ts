@@ -15,6 +15,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false, titleKey: 'user.login' },
   },
   {
+    path: '/index',
+    name: 'Index',
+    component: () => import('@/views/index.vue'),
+    meta: { requiresAuth: false, titleKey: 'user.login' },
+  },
+  {
     path: '/',
     component: Layout,
     redirect: '/entity',

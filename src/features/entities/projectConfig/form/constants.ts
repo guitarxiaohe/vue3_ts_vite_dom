@@ -46,5 +46,23 @@ export function getUserFormFields(t: Translate): EntityFormField[] {
       type: 'text',
       required: true,
     },
+    {
+      prop: 'images',
+      label: '图片',
+      type: 'picture',
+      required: true,
+    },
+    {
+      prop: 'companyName',
+      label: '公司名称',
+      type: 'text',
+      required: true,
+    },
+    {
+      prop: 'remark',
+      label: '项目备注',
+      type: 'textarea',
+      required: false,
+    },
   ];
 }
