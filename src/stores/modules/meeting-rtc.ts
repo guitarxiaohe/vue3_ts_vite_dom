@@ -21,10 +21,14 @@ export const useMeetingRtcStore = defineStore('meeting-rtc', () => {
   const isMicEnabled = ref(true);
 
   /** 是否已连接 */
-  const isConnected = computed(() => connectionState.value === ConnectionState.Connected);
+  const isConnected = computed(
+    () => connectionState.value === ConnectionState.Connected
+  );
 
   /** 是否正在重连 */
-  const isReconnecting = computed(() => connectionState.value === ConnectionState.Reconnecting);
+  const isReconnecting = computed(
+    () => connectionState.value === ConnectionState.Reconnecting
+  );
 
   /** 在线参与者数量 */
   const onlineCount = computed(() => participants.value.length);

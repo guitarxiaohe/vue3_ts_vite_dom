@@ -17,10 +17,7 @@ import UserAvatarInfo from '@/components/user-avatar-info/index.vue';
 import { useMeetingStore, usePresenceStore, useUserStore } from '@/stores';
 import { useMeetingRtcStore } from '@/stores/modules/meeting-rtc';
 import { useLivekitRoom } from '@/composables/use-livekit-room';
-import {
-  getRtcTokenApi,
-  startRtcApi,
-} from '@/api/modules/meeting-rtc';
+import { getRtcTokenApi, startRtcApi } from '@/api/modules/meeting-rtc';
 
 const route = useRoute();
 const { t } = useI18n();
@@ -41,6 +38,7 @@ const {
   toggleMic,
   setPlaybackVolume,
   toggleSpeakerMute,
+  requestPlaybackPermission,
 } = useLivekitRoom();
 
 const activeSpeakerUserId = ref<number | null>(null);
@@ -112,6 +110,11 @@ const isHost = computed(() => {
   );
 });
 
+/**
+ * 触发发言人高亮脉冲效果
+ * @param userId - 需要高亮的用户 ID，传 null 可提前清除高亮
+ * @param duration - 高亮持续时间（毫秒），默认 3200ms
+ */
 function pulseSpeaker(userId: number | null, duration = 3200) {
   if (activeSpeakerTimer) {
     clearTimeout(activeSpeakerTimer);
@@ -126,6 +129,11 @@ function pulseSpeaker(userId: number | null, duration = 3200) {
   }, duration);
 }
 
+/**
+ * 触发新参与者加入的高亮脉冲效果
+ * @param userId - 需要高亮的用户 ID，传 null 可提前清除高亮
+ * @param duration - 高亮持续时间（毫秒），默认 3600ms
+ */
 function pulseJoinedParticipant(userId: number | null, duration = 3600) {
   if (joinedHighlightTimer) {
     clearTimeout(joinedHighlightTimer);
@@ -140,6 +148,11 @@ function pulseJoinedParticipant(userId: number | null, duration = 3600) {
   }, duration);
 }
 
+/**
+ * 根据邀请状态返回对应的标签类型（用于 el-tag 的 type 属性）
+ * @param status - 邀请状态字符串（ACCEPTED / PENDING 等）
+ * @returns Element Plus 标签类型
+ */
 function participantInviteStatusType(status: string) {
   if (status === 'ACCEPTED') {
     return 'success';
@@ -153,6 +166,11 @@ function participantInviteStatusType(status: string) {
   return 'info';
 }
 
+/**
+ * 根据邀请状态返回对应的国际化文本
+ * @param status - 邀请状态字符串（ACCEPTED / PENDING 等）
+ * @returns 状态描述文本
+ */
 function participantInviteStatusText(status: string) {
   if (status === 'ACCEPTED') {
     return t('meeting.participantAccepted');
@@ -166,6 +184,11 @@ function participantInviteStatusText(status: string) {
   return t('meeting.participantLeft');
 }
 
+/**
+ * 判断参与者是否已连接（邀请已接受 且 在线状态为在线）
+ * @param participant - 参与者对象，包含 inviteStatus 和 userId
+ * @returns 是否已连接
+ */
 function isParticipantConnected(participant: {
   inviteStatus: string;
   userId: number;
@@ -176,6 +199,12 @@ function isParticipantConnected(participant: {
   );
 }
 
+/**
+ * 获取参与者会议状态的标签类型
+ * 未接受邀请显示 warning，已连接显示 success，否则显示 info
+ * @param participant - 参与者对象
+ * @returns Element Plus 标签类型
+ */
 function participantMeetingStatusType(participant: {
   inviteStatus: string;
   userId: number;
@@ -186,6 +215,11 @@ function participantMeetingStatusType(participant: {
   return isParticipantConnected(participant) ? 'success' : 'info';
 }
 
+/**
+ * 获取参与者会议状态的显示文本
+ * @param participant - 参与者对象
+ * @returns 状态描述文本
+ */
 function participantMeetingStatusText(participant: {
   inviteStatus: string;
   userId: number;
@@ -198,6 +232,12 @@ function participantMeetingStatusText(participant: {
     : t('meeting.participantConnecting');
 }
 
+/**
+ * 判断参与者是否处于等待状态
+ * 会议已结束时无人等待；未连接的参与者视为等待中
+ * @param participant - 参与者对象
+ * @returns 是否处于等待状态
+ */
 function isParticipantWaiting(participant: {
   inviteStatus: string;
   userId: number;
@@ -208,32 +248,60 @@ function isParticipantWaiting(participant: {
   return !isParticipantConnected(participant);
 }
 
+/**
+ * 判断参与者是否缺席（会议已结束 且 邀请未接受）
+ * @param participant - 参与者对象
+ * @returns 是否缺席
+ */
 function isParticipantAbsent(participant: { inviteStatus: string }) {
   return isMeetingEnded.value && participant.inviteStatus !== 'ACCEPTED';
 }
 
 /**
- * 获取参与者 RTC 状态
+ * 获取参与者的 RTC 实时状态信息
+ * 通过 user-{userId} 格式的 identity 在 LiveKit 参与者列表中查找
+ * @param userId - 用户 ID
+ * @returns 匹配的 LiveKit Participant 对象，未找到时返回 undefined
  */
 function getParticipantRtcInfo(userId: number) {
   const identity = `user-${userId}`;
   return rtcParticipants.value.find((p) => p.identity === identity);
 }
 
+/**
+ * 判断参与者是否在 RTC 房间中
+ * @param userId - 用户 ID
+ * @returns 是否在 RTC 房间中
+ */
 function isParticipantInRtc(userId: number) {
   return !!getParticipantRtcInfo(userId);
 }
 
+/**
+ * 判断参与者是否正在发言
+ * @param userId - 用户 ID
+ * @returns 是否正在发言
+ */
 function isParticipantSpeaking(userId: number) {
   const info = getParticipantRtcInfo(userId);
   return info?.isSpeaking || false;
 }
 
+/**
+ * 判断参与者的麦克风是否已静音
+ * @param userId - 用户 ID
+ * @returns 麦克风是否已静音，未找到参与者时默认返回 true
+ */
 function isParticipantMicMuted(userId: number) {
   const info = getParticipantRtcInfo(userId);
   return info?.isMuted ?? true;
 }
 
+/**
+ * 初始化会议抽屉
+ * 按优先级依次尝试：URL 参数指定的会议 > 当前进行中的会议 > 自动打开的会议
+ * 加载待处理会议列表，并根据条件自动打开抽屉
+ */
 async function bootstrapMeetingDrawer() {
   await meetingStore.loadPendingMeetings();
 
@@ -268,6 +336,10 @@ async function bootstrapMeetingDrawer() {
   meetingStore.setMeetingDetail(null);
 }
 
+/**
+ * 打开指定的待处理会议
+ * @param meetingId - 要打开的会议 ID
+ */
 async function openPendingMeeting(meetingId: number) {
   await meetingStore.enterMeeting(meetingId);
   meetingStore.openDrawer();
@@ -275,6 +347,8 @@ async function openPendingMeeting(meetingId: number) {
 
 /**
  * 加入语音会议
+ * 获取 RTC Token 后加入 LiveKit 房间；遇到麦克风权限错误时注册重试机制
+ * @param silent - 是否静默模式，为 true 时不弹出错误提示（用于自动重试场景）
  */
 async function handleJoinVoice(silent = false) {
   if (!shouldAutoJoinCurrentMeeting() || isJoining.value) {
@@ -319,7 +393,8 @@ async function handleJoinVoice(silent = false) {
 }
 
 /**
- * 主持人自动拉起 RTC
+ * 主持人自动拉起 RTC 服务
+ * 当当前用户是主持人、会议为 ACTIVE 状态、RTC 尚未运行时，自动调用 API 启动 RTC
  */
 async function ensureHostRtcStarted() {
   if (!meetingDetail.value || !isHost.value || isStartingRtc.value) {
@@ -344,7 +419,8 @@ async function ensureHostRtcStarted() {
 }
 
 /**
- * 结束会议
+ * 结束或离开会议
+ * 主持人调用时结束整个会议，普通成员调用时仅离开当前会议并断开 RTC 连接
  */
 async function handleStopMeeting() {
   const currentMeeting = meetingDetail.value;
@@ -366,6 +442,11 @@ async function handleStopMeeting() {
   ElMessage.success(t('meeting.endSuccess'));
 }
 
+/**
+ * 处理抽屉关闭尝试
+ * 会议进行中时弹出确认框，让用户选择结束会议或转为后台运行
+ * @param done - 关闭完成回调，由 el-drawer 的 before-close 提供
+ */
 function handleDrawerAttemptClose(done?: () => void) {
   if (!meetingDetail.value || meetingDetail.value.session.status !== 'ACTIVE') {
     done?.();
@@ -396,6 +477,11 @@ function handleDrawerAttemptClose(done?: () => void) {
     });
 }
 
+/**
+ * 判断当前用户是否应自动加入语音会议
+ * 条件：会议存在、用户已登录、会议状态为 ACTIVE、RTC 已运行、当前用户是已接受邀请的参与者
+ * @returns 是否应自动加入
+ */
 function shouldAutoJoinCurrentMeeting() {
   if (!meetingDetail.value || !currentUser.value) {
     return false;
@@ -414,6 +500,12 @@ function shouldAutoJoinCurrentMeeting() {
   );
 }
 
+/**
+ * 判断错误是否为麦克风权限相关错误
+ * 通过 error.name 或 error.message 匹配权限拒绝的特征
+ * @param error - 捕获的异常对象
+ * @returns 是否为麦克风权限错误
+ */
 function isMicrophonePermissionError(error: unknown) {
   const nextError = error as { name?: string; message?: string };
   return (
@@ -425,6 +517,12 @@ function isMicrophonePermissionError(error: unknown) {
   );
 }
 
+/**
+ * 判断错误是否为浏览器不支持麦克风相关错误
+ * 通过 error.name 或 error.message 匹配设备不可用的特征
+ * @param error - 捕获的异常对象
+ * @returns 是否为麦克风不支持错误
+ */
 function isMicrophoneUnsupportedError(error: unknown) {
   const nextError = error as { name?: string; message?: string };
   return (
@@ -434,6 +532,10 @@ function isMicrophoneUnsupportedError(error: unknown) {
   );
 }
 
+/**
+ * 麦克风权限授予后重试加入语音会议
+ * 仅在等待权限且页面可见时触发，避免后台静默重连
+ */
 async function retryJoinAfterPermission() {
   if (!waitingMicPermission.value || document.visibilityState !== 'visible') {
     return;
@@ -441,6 +543,11 @@ async function retryJoinAfterPermission() {
   await handleJoinVoice(true);
 }
 
+/**
+ * 绑定麦克风权限状态监听器
+ * 使用 Permissions API 监听 microphone 权限变化，权限变为 granted 时自动重试加入
+ * 不支持 Permissions API 时静默跳过
+ */
 async function bindPermissionStatusListener() {
   if (
     typeof navigator === 'undefined' ||
@@ -463,6 +570,11 @@ async function bindPermissionStatusListener() {
   }
 }
 
+/**
+ * 注册权限重试机制
+ * 绑定 Permissions API 监听，并注册窗口 focus 和页面 visibilitychange 事件
+ * 确保用户从系统权限弹窗切回后能自动重试加入
+ */
 function registerPermissionRetry() {
   void bindPermissionStatusListener();
   if (permissionRetryRegistered) {
@@ -473,15 +585,27 @@ function registerPermissionRetry() {
   document.addEventListener('visibilitychange', handleVisibilityRetry);
 }
 
+/**
+ * 清除权限等待状态
+ * 重置麦克风权限等待标记和上次加入尝试的会议 ID
+ */
 function clearPermissionRetry() {
   waitingMicPermission.value = false;
   lastJoinAttemptMeetingId.value = null;
 }
 
+/**
+ * 窗口获得焦点时的权限重试回调
+ * 用户可能在系统权限弹窗中操作后切回窗口
+ */
 function handleWindowFocusRetry() {
   void retryJoinAfterPermission();
 }
 
+/**
+ * 页面可见性变化时的权限重试回调
+ * 当页面从隐藏变为可见时尝试重新加入语音会议
+ */
 function handleVisibilityRetry() {
   if (document.visibilityState === 'visible') {
     void retryJoinAfterPermission();
@@ -630,6 +754,7 @@ watch(isMicEnabled, (enabled) => {
 });
 
 onMounted(async () => {
+  requestPlaybackPermission();
   await bootstrapMeetingDrawer();
 });
 
@@ -698,7 +823,13 @@ onBeforeUnmount(() => {
             </el-icon>
             <el-icon v-else-if="isConnected"><Wifi /></el-icon>
             <el-icon v-else><WifiOff /></el-icon>
-            {{ isReconnecting ? '重连中' : isConnected ? 'RTC 已连接' : 'RTC 运行中' }}
+            {{
+              isReconnecting
+                ? '重连中'
+                : isConnected
+                  ? 'RTC 已连接'
+                  : 'RTC 运行中'
+            }}
           </el-tag>
 
           <el-tag v-if="waitingMicPermission" type="warning">
@@ -754,7 +885,11 @@ onBeforeUnmount(() => {
                 <WifiOff v-if="isSpeakerMuted" />
                 <Wifi v-else />
               </el-icon>
-              {{ isSpeakerMuted ? t('meeting.unmuteSpeaker') : t('meeting.muteSpeaker') }}
+              {{
+                isSpeakerMuted
+                  ? t('meeting.unmuteSpeaker')
+                  : t('meeting.muteSpeaker')
+              }}
             </el-button>
 
             <div v-if="isConnected" class="meeting-hero__volume">
@@ -843,8 +978,9 @@ onBeforeUnmount(() => {
                     activeSpeakerUserId !== null &&
                     meetingStore.toNumericId(participant.userId) ===
                       activeSpeakerUserId,
-                  'meeting-participant-item--speaking':
-                    isParticipantSpeaking(participant.userId),
+                  'meeting-participant-item--speaking': isParticipantSpeaking(
+                    participant.userId
+                  ),
                   'meeting-participant-item--joined':
                     joinedHighlightUserId !== null &&
                     meetingStore.toNumericId(participant.userId) ===
@@ -877,12 +1013,16 @@ onBeforeUnmount(() => {
                       v-if="isParticipantInRtc(participant.userId)"
                       class="meeting-participant-avatar__rtc"
                       :class="{
-                        'is-speaking': isParticipantSpeaking(participant.userId),
+                        'is-speaking': isParticipantSpeaking(
+                          participant.userId
+                        ),
                         'is-muted': isParticipantMicMuted(participant.userId),
                       }"
                     >
                       <el-icon :size="12">
-                        <Mic v-if="!isParticipantMicMuted(participant.userId)" />
+                        <Mic
+                          v-if="!isParticipantMicMuted(participant.userId)"
+                        />
                         <MicOff v-else />
                       </el-icon>
                     </div>
@@ -920,7 +1060,11 @@ onBeforeUnmount(() => {
                     size="small"
                     type="success"
                   >
-                    {{ isParticipantSpeaking(participant.userId) ? '发言中' : 'RTC' }}
+                    {{
+                      isParticipantSpeaking(participant.userId)
+                        ? '发言中'
+                        : 'RTC'
+                    }}
                   </el-tag>
                   <span
                     :class="[

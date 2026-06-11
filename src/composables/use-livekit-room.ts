@@ -32,10 +32,42 @@ export function useLivekitRoom() {
 
   let updateParticipantsTimer: ReturnType<typeof setInterval> | null = null;
   let lastAudiblePlaybackVolume = 1;
+  let audioContextResumed = false;
   const attachedAudioElements = new Map<
     string,
     { track: Track; element: HTMLMediaElement }
   >();
+
+  /**
+   * 恢复被浏览器挂起的 AudioContext
+   * 现代浏览器在用户未与页面交互前会挂起 AudioContext，导致音频无法播放
+   * 必须在用户手势（click / tap 等）的调用栈中同步调用才能生效
+   */
+  function resumeAudioContext() {
+    if (audioContextResumed) return;
+    try {
+      const ctx = new AudioContext();
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+      audioContextResumed = true;
+    } catch {
+      // 部分环境不支持 AudioContext，静默忽略
+    }
+  }
+
+  /**
+   * 注册一次性全局点击监听，在用户首次与页面交互时请求播放权限
+   * 应在组件 mounted 阶段尽早调用，确保后续音频播放不被浏览器拦截
+   * 监听器触发一次后自动移除，不会产生额外开销
+   */
+  function requestPlaybackPermission() {
+    const handler = () => {
+      resumeAudioContext();
+      document.removeEventListener('click', handler, true);
+    };
+    document.addEventListener('click', handler, true);
+  }
 
   function resolvePublicationSid(publication: TrackPublication) {
     return publication.trackSid;
@@ -117,14 +149,20 @@ export function useLivekitRoom() {
       connectionState.value = ConnectionState.Connected;
     });
 
-    newRoom.on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => {
-      applyPlaybackVolume(playbackVolume.value, participant);
-      updateParticipantsList();
-    });
+    newRoom.on(
+      RoomEvent.ParticipantConnected,
+      (participant: RemoteParticipant) => {
+        applyPlaybackVolume(playbackVolume.value, participant);
+        updateParticipantsList();
+      }
+    );
 
-    newRoom.on(RoomEvent.ParticipantDisconnected, (_participant: RemoteParticipant) => {
-      updateParticipantsList();
-    });
+    newRoom.on(
+      RoomEvent.ParticipantDisconnected,
+      (_participant: RemoteParticipant) => {
+        updateParticipantsList();
+      }
+    );
 
     newRoom.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
       activeSpeakers.value = speakers.map((p) => p.identity);
@@ -135,9 +173,12 @@ export function useLivekitRoom() {
       updateParticipantsList();
     });
 
-    newRoom.on(RoomEvent.TrackUnmuted, (_pub: TrackPublication, _participant) => {
-      updateParticipantsList();
-    });
+    newRoom.on(
+      RoomEvent.TrackUnmuted,
+      (_pub: TrackPublication, _participant) => {
+        updateParticipantsList();
+      }
+    );
 
     newRoom.on(
       RoomEvent.TrackSubscribed,
@@ -155,7 +196,8 @@ export function useLivekitRoom() {
       }
     );
 
-    // 连接房间
+    // 连接房间（joinRoom 由用户手势触发，此时恢复 AudioContext 以确保远端音频可播放）
+    resumeAudioContext();
     await newRoom.connect(tokenInfo.serverUrl, tokenInfo.participantToken);
     newRoom.remoteParticipants.forEach((participant) => {
       applyPlaybackVolume(playbackVolume.value, participant);
@@ -280,7 +322,10 @@ export function useLivekitRoom() {
   /**
    * 将播放音量同步到远端音频
    */
-  function applyPlaybackVolume(volume: number, participant?: RemoteParticipant) {
+  function applyPlaybackVolume(
+    volume: number,
+    participant?: RemoteParticipant
+  ) {
     const targets = participant
       ? [participant]
       : [...(room.value?.remoteParticipants.values() || [])];
@@ -327,5 +372,6 @@ export function useLivekitRoom() {
     toggleSpeakerMute,
     getParticipantInfo,
     parseUserIdFromIdentity,
+    requestPlaybackPermission,
   };
 }

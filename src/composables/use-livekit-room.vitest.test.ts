@@ -63,7 +63,10 @@ const livekitMocks = vi.hoisted(() => {
 
     async connect() {
       this.remoteParticipants = new Map(
-        nextRemoteParticipants.map((participant) => [participant.identity, participant])
+        nextRemoteParticipants.map((participant) => [
+          participant.identity,
+          participant,
+        ])
       );
       this.emit(RoomEvent.Connected);
     }

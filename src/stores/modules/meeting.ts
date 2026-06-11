@@ -72,7 +72,7 @@ export const useMeetingStore = defineStore(
           detail.currentUserId ??
           (toMeetingId(meetingDetail.value?.session.id) ===
           toMeetingId(detail.session.id)
-            ? meetingDetail.value?.currentUserId ?? null
+            ? (meetingDetail.value?.currentUserId ?? null)
             : null);
         detail = {
           ...detail,
