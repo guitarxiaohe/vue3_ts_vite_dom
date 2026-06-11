@@ -2,16 +2,37 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { Bell } from 'lucide-vue-next';
-import { useNotificationStore } from '@/stores';
+import { useMeetingStore, useNotificationStore } from '@/stores';
 import type { WsMessage } from '@/types/ws';
 
 const router = useRouter();
+const meetingStore = useMeetingStore();
 const notificationStore = useNotificationStore();
 
 const unreadCount = computed(() => notificationStore.unreadCount);
 const messages = computed(() => notificationStore.messages);
 
-function handleClick(msg: WsMessage) {
+function resolveMeetingId(message: WsMessage) {
+  const paramMeetingId = Number(message.params?.meetingId || 0);
+  if (paramMeetingId > 0) {
+    return paramMeetingId;
+  }
+  if (message.data && typeof message.data === 'object' && 'meetingId' in message.data) {
+    return Number((message.data as { meetingId?: number }).meetingId || 0);
+  }
+  return 0;
+}
+
+async function handleClick(msg: WsMessage) {
+  const meetingId = resolveMeetingId(msg);
+  if (String(msg.type || '').startsWith('meeting_') || meetingId > 0) {
+    if (meetingId > 0) {
+      await meetingStore.enterMeeting(meetingId);
+    }
+    meetingStore.openDrawer();
+    return;
+  }
+
   if (msg.path) {
     router.push({ path: msg.path, query: msg.params as any });
   }

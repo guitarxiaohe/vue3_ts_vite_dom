@@ -1,6 +1,10 @@
 import { h, ref } from 'vue';
 import { ElNotification } from 'element-plus';
-import { useNotificationStore, usePresenceStore } from '@/stores';
+import {
+  useMeetingStore,
+  useNotificationStore,
+  usePresenceStore,
+} from '@/stores';
 import type { WsMessage } from '@/types/ws';
 import SocketMsg from '@/components/socket-msg/index.vue';
 
@@ -63,10 +67,12 @@ interface ApplyIncomingWsPayloadOptions {
   payload: string;
   setOnlineUserIds: (userIds: number[]) => void;
   pushNotification: (message: WsMessage) => void;
+  consumeMeetingEvent: (message: WsMessage) => void;
 }
 
 type ApplyIncomingWsPayloadResult =
   | { kind: 'presence'; message: WsMessage }
+  | { kind: 'meeting'; message: WsMessage }
   | { kind: 'notification'; message: WsMessage }
   | { kind: 'invalid' };
 
@@ -90,6 +96,11 @@ function applyIncomingWsPayload(
     return { kind: 'presence', message };
   }
 
+  if (String(message.type || '').startsWith('meeting_')) {
+    options.consumeMeetingEvent(message);
+    return { kind: 'meeting', message };
+  }
+
   options.pushNotification(message);
   return { kind: 'notification', message };
 }
@@ -105,6 +116,7 @@ export function useWebSocket() {
 
   const notificationStore = useNotificationStore();
   const presenceStore = usePresenceStore();
+  const meetingStore = useMeetingStore();
 
   function connect() {
     const token = localStorage.getItem('token');
@@ -141,18 +153,29 @@ export function useWebSocket() {
         payload: String(e.data),
         setOnlineUserIds: (userIds) => presenceStore.setOnlineUserIds(userIds),
         pushNotification: (message) => notificationStore.push(message),
+        consumeMeetingEvent: (message) =>
+          meetingStore.consumeWsMessage(message),
       });
       if (result.kind !== 'notification') {
         return;
       }
       const msg: WsMessage = result.message;
-
-      ElNotification({
-        title: msg.title || '新消息',
-        message: h(SocketMsg, { msgInfo: msg }),
-        type: msgTypeToElType(msg.type),
-        duration: 5000,
-      });
+      console.log('Received notification message:', msg);
+      if (msg.type !== 'meeting') {
+        ElNotification({
+          title: msg.title || '新消息',
+          message: h(SocketMsg, { msgInfo: msg }),
+          type: msgTypeToElType(msg.type),
+          duration: 5000,
+        });
+      } else {
+        ElNotification({
+          title: msg.title || '会议消息',
+          message: h(SocketMsg, { msgInfo: msg }),
+          type: 'info',
+          duration: 5000,
+        });
+      }
     };
 
     ws.value.onclose = () => {

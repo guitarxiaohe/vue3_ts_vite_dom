@@ -15,7 +15,7 @@ export function useAppQuery<TData = any, TError = Error>(
       if (response.code !== 0) {
         throw new Error(response.message);
       }
-      return response.data;
+      return response.data as TData;
     },
     ...options,
   });
@@ -34,7 +34,7 @@ export function useAppPaginatedQuery<TData = any>(
       if (response.code !== 0) {
         throw new Error(response.message);
       }
-      return response.data;
+      return response.data as TData;
     },
     ...options,
   });
@@ -54,7 +54,7 @@ export function useAppMutation<TData = any, TVariables = any>(
         throw new Error(response.message);
       }
       ElMessage.success('操作成功');
-      return response.data;
+      return response.data as TData;
     },
     ...options,
     onSuccess: (_data, _variables, _context) => {

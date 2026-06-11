@@ -1,6 +1,6 @@
-import { defineAsyncComponent, h } from 'vue';
+import { defineAsyncComponent } from 'vue';
 import type { EntityModule } from '@/features/entities/types';
-import { ElButton } from 'element-plus';
+
 // 用户管理模块配置
 const entityModule: EntityModule = {
   entityKey: 'user',
@@ -26,23 +26,9 @@ const entityModule: EntityModule = {
       },
     ],
   },
-  tableActions: {
-    right: [
-      {
-        key: 'resetPassword1',
-        label: '测试',
-        component: h(ElButton, '测试'),
-      },
-
-      {
-        key: 'resetPassword2',
-        label: '测试',
-        component: defineAsyncComponent(
-          () => import('./row-actions/reset-button.vue')
-        ),
-      },
-    ],
-  },
+  batchActions: [
+    defineAsyncComponent(() => import('./batch-actions/start-meeting.vue')),
+  ],
   config: {
     entityKey: 'user',
     title: '用户管理',

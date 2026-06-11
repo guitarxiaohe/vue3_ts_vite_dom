@@ -10,3 +10,4 @@ export {
 } from './modules/system';
 export { useNotificationStore } from './modules/notification';
 export { usePresenceStore } from './modules/presence';
+export { useMeetingStore } from './modules/meeting';

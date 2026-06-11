@@ -11,12 +11,15 @@ import router from './router';
 import App from './App.vue';
 import { i18n } from './i18n';
 import { initSystem } from './stores';
+import { createPersistPlugin } from './stores/plugins/persist';
 import { queryClient } from '@/api/query-client';
 
 const app = createApp(App);
 
 // Pinia
-app.use(createPinia());
+const pinia = createPinia();
+pinia.use(createPersistPlugin());
+app.use(pinia);
 
 // Vue Router
 app.use(router);

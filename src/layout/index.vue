@@ -1,16 +1,19 @@
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, h, onMounted, onUnmounted } from 'vue';
+import { ElNotification } from 'element-plus';
 
-import { useSystemStore } from '@/stores';
+import { useMeetingStore, useNotificationStore, useSystemStore } from '@/stores';
 import ConventionalMenu from '@/components/conventional-menu/index.vue';
+import GlobalMeetingDrawer from '@/components/global-meeting-drawer/index.vue';
 import NoticeBar from '@/components/notice-bar/index.vue';
 import NotifyBell from '@/components/notify-bell/index.vue';
 import { useWebSocket } from '@/composables/use-websocket';
 import { getRecentWsLogsApi } from '@/api/modules/ws-log';
-import { useNotificationStore } from '@/stores';
+import SocketMsg from '@/components/socket-msg/index.vue';
 import HeaderAvatar from './compoments/header-avatar.vue';
 const systemStore = useSystemStore();
 const notificationStore = useNotificationStore();
+const meetingStore = useMeetingStore();
 
 const { connect, disconnect } = useWebSocket();
 
@@ -49,6 +52,17 @@ onMounted(async () => {
   }
   // 建立 WebSocket 连接
   connect();
+  await meetingStore.loadPendingMeetings();
+  const pendingMessages = meetingStore.buildPendingInviteMessages();
+  pendingMessages.forEach((message) => {
+    notificationStore.push(message);
+    ElNotification({
+      title: message.title || '新消息',
+      message: h(SocketMsg, { msgInfo: message }),
+      type: 'info',
+      duration: 5000,
+    });
+  });
 });
 
 onUnmounted(() => {
@@ -91,6 +105,7 @@ onUnmounted(() => {
         </el-main>
       </el-container>
     </el-container>
+    <GlobalMeetingDrawer />
   </div>
 </template>
 

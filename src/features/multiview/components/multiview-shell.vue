@@ -25,6 +25,20 @@
         >
           {{ t('common.delete') }}
         </el-button>
+
+        <template
+          v-for="(action, index) in batchActions"
+          :key="`batch-action-${index}`"
+        >
+          <component
+            :is="getHeaderActionComponent(action)"
+            :selected-rows="selectedRows"
+            :selected-keys="selectedKeys"
+            :entity-key="entityKey"
+            :clear-selection="clearSelection"
+          />
+        </template>
+
         <el-button
           v-if="permittedHeaderActions.showImport"
           @click="openImportDialog"
@@ -43,7 +57,7 @@
           v-for="(action, index) in tableActionsLeft"
           :key="`table-action-left-${index}`"
         >
-          <component :is="getTableActionComponent(action)" />
+          <component :is="getHeaderActionComponent(action)" />
         </template>
 
         <!-- 自定义表格操作按钮（右侧） -->
@@ -51,7 +65,7 @@
           v-for="(action, index) in tableActionsRight"
           :key="`table-action-right-${index}`"
         >
-          <component :is="getTableActionComponent(action)" />
+          <component :is="getHeaderActionComponent(action)" />
         </template>
       </div>
     </section>
@@ -141,7 +155,10 @@ import {
   getEntityFilterComponentRegistrations,
   getEntityTableConfig,
 } from '@/utils/entity-config';
-import { getEntityTableActions } from '@/features/entities/registry';
+import {
+  getEntityBatchActions,
+  getEntityTableActions,
+} from '@/features/entities/registry';
 import type {
   EntityDetailConfig,
   EntityFilterFieldConfig,
@@ -270,6 +287,10 @@ const tableActionsConfig = computed(() => {
   return getEntityTableActions(props.entityKey);
 });
 
+const batchActions = computed(() => {
+  return getEntityBatchActions(props.entityKey) ?? [];
+});
+
 // 渲染表格操作按钮组件
 const tableActionsLeft = computed(() => {
   return tableActionsConfig.value?.left ?? [];
@@ -289,7 +310,7 @@ function isTableActionConfig(action: any): action is {
 }
 
 // 获取表格操作按钮的组件
-function getTableActionComponent(action: any) {
+function getHeaderActionComponent(action: any) {
   if (isTableActionConfig(action)) {
     return action.component;
   }

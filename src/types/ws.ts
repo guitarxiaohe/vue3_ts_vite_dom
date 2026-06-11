@@ -5,6 +5,7 @@ export interface WsMessage {
   text?: string;
   path?: string;
   params?: Record<string, string>;
+  data?: unknown;
   userIds?: number[];
 }
 

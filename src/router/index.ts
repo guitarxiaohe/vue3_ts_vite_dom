@@ -36,6 +36,12 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, titleKey: 'menu.components' },
       },
       {
+        path: '/meeting-assistant',
+        name: 'MeetingAssistant',
+        component: () => import('@/views/meeting-assistant/index.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
         path: '/three',
         name: 'ThreeScene',
         component: () => import('@/views/three/index'),
