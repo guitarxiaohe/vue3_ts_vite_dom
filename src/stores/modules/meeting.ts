@@ -60,7 +60,9 @@ export const useMeetingStore = defineStore(
       () =>
         (meetingDetail.value?.summaries || []).find(
           (item) => item.summaryType === 'FINAL'
-        )?.summaryText || meetingDetail.value?.session.finalSummary || ''
+        )?.summaryText ||
+        meetingDetail.value?.session.finalSummary ||
+        ''
     );
 
     function setMeetingDetail(detail: CmsMeetingDetail | null) {
@@ -227,8 +229,7 @@ export const useMeetingStore = defineStore(
         detail.participants.find(
           (item) =>
             toNumericId(item.userId) === toNumericId(detail.currentUserId)
-        ) ||
-        null;
+        ) || null;
       if (currentParticipant?.inviteStatus === 'PENDING') {
         const accepted = await acceptMeeting(meetingId);
         shouldResumeCapture.value = true;

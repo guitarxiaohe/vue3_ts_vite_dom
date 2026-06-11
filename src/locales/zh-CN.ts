@@ -203,7 +203,8 @@ export default {
     participantLeft: '已离开',
     participantJoinedNow: '{name} 已进入会议',
     noMeetingTitle: '还没有正在进行的会议',
-    noMeetingDescription: '从用户管理页勾选成员后，就可以直接发起会议并在这里持续记录。',
+    noMeetingDescription:
+      '从用户管理页勾选成员后，就可以直接发起会议并在这里持续记录。',
     recordingNotice: '录音提示',
     transcriptTitle: '实时转写',
     transcriptCount: '{count} 条',
@@ -217,7 +218,8 @@ export default {
     finalSummaryWaiting: '待结束会议后发送',
     finalSummaryEmpty: '会议结束后会在这里展示最终纪要。',
     endedBannerTitle: '会议已结束，录音已停止',
-    endedBannerDescription: '当前页面已切换为只读查看状态，你仍然可以查看参会人、实时转写结果和最终纪要。',
+    endedBannerDescription:
+      '当前页面已切换为只读查看状态，你仍然可以查看参会人、实时转写结果和最终纪要。',
     backgroundConfirmTitle: '关闭会议抽屉',
     backgroundConfirmMessage:
       '确定要退出当前会议界面吗？选择“后台运行”后，录音和转写会继续进行。',

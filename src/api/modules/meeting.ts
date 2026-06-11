@@ -28,21 +28,21 @@ export function getPendingMeetingsApi() {
 }
 
 export function acceptMeetingApi(meetingId: number) {
-  return httpClient.post(`/cms/meeting/session/${meetingId}/accept`) as unknown as Promise<
-    MeetingApiResponse<CmsMeetingDetail>
-  >;
+  return httpClient.post(
+    `/cms/meeting/session/${meetingId}/accept`
+  ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
 export function getMeetingDetailApi(meetingId: number) {
-  return httpClient.get(`/cms/meeting/session/${meetingId}`) as unknown as Promise<
-    MeetingApiResponse<CmsMeetingDetail>
-  >;
+  return httpClient.get(
+    `/cms/meeting/session/${meetingId}`
+  ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
 export function stopMeetingApi(meetingId: number) {
-  return httpClient.post(`/cms/meeting/session/${meetingId}/stop`) as unknown as Promise<
-    MeetingApiResponse<CmsMeetingDetail>
-  >;
+  return httpClient.post(
+    `/cms/meeting/session/${meetingId}/stop`
+  ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
 export function resendFinalSummaryApi(meetingId: number) {

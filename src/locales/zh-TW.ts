@@ -203,7 +203,8 @@ export default {
     participantLeft: '已離開',
     participantJoinedNow: '{name} 已進入會議',
     noMeetingTitle: '還沒有正在進行的會議',
-    noMeetingDescription: '從使用者管理頁勾選成員後，就可以直接發起會議並在這裡持續記錄。',
+    noMeetingDescription:
+      '從使用者管理頁勾選成員後，就可以直接發起會議並在這裡持續記錄。',
     recordingNotice: '錄音提示',
     transcriptTitle: '即時轉寫',
     transcriptCount: '{count} 條',
@@ -217,7 +218,8 @@ export default {
     finalSummaryWaiting: '待結束會議後發送',
     finalSummaryEmpty: '會議結束後會在這裡展示最終紀要。',
     endedBannerTitle: '會議已結束，錄音已停止',
-    endedBannerDescription: '當前頁面已切換為唯讀查看狀態，你仍然可以查看參會人、即時轉寫結果和最終紀要。',
+    endedBannerDescription:
+      '當前頁面已切換為唯讀查看狀態，你仍然可以查看參會人、即時轉寫結果和最終紀要。',
     backgroundConfirmTitle: '關閉會議抽屜',
     backgroundConfirmMessage:
       '確定要退出當前會議介面嗎？選擇「背景運行」後，錄音和轉寫會繼續進行。',

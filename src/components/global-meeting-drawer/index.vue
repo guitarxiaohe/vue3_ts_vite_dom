@@ -2,11 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import {
-  LoaderCircle,
-  Mic,
-  PauseCircle,
-} from 'lucide-vue-next';
+import { LoaderCircle, Mic, PauseCircle } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import UserAvatarInfo from '@/components/user-avatar-info/index.vue';
 import { useMeetingStore, usePresenceStore, useUserStore } from '@/stores';
@@ -68,16 +64,14 @@ const participantOptions = computed(() =>
 const canStopMeeting = computed(
   () =>
     meetingDetail.value?.session.status === 'ACTIVE' &&
-    (
-      meetingStore.toNumericId(meetingDetail.value?.session.hostUserId) ===
-        meetingStore.toNumericId(currentUser.value?.userId) ||
+    (meetingStore.toNumericId(meetingDetail.value?.session.hostUserId) ===
+      meetingStore.toNumericId(currentUser.value?.userId) ||
       meetingDetail.value?.participants.some(
         (item) =>
           meetingStore.toNumericId(item.userId) ===
             meetingStore.toNumericId(currentUser.value?.userId) &&
           item.isHost === 1
-      )
-    )
+      ))
 );
 
 const currentSpeakerUserId = computed({
@@ -267,8 +261,7 @@ async function startRecording(autoResume = false) {
     isRecording.value = true;
     meetingStore.setShouldResumeCapture(true);
   } catch (error: any) {
-    captureError.value =
-      error?.message || t('meeting.autoResumeBlocked');
+    captureError.value = error?.message || t('meeting.autoResumeBlocked');
     if (!autoResume) {
       ElMessage.warning(captureError.value);
     }
@@ -444,14 +437,17 @@ watch(
   () => meetingDetail.value?.session.id,
   () => {
     hydratedLastTranscriptId.value =
-      meetingDetail.value?.transcripts[meetingDetail.value.transcripts.length - 1]
-        ?.id ?? null;
+      meetingDetail.value?.transcripts[
+        meetingDetail.value.transcripts.length - 1
+      ]?.id ?? null;
   },
   { immediate: true }
 );
 
 watch(
-  () => meetingDetail.value?.transcripts[meetingDetail.value.transcripts.length - 1]?.id,
+  () =>
+    meetingDetail.value?.transcripts[meetingDetail.value.transcripts.length - 1]
+      ?.id,
   (latestId) => {
     if (!meetingDetail.value) {
       return;
@@ -465,7 +461,9 @@ watch(
     }
     hydratedLastTranscriptId.value = latestId;
     const transcript =
-      meetingDetail.value.transcripts[meetingDetail.value.transcripts.length - 1];
+      meetingDetail.value.transcripts[
+        meetingDetail.value.transcripts.length - 1
+      ];
     pulseSpeaker(meetingStore.toNumericId(transcript?.userId));
   }
 );
@@ -572,7 +570,11 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="meeting-hero__actions" v-if="meetingDetail">
-          <el-tag :type="meetingDetail.session.status === 'ACTIVE' ? 'success' : 'info'">
+          <el-tag
+            :type="
+              meetingDetail.session.status === 'ACTIVE' ? 'success' : 'info'
+            "
+          >
             {{
               meetingDetail.session.status === 'ACTIVE'
                 ? t('meeting.statusActive')
@@ -595,7 +597,11 @@ onBeforeUnmount(() => {
               {{ t('meeting.pauseRecording') }}
             </el-button>
 
-            <el-button v-if="canStopMeeting" type="danger" @click="handleStopMeeting">
+            <el-button
+              v-if="canStopMeeting"
+              type="danger"
+              @click="handleStopMeeting"
+            >
               {{ t('meeting.stopMeeting') }}
             </el-button>
           </template>
@@ -710,7 +716,10 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div class="meeting-participant-item__meta">
-                  <el-tag size="small" :type="participant.isHost === 1 ? 'danger' : 'info'">
+                  <el-tag
+                    size="small"
+                    :type="participant.isHost === 1 ? 'danger' : 'info'"
+                  >
                     {{
                       participant.isHost === 1
                         ? t('meeting.roleHost')
@@ -719,7 +728,9 @@ onBeforeUnmount(() => {
                   </el-tag>
                   <el-tag
                     size="small"
-                    :type="participantInviteStatusType(participant.inviteStatus)"
+                    :type="
+                      participantInviteStatusType(participant.inviteStatus)
+                    "
                   >
                     {{ participantInviteStatusText(participant.inviteStatus) }}
                   </el-tag>
@@ -850,8 +861,8 @@ onBeforeUnmount(() => {
               </span>
             </div>
 
-            <pre class="meeting-final-summary">
-{{ finalSummary || t('meeting.finalSummaryEmpty') }}
+            <pre class="meeting-final-summary"
+              >{{ finalSummary || t('meeting.finalSummaryEmpty') }}
             </pre>
           </article>
         </main>
@@ -875,7 +886,11 @@ onBeforeUnmount(() => {
   padding: 28px;
   border-radius: 28px;
   background:
-    radial-gradient(circle at top left, rgba(245, 158, 11, 0.18), transparent 28%),
+    radial-gradient(
+      circle at top left,
+      rgba(245, 158, 11, 0.18),
+      transparent 28%
+    ),
     linear-gradient(135deg, #0f172a, #172554 46%, #164e63);
   color: #f8fafc;
   box-shadow: 0 20px 60px rgba(15, 23, 42, 0.24);
@@ -916,7 +931,11 @@ onBeforeUnmount(() => {
   padding: 16px 18px;
   border: 1px solid rgba(249, 115, 22, 0.24);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 247, 237, 0.95), rgba(255, 255, 255, 0.98));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 247, 237, 0.95),
+    rgba(255, 255, 255, 0.98)
+  );
   color: #9a3412;
 
   strong {
@@ -944,7 +963,11 @@ onBeforeUnmount(() => {
   border-radius: 24px;
   padding: 22px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96)),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(248, 250, 252, 0.96)
+    ),
     linear-gradient(135deg, rgba(14, 165, 233, 0.06), transparent 30%);
   box-shadow: 0 18px 50px rgba(148, 163, 184, 0.14);
 }

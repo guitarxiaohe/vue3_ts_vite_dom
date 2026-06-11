@@ -17,7 +17,11 @@ function resolveMeetingId(message: WsMessage) {
   if (paramMeetingId > 0) {
     return paramMeetingId;
   }
-  if (message.data && typeof message.data === 'object' && 'meetingId' in message.data) {
+  if (
+    message.data &&
+    typeof message.data === 'object' &&
+    'meetingId' in message.data
+  ) {
     return Number((message.data as { meetingId?: number }).meetingId || 0);
   }
   return 0;

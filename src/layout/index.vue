@@ -2,7 +2,11 @@
 import { computed, h, onMounted, onUnmounted } from 'vue';
 import { ElNotification } from 'element-plus';
 
-import { useMeetingStore, useNotificationStore, useSystemStore } from '@/stores';
+import {
+  useMeetingStore,
+  useNotificationStore,
+  useSystemStore,
+} from '@/stores';
 import ConventionalMenu from '@/components/conventional-menu/index.vue';
 import GlobalMeetingDrawer from '@/components/global-meeting-drawer/index.vue';
 import NoticeBar from '@/components/notice-bar/index.vue';

@@ -26,7 +26,11 @@ function resolveMeetingId(message: WsMessage) {
   if (paramMeetingId > 0) {
     return paramMeetingId;
   }
-  if (message.data && typeof message.data === 'object' && 'meetingId' in message.data) {
+  if (
+    message.data &&
+    typeof message.data === 'object' &&
+    'meetingId' in message.data
+  ) {
     return Number((message.data as { meetingId?: number }).meetingId || 0);
   }
   return 0;
@@ -34,7 +38,10 @@ function resolveMeetingId(message: WsMessage) {
 
 const handleClick = async () => {
   const meetingId = resolveMeetingId(props.msgInfo);
-  if (String(props.msgInfo.type || '').startsWith('meeting_') || meetingId > 0) {
+  if (
+    String(props.msgInfo.type || '').startsWith('meeting_') ||
+    meetingId > 0
+  ) {
     if (meetingId > 0) {
       await meetingStore.enterMeeting(meetingId);
     }

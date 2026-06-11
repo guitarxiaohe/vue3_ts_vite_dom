@@ -12,10 +12,7 @@ declare module 'pinia' {
   }
 }
 
-function pickState(
-  state: Record<string, unknown>,
-  pick: string[] | undefined
-) {
+function pickState(state: Record<string, unknown>, pick: string[] | undefined) {
   if (!pick || pick.length === 0) {
     return state;
   }

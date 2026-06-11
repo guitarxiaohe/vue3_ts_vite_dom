@@ -173,7 +173,8 @@ export default {
   meeting: {
     startAction: 'Start Meeting',
     selectOtherUsers: 'Please select at least one other participant',
-    resumeCurrent: 'There is already an active meeting. The meeting drawer has been opened.',
+    resumeCurrent:
+      'There is already an active meeting. The meeting drawer has been opened.',
     createdWithCount: 'Meeting created and {count} members invited',
     quickStartTitle: '{hostName} with {guestNames} · {time}',
     defaultHostName: 'Host',
@@ -211,7 +212,8 @@ export default {
     recordingNotice: 'Recording Notice',
     transcriptTitle: 'Live Transcript',
     transcriptCount: '{count} items',
-    transcriptEmpty: 'The live transcript will appear here after recording starts',
+    transcriptEmpty:
+      'The live transcript will appear here after recording starts',
     stageSummaryTitle: 'Stage Summaries',
     stageSummaryCount: '{count} times',
     stageSummaryItem: 'Stage summary #{index}',
@@ -220,7 +222,8 @@ export default {
     finalSummaryTitle: 'Final Summary',
     finalSummaryReady: 'Ready',
     finalSummaryWaiting: 'Will send after the meeting ends',
-    finalSummaryEmpty: 'The final summary will appear here after the meeting ends.',
+    finalSummaryEmpty:
+      'The final summary will appear here after the meeting ends.',
     endedBannerTitle: 'Meeting ended, recording stopped',
     endedBannerDescription:
       'This page is now in read-only mode. You can still review participants, transcripts, and the final summary.',
