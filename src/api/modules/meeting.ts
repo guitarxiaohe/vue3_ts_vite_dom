@@ -39,6 +39,12 @@ export function getMeetingDetailApi(meetingId: number) {
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
+export function leaveMeetingApi(meetingId: number) {
+  return httpClient.post(
+    `/cms/meeting/session/${meetingId}/leave`
+  ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
+}
+
 export function stopMeetingApi(meetingId: number) {
   return httpClient.post(
     `/cms/meeting/session/${meetingId}/stop`

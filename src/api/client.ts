@@ -63,7 +63,10 @@ class HttpClient {
             })
             .catch(() => {});
         }
-
+        if (response.data?.code == 404) {
+          ElMessage.error('未找到当前接口');
+          return Promise.reject(response.data.message);
+        }
         if (response.data?.code == 500) {
           ElMessage.error(response?.data?.msg || '后端问题');
           return Promise.reject(response.data.msg);
@@ -79,7 +82,7 @@ class HttpClient {
         //   window.location.href = '/login';
         // }
         console.log('error ==>', error);
-
+        ElMessage.error(error || '后端问题');
         return Promise.reject(error);
       }
     );

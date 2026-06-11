@@ -10,6 +10,7 @@ export interface CmsMeetingSession {
   id: number;
   title: string;
   status: string;
+  rtcStatus: string;
   hostUserId: number;
   hostUserName: string;
   hostNickName: string;

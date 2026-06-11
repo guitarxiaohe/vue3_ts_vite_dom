@@ -2,37 +2,59 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { LoaderCircle, Mic, PauseCircle } from 'lucide-vue-next';
+import {
+  LoaderCircle,
+  Mic,
+  MicOff,
+  PhoneOff,
+  Users,
+  Wifi,
+  WifiOff,
+} from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
+import { ConnectionState } from 'livekit-client';
 import UserAvatarInfo from '@/components/user-avatar-info/index.vue';
 import { useMeetingStore, usePresenceStore, useUserStore } from '@/stores';
-
-type RecordingBuffers = Float32Array[];
-const AUDIO_CHUNK_INTERVAL_MS = 8000;
+import { useMeetingRtcStore } from '@/stores/modules/meeting-rtc';
+import { useLivekitRoom } from '@/composables/use-livekit-room';
+import {
+  getRtcTokenApi,
+  startRtcApi,
+} from '@/api/modules/meeting-rtc';
 
 const route = useRoute();
 const { t } = useI18n();
 const meetingStore = useMeetingStore();
 const userStore = useUserStore();
 const presenceStore = usePresenceStore();
+const rtcStore = useMeetingRtcStore();
 
-const isRecording = ref(false);
-const captureError = ref('');
+const {
+  connectionState,
+  participants: rtcParticipants,
+  activeSpeakers,
+  isMicEnabled,
+  isSpeakerMuted,
+  playbackVolume,
+  joinRoom,
+  leaveRoom,
+  toggleMic,
+  setPlaybackVolume,
+  toggleSpeakerMute,
+} = useLivekitRoom();
+
 const activeSpeakerUserId = ref<number | null>(null);
 const joinedHighlightUserId = ref<number | null>(null);
 const hydratedLastTranscriptId = ref<number | null>(null);
-const isUploadingChunk = ref(false);
+const isJoining = ref(false);
+const isStartingRtc = ref(false);
+const waitingMicPermission = ref(false);
+const lastJoinAttemptMeetingId = ref<number | null>(null);
 
-let mediaStream: MediaStream | null = null;
-let audioContext: AudioContext | null = null;
-let sourceNode: MediaStreamAudioSourceNode | null = null;
-let processorNode: ScriptProcessorNode | null = null;
-let silentGainNode: GainNode | null = null;
-let flushTimer: ReturnType<typeof setInterval> | null = null;
-let pcmBuffers: RecordingBuffers = [];
-let chunkStartedAtMs = 0;
 let activeSpeakerTimer: ReturnType<typeof setTimeout> | null = null;
 let joinedHighlightTimer: ReturnType<typeof setTimeout> | null = null;
+let permissionStatus: PermissionStatus | null = null;
+let permissionRetryRegistered = false;
 
 const drawerVisible = computed({
   get: () => meetingStore.drawerVisible,
@@ -53,13 +75,21 @@ const currentUser = computed(() => userStore.userInfo);
 const isMeetingEnded = computed(
   () => meetingDetail.value?.session.status === 'ENDED'
 );
-
-const participantOptions = computed(() =>
-  (meetingDetail.value?.participants || []).map((item) => ({
-    label: item.nickName || item.userName,
-    value: item.userId,
-  }))
+const isRtcRunning = computed(
+  () => meetingDetail.value?.session.rtcStatus === 'RUNNING'
 );
+const isConnected = computed(
+  () => connectionState.value === ConnectionState.Connected
+);
+const isReconnecting = computed(
+  () => connectionState.value === ConnectionState.Reconnecting
+);
+const speakerVolumePercent = computed({
+  get: () => Math.round(playbackVolume.value * 100),
+  set: (value: number) => {
+    setPlaybackVolume(value / 100);
+  },
+});
 
 const canStopMeeting = computed(
   () =>
@@ -74,9 +104,12 @@ const canStopMeeting = computed(
       ))
 );
 
-const currentSpeakerUserId = computed({
-  get: () => meetingStore.speakerUserId,
-  set: (value) => meetingStore.setSpeakerUserId(value),
+const isHost = computed(() => {
+  if (!meetingDetail.value || !currentUser.value) return false;
+  return (
+    meetingStore.toNumericId(meetingDetail.value.session.hostUserId) ===
+    meetingStore.toNumericId(currentUser.value.userId)
+  );
 });
 
 function pulseSpeaker(userId: number | null, duration = 3200) {
@@ -179,6 +212,28 @@ function isParticipantAbsent(participant: { inviteStatus: string }) {
   return isMeetingEnded.value && participant.inviteStatus !== 'ACCEPTED';
 }
 
+/**
+ * 获取参与者 RTC 状态
+ */
+function getParticipantRtcInfo(userId: number) {
+  const identity = `user-${userId}`;
+  return rtcParticipants.value.find((p) => p.identity === identity);
+}
+
+function isParticipantInRtc(userId: number) {
+  return !!getParticipantRtcInfo(userId);
+}
+
+function isParticipantSpeaking(userId: number) {
+  const info = getParticipantRtcInfo(userId);
+  return info?.isSpeaking || false;
+}
+
+function isParticipantMicMuted(userId: number) {
+  const info = getParticipantRtcInfo(userId);
+  return info?.isMuted ?? true;
+}
+
 async function bootstrapMeetingDrawer() {
   await meetingStore.loadPendingMeetings();
 
@@ -218,232 +273,222 @@ async function openPendingMeeting(meetingId: number) {
   meetingStore.openDrawer();
 }
 
-async function startRecording(autoResume = false) {
-  captureError.value = '';
-  if (!navigator.mediaDevices?.getUserMedia) {
-    captureError.value = t('meeting.browserUnsupported');
-    if (!autoResume) {
-      ElMessage.error(captureError.value);
-    }
+/**
+ * 加入语音会议
+ */
+async function handleJoinVoice(silent = false) {
+  if (!shouldAutoJoinCurrentMeeting() || isJoining.value) {
     return;
   }
 
-  if (!meetingDetail.value || meetingDetail.value.session.status !== 'ACTIVE') {
-    return;
-  }
-
+  const currentMeetingId = meetingDetail.value?.session.id ?? null;
+  isJoining.value = true;
+  waitingMicPermission.value = false;
   try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-      },
-    });
-    audioContext = new AudioContext();
-    sourceNode = audioContext.createMediaStreamSource(mediaStream);
-    processorNode = audioContext.createScriptProcessor(4096, 1, 1);
-    silentGainNode = audioContext.createGain();
-    silentGainNode.gain.value = 0;
-    pcmBuffers = [];
-    chunkStartedAtMs = Date.now();
-
-    processorNode.onaudioprocess = (event) => {
-      const channelData = event.inputBuffer.getChannelData(0);
-      pcmBuffers.push(new Float32Array(channelData));
-    };
-
-    sourceNode.connect(processorNode);
-    processorNode.connect(silentGainNode);
-    silentGainNode.connect(audioContext.destination);
-    flushTimer = setInterval(() => {
-      void flushAudioChunk();
-    }, AUDIO_CHUNK_INTERVAL_MS);
-    isRecording.value = true;
-    meetingStore.setShouldResumeCapture(true);
-  } catch (error: any) {
-    captureError.value = error?.message || t('meeting.autoResumeBlocked');
-    if (!autoResume) {
-      ElMessage.warning(captureError.value);
+    const { data } = await getRtcTokenApi(currentMeetingId as number);
+    if (!data) {
+      if (!silent) {
+        ElMessage.error(t('meeting.autoJoinFailed'));
+      }
+      return;
     }
-    meetingStore.setShouldResumeCapture(false);
-  }
-}
-
-async function flushAudioChunk(force = false) {
-  if (!audioContext || pcmBuffers.length === 0 || !meetingDetail.value) {
-    return;
-  }
-  if (isUploadingChunk.value) {
-    return;
-  }
-
-  const endedAtMs = Date.now();
-  if (!force && endedAtMs - chunkStartedAtMs < AUDIO_CHUNK_INTERVAL_MS - 200) {
-    return;
-  }
-
-  const merged = mergeBuffers(pcmBuffers);
-  pcmBuffers = [];
-  const wavBlob = encodeWav(merged, audioContext.sampleRate);
-  const speakerId = currentSpeakerUserId.value;
-  const speakerName =
-    participantOptions.value.find((item) => item.value === speakerId)?.label ||
-    userStore.displayName;
-
-  try {
-    isUploadingChunk.value = true;
-    await meetingStore.uploadAudio({
-      file: wavBlob,
-      speakerUserId: speakerId,
-      speakerDisplayName: speakerName,
-      audioStartedAtMs: chunkStartedAtMs,
-      audioEndedAtMs: endedAtMs,
-    });
-    pulseSpeaker(speakerId);
+    rtcStore.setTokenInfo(data);
+    await joinRoom(data);
+    lastJoinAttemptMeetingId.value = currentMeetingId;
+    waitingMicPermission.value = false;
   } catch (error: any) {
-    captureError.value = error?.message || t('meeting.audioUploadFailed');
+    if (isMicrophonePermissionError(error)) {
+      waitingMicPermission.value = true;
+      registerPermissionRetry();
+      if (lastJoinAttemptMeetingId.value !== currentMeetingId) {
+        ElMessage.warning(t('meeting.waitingMicPermission'));
+      }
+      lastJoinAttemptMeetingId.value = currentMeetingId;
+      return;
+    }
+    if (isMicrophoneUnsupportedError(error)) {
+      ElMessage.error(t('meeting.browserUnsupported'));
+      return;
+    }
+    if (!silent) {
+      ElMessage.error(error?.message || t('meeting.autoJoinFailed'));
+    }
   } finally {
-    isUploadingChunk.value = false;
-  }
-
-  chunkStartedAtMs = Date.now();
-}
-
-async function stopRecording(options?: {
-  clearResumeFlag?: boolean;
-  flushPendingChunk?: boolean;
-}) {
-  const clearResumeFlag = options?.clearResumeFlag ?? true;
-  const flushPendingChunk = options?.flushPendingChunk ?? true;
-
-  if (flushTimer) {
-    clearInterval(flushTimer);
-    flushTimer = null;
-  }
-
-  if (flushPendingChunk) {
-    await flushAudioChunk(true);
-  }
-  processorNode?.disconnect();
-  sourceNode?.disconnect();
-  silentGainNode?.disconnect();
-
-  if (audioContext && audioContext.state !== 'closed') {
-    await audioContext.close();
-  }
-
-  mediaStream?.getTracks().forEach((track) => track.stop());
-  mediaStream = null;
-  audioContext = null;
-  sourceNode = null;
-  processorNode = null;
-  silentGainNode = null;
-  pcmBuffers = [];
-  isRecording.value = false;
-
-  if (clearResumeFlag) {
-    meetingStore.setShouldResumeCapture(false);
+    isJoining.value = false;
   }
 }
 
+/**
+ * 主持人自动拉起 RTC
+ */
+async function ensureHostRtcStarted() {
+  if (!meetingDetail.value || !isHost.value || isStartingRtc.value) {
+    return;
+  }
+  if (meetingDetail.value.session.status !== 'ACTIVE') {
+    return;
+  }
+  if (meetingDetail.value.session.rtcStatus === 'RUNNING') {
+    return;
+  }
+
+  isStartingRtc.value = true;
+  try {
+    await startRtcApi(meetingDetail.value.session.id);
+    await meetingStore.loadMeetingDetail(meetingDetail.value.session.id);
+  } catch (error: any) {
+    ElMessage.error(error?.message || t('meeting.rtcStartFailed'));
+  } finally {
+    isStartingRtc.value = false;
+  }
+}
+
+/**
+ * 结束会议
+ */
 async function handleStopMeeting() {
-  await stopRecording({ clearResumeFlag: false, flushPendingChunk: true });
-  await meetingStore.stopMeeting();
+  const currentMeeting = meetingDetail.value;
+  if (!currentMeeting) {
+    return;
+  }
+  const exitingAsHost =
+    meetingStore.toNumericId(currentMeeting.session.hostUserId) ===
+    meetingStore.toNumericId(currentMeeting.currentUserId);
+
+  await meetingStore.leaveMeeting();
+  if (!exitingAsHost) {
+    await leaveRoom();
+    rtcStore.reset();
+    meetingStore.clearMeetingRuntime();
+    ElMessage.success(t('meeting.leaveSuccess'));
+    return;
+  }
   ElMessage.success(t('meeting.endSuccess'));
 }
 
-function mergeBuffers(buffers: RecordingBuffers) {
-  const totalLength = buffers.reduce((sum, item) => sum + item.length, 0);
-  const merged = new Float32Array(totalLength);
-  let offset = 0;
-
-  for (const buffer of buffers) {
-    merged.set(buffer, offset);
-    offset += buffer.length;
-  }
-
-  return merged;
-}
-
-function encodeWav(samples: Float32Array, sampleRate: number) {
-  const pcm = new Int16Array(samples.length);
-  for (let i = 0; i < samples.length; i += 1) {
-    const normalized = Math.max(-1, Math.min(1, samples[i]));
-    pcm[i] = normalized < 0 ? normalized * 0x8000 : normalized * 0x7fff;
-  }
-
-  const buffer = new ArrayBuffer(44 + pcm.length * 2);
-  const view = new DataView(buffer);
-  writeAscii(view, 0, 'RIFF');
-  view.setUint32(4, 36 + pcm.length * 2, true);
-  writeAscii(view, 8, 'WAVE');
-  writeAscii(view, 12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeAscii(view, 36, 'data');
-  view.setUint32(40, pcm.length * 2, true);
-
-  let offset = 44;
-  for (let i = 0; i < pcm.length; i += 1) {
-    view.setInt16(offset, pcm[i], true);
-    offset += 2;
-  }
-
-  return new Blob([buffer], { type: 'audio/wav' });
-}
-
-function writeAscii(view: DataView, offset: number, text: string) {
-  for (let i = 0; i < text.length; i += 1) {
-    view.setUint8(offset + i, text.charCodeAt(i));
-  }
-}
-
-async function handleDrawerAttemptClose(done?: () => void) {
+function handleDrawerAttemptClose(done?: () => void) {
   if (!meetingDetail.value || meetingDetail.value.session.status !== 'ACTIVE') {
     done?.();
     return;
   }
 
-  try {
-    await ElMessageBox.confirm(
-      t('meeting.backgroundConfirmMessage'),
-      t('meeting.backgroundConfirmTitle'),
-      {
-        confirmButtonText: t('meeting.backgroundConfirmExit'),
-        cancelButtonText: t('meeting.backgroundConfirmBackground'),
-        distinguishCancelAndClose: true,
-        closeOnClickModal: false,
-        showClose: false,
-        type: 'warning',
-      }
-    );
-    await stopRecording({ clearResumeFlag: true, flushPendingChunk: true });
-    meetingStore.clearMeetingRuntime();
-    done?.();
-  } catch (action: any) {
-    if (action === 'cancel') {
-      done?.();
-      ElMessage.info(t('meeting.backgroundRunning'));
+  ElMessageBox.confirm(
+    t('meeting.backgroundConfirmMessage'),
+    t('meeting.backgroundConfirmTitle'),
+    {
+      confirmButtonText: t('meeting.backgroundConfirmExit'),
+      cancelButtonText: t('meeting.backgroundConfirmBackground'),
+      distinguishCancelAndClose: true,
+      closeOnClickModal: false,
+      showClose: false,
+      type: 'warning',
     }
+  )
+    .then(async () => {
+      await handleStopMeeting();
+      done?.();
+    })
+    .catch((action: any) => {
+      if (action === 'cancel') {
+        done?.();
+        ElMessage.info(t('meeting.backgroundRunning'));
+      }
+    });
+}
+
+function shouldAutoJoinCurrentMeeting() {
+  if (!meetingDetail.value || !currentUser.value) {
+    return false;
+  }
+  if (meetingDetail.value.session.status !== 'ACTIVE') {
+    return false;
+  }
+  if (meetingDetail.value.session.rtcStatus !== 'RUNNING') {
+    return false;
+  }
+  const currentUserId = meetingStore.toNumericId(currentUser.value.userId);
+  return meetingDetail.value.participants.some(
+    (item) =>
+      meetingStore.toNumericId(item.userId) === currentUserId &&
+      item.inviteStatus === 'ACCEPTED'
+  );
+}
+
+function isMicrophonePermissionError(error: unknown) {
+  const nextError = error as { name?: string; message?: string };
+  return (
+    nextError?.name === 'NotAllowedError' ||
+    nextError?.name === 'PermissionDeniedError' ||
+    /permission|denied|notallowed|麦克风|microphone/i.test(
+      nextError?.message || ''
+    )
+  );
+}
+
+function isMicrophoneUnsupportedError(error: unknown) {
+  const nextError = error as { name?: string; message?: string };
+  return (
+    nextError?.name === 'NotFoundError' ||
+    nextError?.name === 'NotSupportedError' ||
+    /not supported|no audio input|device/i.test(nextError?.message || '')
+  );
+}
+
+async function retryJoinAfterPermission() {
+  if (!waitingMicPermission.value || document.visibilityState !== 'visible') {
+    return;
+  }
+  await handleJoinVoice(true);
+}
+
+async function bindPermissionStatusListener() {
+  if (
+    typeof navigator === 'undefined' ||
+    !('permissions' in navigator) ||
+    permissionStatus
+  ) {
+    return;
+  }
+  try {
+    permissionStatus = await navigator.permissions.query({
+      name: 'microphone' as PermissionName,
+    });
+    permissionStatus.onchange = () => {
+      if (permissionStatus?.state === 'granted') {
+        void retryJoinAfterPermission();
+      }
+    };
+  } catch (_error) {
+    permissionStatus = null;
   }
 }
 
-watch(
-  () => meetingDetail.value?.session.id,
-  () => {
-    hydratedLastTranscriptId.value =
-      meetingDetail.value?.transcripts[
-        meetingDetail.value.transcripts.length - 1
-      ]?.id ?? null;
-  },
-  { immediate: true }
-);
+function registerPermissionRetry() {
+  void bindPermissionStatusListener();
+  if (permissionRetryRegistered) {
+    return;
+  }
+  permissionRetryRegistered = true;
+  window.addEventListener('focus', handleWindowFocusRetry);
+  document.addEventListener('visibilitychange', handleVisibilityRetry);
+}
 
+function clearPermissionRetry() {
+  waitingMicPermission.value = false;
+  lastJoinAttemptMeetingId.value = null;
+}
+
+function handleWindowFocusRetry() {
+  void retryJoinAfterPermission();
+}
+
+function handleVisibilityRetry() {
+  if (document.visibilityState === 'visible') {
+    void retryJoinAfterPermission();
+  }
+}
+
+// 监听转写更新，高亮发言人
 watch(
   () =>
     meetingDetail.value?.transcripts[meetingDetail.value.transcripts.length - 1]
@@ -469,6 +514,73 @@ watch(
 );
 
 watch(
+  () => meetingDetail.value?.session.id,
+  () => {
+    hydratedLastTranscriptId.value =
+      meetingDetail.value?.transcripts[
+        meetingDetail.value.transcripts.length - 1
+      ]?.id ?? null;
+  },
+  { immediate: true }
+);
+
+watch(
+  () => meetingDetail.value?.session.status,
+  async (status, previousStatus) => {
+    if (status !== 'ACTIVE') {
+      clearPermissionRetry();
+    }
+    if (previousStatus !== 'ACTIVE' || status !== 'ENDED') {
+      return;
+    }
+    await leaveRoom();
+    rtcStore.reset();
+    meetingStore.clearMeetingRuntime();
+  }
+);
+
+watch(
+  () => [
+    meetingDetail.value?.session.id,
+    meetingDetail.value?.session.status,
+    meetingDetail.value?.session.rtcStatus,
+    currentUser.value?.userId,
+  ],
+  async () => {
+    if (!meetingDetail.value || !isHost.value) {
+      return;
+    }
+    if (meetingDetail.value.session.status !== 'ACTIVE') {
+      return;
+    }
+    if (meetingDetail.value.session.rtcStatus === 'RUNNING') {
+      return;
+    }
+    await ensureHostRtcStarted();
+  },
+  { immediate: true }
+);
+
+watch(
+  () => [
+    meetingDetail.value?.session.id,
+    meetingDetail.value?.session.status,
+    meetingDetail.value?.session.rtcStatus,
+    meetingDetail.value?.participants
+      ?.map((item) => `${item.userId}:${item.inviteStatus}`)
+      .join('|'),
+    currentUser.value?.userId,
+  ],
+  async () => {
+    if (!shouldAutoJoinCurrentMeeting() || isConnected.value) {
+      return;
+    }
+    await handleJoinVoice(true);
+  },
+  { immediate: true }
+);
+
+watch(
   () => route.query.meetingId,
   async (value, oldValue) => {
     if (value === oldValue) {
@@ -477,27 +589,6 @@ watch(
     const meetingId = meetingStore.toMeetingId(value);
     if (meetingId > 0) {
       await openPendingMeeting(meetingId);
-    }
-  }
-);
-
-watch(
-  () => meetingStore.shouldResumeCapture,
-  async (value) => {
-    if (
-      value &&
-      meetingDetail.value?.session.status === 'ACTIVE' &&
-      !isRecording.value
-    ) {
-      await startRecording(true);
-      return;
-    }
-
-    if (!value && isRecording.value) {
-      await stopRecording({
-        clearResumeFlag: false,
-        flushPendingChunk: false,
-      });
     }
   }
 );
@@ -521,14 +612,25 @@ watch(
   }
 );
 
+// 同步 RTC 状态到 Store
+watch(connectionState, (state) => {
+  rtcStore.setConnectionState(state);
+});
+
+watch(rtcParticipants, (list) => {
+  rtcStore.setParticipants(list);
+});
+
+watch(activeSpeakers, (speakers) => {
+  rtcStore.setActiveSpeakers(speakers);
+});
+
+watch(isMicEnabled, (enabled) => {
+  rtcStore.setMicEnabled(enabled);
+});
+
 onMounted(async () => {
   await bootstrapMeetingDrawer();
-  if (
-    meetingStore.shouldResumeCapture &&
-    meetingDetail.value?.session.status === 'ACTIVE'
-  ) {
-    await startRecording(true);
-  }
 });
 
 onBeforeUnmount(() => {
@@ -538,7 +640,14 @@ onBeforeUnmount(() => {
   if (joinedHighlightTimer) {
     clearTimeout(joinedHighlightTimer);
   }
-  void stopRecording({ clearResumeFlag: false, flushPendingChunk: false });
+  if (permissionRetryRegistered) {
+    window.removeEventListener('focus', handleWindowFocusRetry);
+    document.removeEventListener('visibilitychange', handleVisibilityRetry);
+  }
+  if (permissionStatus) {
+    permissionStatus.onchange = null;
+  }
+  void leaveRoom();
 });
 </script>
 
@@ -582,21 +691,83 @@ onBeforeUnmount(() => {
             }}
           </el-tag>
 
+          <!-- RTC 状态 -->
+          <el-tag v-if="isRtcRunning" type="success">
+            <el-icon class="is-loading" v-if="isReconnecting">
+              <LoaderCircle />
+            </el-icon>
+            <el-icon v-else-if="isConnected"><Wifi /></el-icon>
+            <el-icon v-else><WifiOff /></el-icon>
+            {{ isReconnecting ? '重连中' : isConnected ? 'RTC 已连接' : 'RTC 运行中' }}
+          </el-tag>
+
+          <el-tag v-if="waitingMicPermission" type="warning">
+            {{ t('meeting.waitingMicPermission') }}
+          </el-tag>
+
+          <el-tag
+            v-if="
+              meetingDetail.session.status === 'ACTIVE' &&
+              isHost &&
+              !isRtcRunning
+            "
+            type="warning"
+          >
+            <el-icon class="is-loading">
+              <LoaderCircle />
+            </el-icon>
+            {{ t('meeting.rtcConnecting') }}
+          </el-tag>
+
           <template v-if="meetingDetail.session.status === 'ACTIVE'">
             <el-button
-              v-if="!isRecording"
-              type="primary"
-              @click="startRecording()"
+              v-if="!isHost"
+              type="danger"
+              plain
+              @click="handleStopMeeting"
             >
-              <el-icon><Mic /></el-icon>
-              {{ t('meeting.startRecording') }}
+              <el-icon><PhoneOff /></el-icon>
+              {{ t('meeting.leaveMeeting') }}
             </el-button>
 
-            <el-button v-if="isRecording" @click="stopRecording">
-              <el-icon><PauseCircle /></el-icon>
-              {{ t('meeting.pauseRecording') }}
+            <!-- 麦克风控制 -->
+            <el-button
+              v-if="isConnected"
+              :type="isMicEnabled ? 'primary' : 'info'"
+              @click="toggleMic"
+            >
+              <el-icon>
+                <Mic v-if="isMicEnabled" />
+                <MicOff v-else />
+              </el-icon>
+              {{ isMicEnabled ? t('meeting.micOn') : t('meeting.micOff') }}
             </el-button>
 
+            <!-- 扬声器控制 -->
+            <el-button
+              v-if="isConnected"
+              :type="isSpeakerMuted ? 'info' : 'primary'"
+              plain
+              @click="toggleSpeakerMute"
+            >
+              <el-icon>
+                <WifiOff v-if="isSpeakerMuted" />
+                <Wifi v-else />
+              </el-icon>
+              {{ isSpeakerMuted ? t('meeting.unmuteSpeaker') : t('meeting.muteSpeaker') }}
+            </el-button>
+
+            <div v-if="isConnected" class="meeting-hero__volume">
+              <span>{{ t('meeting.playbackVolume') }}</span>
+              <el-slider
+                v-model="speakerVolumePercent"
+                :max="100"
+                :min="0"
+                :show-tooltip="false"
+              />
+            </div>
+
+            <!-- 结束会议 -->
             <el-button
               v-if="canStopMeeting"
               type="danger"
@@ -646,34 +817,21 @@ onBeforeUnmount(() => {
 
           <article class="meeting-card" v-if="meetingDetail">
             <div class="meeting-card__header">
-              <h2>{{ t('meeting.participantsTitle') }}</h2>
+              <h2>
+                <el-icon><Users /></el-icon>
+                {{ t('meeting.participantsTitle') }}
+              </h2>
               <span>
                 {{
                   t('meeting.participantCount', {
                     count: meetingDetail.participants.length,
                   })
                 }}
+                <template v-if="rtcParticipants.length">
+                  · RTC: {{ rtcParticipants.length }}
+                </template>
               </span>
             </div>
-
-            <el-form
-              v-if="meetingDetail.session.status === 'ACTIVE'"
-              label-position="top"
-            >
-              <el-form-item :label="t('meeting.currentSpeaker')">
-                <el-select
-                  v-model="currentSpeakerUserId"
-                  :placeholder="t('meeting.selectCurrentSpeaker')"
-                >
-                  <el-option
-                    v-for="item in participantOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
-                </el-select>
-              </el-form-item>
-            </el-form>
 
             <div class="meeting-participant-list">
               <div
@@ -685,6 +843,8 @@ onBeforeUnmount(() => {
                     activeSpeakerUserId !== null &&
                     meetingStore.toNumericId(participant.userId) ===
                       activeSpeakerUserId,
+                  'meeting-participant-item--speaking':
+                    isParticipantSpeaking(participant.userId),
                   'meeting-participant-item--joined':
                     joinedHighlightUserId !== null &&
                     meetingStore.toNumericId(participant.userId) ===
@@ -710,6 +870,20 @@ onBeforeUnmount(() => {
                     >
                       <el-icon class="is-loading">
                         <LoaderCircle />
+                      </el-icon>
+                    </div>
+                    <!-- RTC 状态指示器 -->
+                    <div
+                      v-if="isParticipantInRtc(participant.userId)"
+                      class="meeting-participant-avatar__rtc"
+                      :class="{
+                        'is-speaking': isParticipantSpeaking(participant.userId),
+                        'is-muted': isParticipantMicMuted(participant.userId),
+                      }"
+                    >
+                      <el-icon :size="12">
+                        <Mic v-if="!isParticipantMicMuted(participant.userId)" />
+                        <MicOff v-else />
                       </el-icon>
                     </div>
                   </div>
@@ -739,6 +913,14 @@ onBeforeUnmount(() => {
                     :type="participantMeetingStatusType(participant)"
                   >
                     {{ participantMeetingStatusText(participant) }}
+                  </el-tag>
+                  <!-- RTC 状态 -->
+                  <el-tag
+                    v-if="isParticipantInRtc(participant.userId)"
+                    size="small"
+                    type="success"
+                  >
+                    {{ isParticipantSpeaking(participant.userId) ? '发言中' : 'RTC' }}
                   </el-tag>
                   <span
                     :class="[
@@ -772,13 +954,6 @@ onBeforeUnmount(() => {
         </aside>
 
         <main class="meeting-main">
-          <article class="meeting-card" v-if="captureError">
-            <div class="meeting-card__header">
-              <h2>{{ t('meeting.recordingNotice') }}</h2>
-            </div>
-            <p class="meeting-error">{{ captureError }}</p>
-          </article>
-
           <article class="meeting-card" v-if="meetingDetail">
             <div class="meeting-card__header">
               <h2>{{ t('meeting.transcriptTitle') }}</h2>
@@ -921,6 +1096,20 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
+.meeting-hero__volume {
+  min-width: 180px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.28);
+
+  span {
+    display: block;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 12px;
+  }
+}
+
 .meeting-grid {
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr);
@@ -988,6 +1177,9 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 18px;
   color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .meeting-pending-list,
@@ -1049,6 +1241,14 @@ onBeforeUnmount(() => {
   transform: translateY(-1px);
 }
 
+.meeting-participant-item--speaking {
+  border-color: rgba(34, 197, 94, 0.45);
+  background:
+    linear-gradient(135deg, rgba(220, 252, 231, 0.92), rgba(248, 250, 252, 1)),
+    #f8fafc;
+  box-shadow: 0 14px 28px rgba(34, 197, 94, 0.18);
+}
+
 .meeting-participant-item--joined {
   border-color: rgba(34, 197, 94, 0.4);
   box-shadow: 0 14px 28px rgba(34, 197, 94, 0.16);
@@ -1087,6 +1287,42 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.68);
   color: #f59e0b;
+}
+
+.meeting-participant-avatar__rtc {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #94a3b8;
+  color: white;
+  border: 2px solid white;
+
+  &.is-speaking {
+    background: #22c55e;
+    animation: pulse 1.5s infinite;
+  }
+
+  &.is-muted {
+    background: #ef4444;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
 }
 
 .meeting-participant-item strong,
@@ -1170,6 +1406,10 @@ onBeforeUnmount(() => {
 
   .meeting-hero {
     flex-direction: column;
+  }
+
+  .meeting-hero__volume {
+    width: 100%;
   }
 }
 </style>

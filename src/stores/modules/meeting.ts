@@ -16,6 +16,7 @@ import {
   getCurrentMeetingApi,
   getMeetingDetailApi,
   getPendingMeetingsApi,
+  leaveMeetingApi,
   listMeetingSelectableUsersApi,
   resendFinalSummaryApi,
   stopMeetingApi,
@@ -66,6 +67,19 @@ export const useMeetingStore = defineStore(
     );
 
     function setMeetingDetail(detail: CmsMeetingDetail | null) {
+      if (detail) {
+        const fallbackCurrentUserId =
+          detail.currentUserId ??
+          (toMeetingId(meetingDetail.value?.session.id) ===
+          toMeetingId(detail.session.id)
+            ? meetingDetail.value?.currentUserId ?? null
+            : null);
+        detail = {
+          ...detail,
+          currentUserId: fallbackCurrentUserId,
+        };
+      }
+
       const previousParticipants =
         detail &&
         toMeetingId(meetingDetail.value?.session.id) ===
@@ -230,7 +244,11 @@ export const useMeetingStore = defineStore(
           (item) =>
             toNumericId(item.userId) === toNumericId(detail.currentUserId)
         ) || null;
-      if (currentParticipant?.inviteStatus === 'PENDING') {
+      if (
+        currentParticipant &&
+        currentParticipant.inviteStatus !== 'ACCEPTED' &&
+        detail.session.status === 'ACTIVE'
+      ) {
         const accepted = await acceptMeeting(meetingId);
         shouldResumeCapture.value = true;
         shouldAutoOpenDrawer.value = accepted.session.status === 'ACTIVE';
@@ -253,6 +271,24 @@ export const useMeetingStore = defineStore(
       seenPendingInviteIds.value = seenPendingInviteIds.value.filter(
         (item) => item !== meetingId
       );
+      return response.data;
+    }
+
+    async function leaveMeeting() {
+      if (!currentMeetingId.value || !meetingDetail.value) {
+        return null;
+      }
+      const participant = getCurrentParticipant();
+      const isHost =
+        toNumericId(meetingDetail.value.session.hostUserId) ===
+          toNumericId(meetingDetail.value.currentUserId) ||
+        participant?.isHost === 1;
+      const response = isHost
+        ? await stopMeetingApi(currentMeetingId.value)
+        : await leaveMeetingApi(currentMeetingId.value);
+      setMeetingDetail(response.data);
+      shouldResumeCapture.value = false;
+      shouldAutoOpenDrawer.value = false;
       return response.data;
     }
 
@@ -411,6 +447,7 @@ export const useMeetingStore = defineStore(
       acceptMeeting,
       stopMeeting,
       resendFinalSummary,
+      leaveMeeting,
       uploadAudio,
       upsertTranscript,
       upsertSummary,
