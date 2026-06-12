@@ -6,8 +6,9 @@ import {
   usePresenceStore,
 } from '@/stores';
 import type { WsMessage } from '@/types/ws';
+import type { CmsMeetingPendingInvite } from '@/api/modules/meeting.type';
 import SocketMsg from '@/components/socket-msg/index.vue';
-
+import SocketPhone from '@/components/socket-phone/index.vue';
 /******************************** WebSocket URL 构建 ********************************/
 
 interface BuildNotifyWebSocketUrlOptions {
@@ -105,6 +106,58 @@ function applyIncomingWsPayload(
   return { kind: 'notification', message };
 }
 
+/******************************** 会议邀请通知 ********************************/
+
+/** 从 WsMessage 中提取会议邀请数据，字段缺失时返回 null */
+function toPendingInvite(message: WsMessage): CmsMeetingPendingInvite | null {
+  const data =
+    message.data && typeof message.data === 'object'
+      ? (message.data as Record<string, unknown>)
+      : null;
+  const meetingId = Number(data?.meetingId || message.params?.meetingId || 0);
+  if (meetingId <= 0) {
+    return null;
+  }
+  return {
+    meetingId,
+    title: String(data?.title || message.title || '会议邀请'),
+    status: String(data?.status || 'ACTIVE'),
+    hostUserId: Number(data?.hostUserId || 0),
+    hostUserName: String(data?.hostUserName || ''),
+    hostNickName: String(data?.hostNickName || ''),
+    startedAt: String(data?.startedAt || ''),
+    inviteSentAt: String(data?.inviteSentAt || ''),
+    inviteStatus: String(data?.inviteStatus || 'PENDING'),
+  };
+}
+
+/** 判断是否为待处理的会议邀请消息 */
+function isMeetingInviteMessage(message: WsMessage) {
+  const invite = toPendingInvite(message);
+  return (
+    message.title === '会议邀请' &&
+    !!invite &&
+    invite.inviteStatus === 'PENDING'
+  );
+}
+
+/** 弹出会议邀请通知（SocketPhone 组件），返回通知句柄可用于手动关闭 */
+export function showMeetingInviteNotification(invite: CmsMeetingPendingInvite) {
+  const notify = ElNotification({
+    title: '',
+    message: h(SocketPhone, {
+      invite,
+      onClose: () => notify.close(),
+    }),
+    customClass: 'meeting-invite-notification',
+    duration: 0,
+    showClose: false,
+  });
+  return notify;
+}
+
+/******************************** WebSocket 连接管理 ********************************/
+
 export function useWebSocket() {
   const ws = ref<WebSocket | null>(null);
   const isConnected = ref(false);
@@ -161,21 +214,20 @@ export function useWebSocket() {
       }
       const msg: WsMessage = result.message;
       console.log('Received notification message:', msg);
-      if (msg.type !== 'meeting') {
-        ElNotification({
-          title: msg.title || '新消息',
-          message: h(SocketMsg, { msgInfo: msg }),
-          type: msgTypeToElType(msg.type),
-          duration: 5000,
-        });
-      } else {
-        ElNotification({
-          title: msg.title || '会议消息',
-          message: h(SocketMsg, { msgInfo: msg }),
-          type: 'info',
-          duration: 5000,
-        });
+      if (isMeetingInviteMessage(msg)) {
+        const invite = toPendingInvite(msg);
+        if (invite) {
+          meetingStore.upsertPendingMeeting(invite);
+          showMeetingInviteNotification(invite);
+          return;
+        }
       }
+      ElNotification({
+        title: msg.title || '新消息',
+        message: h(SocketMsg, { msgInfo: msg }),
+        type: msgTypeToElType(msg.type),
+        duration: 5000,
+      });
     };
 
     ws.value.onclose = () => {

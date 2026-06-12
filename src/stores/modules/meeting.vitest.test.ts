@@ -7,6 +7,7 @@ import { useMeetingStore } from './meeting';
 const meetingApiMocks = vi.hoisted(() => ({
   acceptMeetingApi: vi.fn(),
   createMeetingApi: vi.fn(),
+  declineMeetingApi: vi.fn(),
   getCurrentMeetingApi: vi.fn(),
   getMeetingDetailApi: vi.fn(),
   getPendingMeetingsApi: vi.fn(),
@@ -149,5 +150,223 @@ describe('meeting store', () => {
 
     expect(meetingApiMocks.stopMeetingApi).toHaveBeenCalledWith(10);
     expect(meetingApiMocks.leaveMeetingApi).toHaveBeenCalledWith(10);
+  });
+
+  test('declineMeeting should remove a pending invite from the waiting list', async () => {
+    const store = useMeetingStore();
+    store.pendingMeetings = [
+      {
+        meetingId: 10,
+        title: '周会',
+        status: 'ACTIVE',
+        hostUserId: 1,
+        hostUserName: 'host',
+        hostNickName: '主持人',
+        startedAt: '2026-06-11 15:00:00',
+        inviteSentAt: '2026-06-11 15:00:00',
+        inviteStatus: 'PENDING',
+      },
+      {
+        meetingId: 11,
+        title: '复盘会',
+        status: 'ACTIVE',
+        hostUserId: 1,
+        hostUserName: 'host',
+        hostNickName: '主持人',
+        startedAt: '2026-06-11 16:00:00',
+        inviteSentAt: '2026-06-11 16:00:00',
+        inviteStatus: 'PENDING',
+      },
+    ];
+
+    meetingApiMocks.declineMeetingApi.mockResolvedValue({
+      data: createMeetingDetail({
+        meetingId: 10,
+        currentUserId: 2,
+        hostUserId: 1,
+        currentInviteStatus: 'DECLINED',
+      }),
+    });
+
+    await store.declineMeeting(10);
+
+    expect(meetingApiMocks.declineMeetingApi).toHaveBeenCalledWith(10);
+    expect(store.pendingMeetings.map((item) => item.meetingId)).toEqual([11]);
+  });
+
+  test('hideDrawerToBackground should keep the meeting but stop auto-opening it', () => {
+    const store = useMeetingStore();
+    store.setMeetingDetail(createMeetingDetail({ currentUserId: 2, hostUserId: 1 }));
+    store.openDrawer();
+
+    store.hideDrawerToBackground();
+
+    expect(store.drawerVisible).toBe(false);
+    expect(store.shouldAutoOpenDrawer).toBe(false);
+    expect(store.currentMeetingId).toBe(10);
+    expect(store.meetingDetail?.session.status).toBe('ACTIVE');
+  });
+
+  test('consumeWsMessage should keep transcript and summary arrays when meeting_state is partial', () => {
+    const store = useMeetingStore();
+    const detail = createMeetingDetail({ currentUserId: 2, hostUserId: 1 });
+    detail.transcripts = [
+      {
+        id: 100,
+        meetingId: 10,
+        participantId: 2,
+        userId: 2,
+        displayName: '成员',
+        transcriptText: '最新转写',
+        audioStartedAt: '2026-06-11 15:01:00',
+        audioEndedAt: '2026-06-11 15:01:10',
+        createBy: 'worker',
+        createTime: '2026-06-11 15:01:10',
+      },
+    ];
+    detail.summaries = [
+      {
+        id: 200,
+        meetingId: 10,
+        summaryType: 'STAGE',
+        summaryIndex: 1,
+        summaryText: '阶段总结',
+        sourceTranscriptCount: 1,
+        createBy: 'system',
+        createTime: '2026-06-11 15:02:00',
+      },
+    ];
+    store.setMeetingDetail(detail);
+
+    store.consumeWsMessage({
+      type: 'meeting_state',
+      data: {
+        session: {
+          ...detail.session,
+          rtcStatus: 'RUNNING',
+        },
+        participants: detail.participants,
+      },
+    });
+
+    expect(store.meetingDetail?.transcripts).toHaveLength(1);
+    expect(store.meetingDetail?.summaries).toHaveLength(1);
+    expect(store.meetingDetail?.transcripts[0]?.transcriptText).toBe(
+      '最新转写'
+    );
+  });
+
+  test('liveTranscriptBlocks and liveSummary should split raw transcript feed from AI summary feed', () => {
+    const store = useMeetingStore();
+    const detail = createMeetingDetail({ currentUserId: 2, hostUserId: 1 });
+    detail.transcripts = [
+      {
+        id: 100,
+        meetingId: 10,
+        participantId: 1,
+        userId: 1,
+        displayName: '主持人',
+        transcriptText: '我们先确认上线时间。',
+        audioStartedAt: '2026-06-11 15:01:00',
+        audioEndedAt: '2026-06-11 15:01:10',
+        createBy: 'worker',
+        createTime: '2026-06-11 15:01:10',
+      },
+    ];
+    detail.summaries = [
+      {
+        id: 200,
+        meetingId: 10,
+        summaryType: 'STAGE',
+        summaryIndex: 1,
+        summaryText: 'AI 归纳：当前先聚焦上线时间与负责人。',
+        sourceTranscriptCount: 1,
+        createBy: 'system',
+        createTime: '2026-06-11 15:02:00',
+      },
+      {
+        id: 201,
+        meetingId: 10,
+        summaryType: 'STAGE',
+        summaryIndex: 1,
+        summaryText: 'AI 归纳：当前先聚焦上线时间与负责人。',
+        sourceTranscriptCount: 1,
+        createBy: 'system',
+        createTime: '2026-06-11 15:03:00',
+      },
+    ];
+    store.setMeetingDetail(detail);
+
+    store.consumeWsMessage({
+      type: 'meeting_transcript_partial',
+      data: {
+        participantIdentity: 'user-127',
+        userId: 127,
+        displayName: '贺琦',
+        transcriptText: '我这边今天可以补完测试。',
+        audioStartedAt: '2026-06-11 15:02:30',
+        audioEndedAt: '2026-06-11 15:02:35',
+      },
+    });
+
+    expect(store.liveTranscriptBlocks).toEqual([
+      expect.objectContaining({
+        kind: 'speaker',
+        label: '主持人提到',
+        text: '我们先确认上线时间。',
+      }),
+      expect.objectContaining({
+        kind: 'pending',
+        label: '贺琦补充',
+        text: '我这边今天可以补完测试。',
+        pending: true,
+      }),
+    ]);
+    expect(store.liveSummaryText).toBe(
+      'AI 归纳：当前先聚焦上线时间与负责人。'
+    );
+    expect(store.liveSummaryStatus).toBe('streaming');
+  });
+
+  test('meeting_live_summary should refresh the lower AI summary without changing the raw transcript feed', () => {
+    const store = useMeetingStore();
+    const detail = createMeetingDetail({ currentUserId: 2, hostUserId: 1 });
+    detail.transcripts = [
+      {
+        id: 100,
+        meetingId: 10,
+        participantId: 1,
+        userId: 1,
+        displayName: '主持人',
+        transcriptText: '我们先确认上线时间。',
+        audioStartedAt: '2026-06-11 15:01:00',
+        audioEndedAt: '2026-06-11 15:01:10',
+        createBy: 'worker',
+        createTime: '2026-06-11 15:01:10',
+      },
+    ];
+    store.setMeetingDetail(detail);
+
+    store.consumeWsMessage({
+      type: 'meeting_live_summary',
+      data: {
+        meetingId: 10,
+        summaryText: 'AI 实时总结：会议先确认本周上线时间，并继续补充测试安排。',
+        sourceTranscriptCount: 1,
+        updatedAt: '2026-06-11 15:02:00',
+      },
+    });
+
+    expect(store.liveTranscriptBlocks).toHaveLength(1);
+    expect(store.liveTranscriptBlocks[0]).toEqual(
+      expect.objectContaining({
+        kind: 'speaker',
+        text: '我们先确认上线时间。',
+      })
+    );
+    expect(store.liveSummaryText).toBe(
+      'AI 实时总结：会议先确认本周上线时间，并继续补充测试安排。'
+    );
+    expect(store.liveSummaryStatus).toBe('streaming');
   });
 });

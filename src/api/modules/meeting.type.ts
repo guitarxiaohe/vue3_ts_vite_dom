@@ -102,3 +102,19 @@ export interface UploadMeetingAudioRequest {
 }
 
 export type MeetingSelectableUser = SysUser;
+
+/** 流式 ASR 进行中的转写（partial result） */
+export interface PendingTranscript {
+  /** 参与者身份标识（如 user-123） */
+  participantIdentity: string;
+  /** 用户 ID */
+  userId: number | null;
+  /** 发言人显示名 */
+  displayName: string;
+  /** 累积转写文本（每次 partial 更新为最新全文） */
+  transcriptText: string;
+  /** 音频起始时间 */
+  audioStartedAt: string | null;
+  /** 音频结束时间 */
+  audioEndedAt: string | null;
+}

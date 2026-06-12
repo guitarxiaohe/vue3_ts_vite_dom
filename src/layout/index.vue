@@ -1,23 +1,27 @@
 <script lang="ts" setup>
-import { computed, h, onMounted, onUnmounted } from 'vue';
-import { ElNotification } from 'element-plus';
+import { computed, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 import {
   useMeetingStore,
   useNotificationStore,
   useSystemStore,
 } from '@/stores';
+import type { CmsMeetingPendingInvite } from '@/api/modules/meeting.type';
 import ConventionalMenu from '@/components/conventional-menu/index.vue';
 import GlobalMeetingDrawer from '@/components/global-meeting-drawer/index.vue';
 import NoticeBar from '@/components/notice-bar/index.vue';
 import NotifyBell from '@/components/notify-bell/index.vue';
-import { useWebSocket } from '@/composables/use-websocket';
+import {
+  showMeetingInviteNotification,
+  useWebSocket,
+} from '@/composables/use-websocket';
 import { getRecentWsLogsApi } from '@/api/modules/ws-log';
-import SocketMsg from '@/components/socket-msg/index.vue';
 import HeaderAvatar from './compoments/header-avatar.vue';
 const systemStore = useSystemStore();
 const notificationStore = useNotificationStore();
 const meetingStore = useMeetingStore();
+const { t } = useI18n();
 
 const { connect, disconnect } = useWebSocket();
 
@@ -41,6 +45,16 @@ const layoutTransitionStyle = computed(() => {
     '--page-transition-duration': speedMap[systemStore.animationSpeed],
   };
 });
+const showMeetingReentry = computed(
+  () => meetingStore.hasActiveMeeting && !meetingStore.drawerVisible
+);
+const meetingReentryTitle = computed(
+  () => meetingStore.meetingDetail?.session.title || t('meeting.drawerTitle')
+);
+
+function reopenMeetingDrawer() {
+  meetingStore.openDrawer();
+}
 
 /******************************** 初始化 WebSocket + 历史消息 ********************************/
 
@@ -60,12 +74,8 @@ onMounted(async () => {
   const pendingMessages = meetingStore.buildPendingInviteMessages();
   pendingMessages.forEach((message) => {
     notificationStore.push(message);
-    ElNotification({
-      title: message.title || '新消息',
-      message: h(SocketMsg, { msgInfo: message }),
-      type: 'info',
-      duration: 5000,
-    });
+    const invite = message.data as CmsMeetingPendingInvite;
+    showMeetingInviteNotification(invite);
   });
 });
 
@@ -109,6 +119,20 @@ onUnmounted(() => {
         </el-main>
       </el-container>
     </el-container>
+    <transition name="meeting-entry-float">
+      <button
+        v-if="showMeetingReentry"
+        type="button"
+        class="meeting-entry-float"
+        @click="reopenMeetingDrawer"
+      >
+        <span class="meeting-entry-float__dot" />
+        <span class="meeting-entry-float__text">
+          {{ meetingReentryTitle }}
+        </span>
+        <strong>{{ t('meeting.reopenDrawer') }}</strong>
+      </button>
+    </transition>
     <GlobalMeetingDrawer />
   </div>
 </template>
@@ -225,5 +249,51 @@ onUnmounted(() => {
 :global(.page-zoom-leave-to) {
   opacity: 0;
   transform: scale(0.985);
+}
+
+.meeting-entry-float-enter-active,
+.meeting-entry-float-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.meeting-entry-float-enter-from,
+.meeting-entry-float-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.meeting-entry-float {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: calc(var(--z-modal) - 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #112d4e 0%, #1d4d7d 100%);
+  color: #fff;
+  box-shadow: 0 18px 36px rgba(10, 30, 60, 0.24);
+  cursor: pointer;
+}
+
+.meeting-entry-float__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #67e8a5;
+  box-shadow: 0 0 0 6px rgba(103, 232, 165, 0.16);
+}
+
+.meeting-entry-float__text {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.9;
 }
 </style>

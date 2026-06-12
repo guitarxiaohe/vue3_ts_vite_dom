@@ -193,6 +193,8 @@ export default {
     resendSummary: 'Resend Summary',
     pendingListTitle: 'Pending Meetings',
     pendingInvitedBy: 'Invited by {name}',
+    pendingAccept: 'Join',
+    pendingDecline: 'Decline',
     participantsTitle: 'Participants',
     participantCount: '{count} people',
     currentSpeaker: 'Current Speaker',
@@ -201,6 +203,7 @@ export default {
     roleMember: 'Member',
     participantAccepted: 'Joined',
     participantPending: 'Waiting',
+    participantDeclined: 'Declined',
     participantAbsent: 'Absent',
     participantConnected: 'In Meeting',
     participantConnecting: 'Connecting',
@@ -214,6 +217,9 @@ export default {
     transcriptCount: '{count} items',
     transcriptEmpty:
       'The live transcript will appear here after recording starts',
+    rawTranscriptTitle: 'Raw Meeting Transcript',
+    rawTranscriptEmpty:
+      'Once the meeting starts, the raw speaker transcript will keep flowing here.',
     stageSummaryTitle: 'Stage Summaries',
     stageSummaryCount: '{count} times',
     stageSummaryItem: 'Stage summary #{index}',
@@ -224,6 +230,18 @@ export default {
     finalSummaryWaiting: 'Will send after the meeting ends',
     finalSummaryEmpty:
       'The final summary will appear here after the meeting ends.',
+    liveDigestTitle: 'AI Meeting Notes',
+    liveDigestReady: 'Ready',
+    liveDigestStreaming: 'Listening and organizing',
+    liveDigestEmpty:
+      'Once the meeting starts, AI will keep shaping a continuous meeting note here.',
+    liveDigestPolishing: 'Polishing',
+    aiSummaryTitle: 'AI Live Summary',
+    aiSummaryReady: 'Ready',
+    aiSummaryStreaming: 'Organizing',
+    aiSummaryEmpty:
+      'AI will keep refining a live meeting summary here while the meeting is active.',
+    aiSummaryPolishing: 'Polishing',
     endedBannerTitle: 'Meeting ended, recording stopped',
     endedBannerDescription:
       'This page is now in read-only mode. You can still review participants, transcripts, and the final summary.',
@@ -239,6 +257,8 @@ export default {
     rtcStarted: 'Group call started',
     rtcStopped: 'Group call ended',
     joinMeeting: 'Join Call',
+    takeOverAudio: 'Take Over Audio Here',
+    audioInOtherWindow: 'Audio is active in another window',
     leaveMeeting: 'Leave Meeting',
     leaveSuccess: 'You left the current meeting',
     micOn: 'Mic On',
@@ -254,6 +274,8 @@ export default {
     audioUploadFailed: 'Audio upload failed',
     endSuccess: 'Meeting ended and the summary was sent to DingTalk',
     resendSuccess: 'Final summary resent',
+    declineSuccess: 'Meeting invitation declined',
+    declineFailed: 'Failed to decline the meeting invitation',
     routeTitle: 'Meeting drawer opened',
     routeDescription:
       'You can return to the previous page and keep working while the meeting stays in the global drawer.',
@@ -817,6 +839,10 @@ export default {
     fieldConfig: { title: 'Field Config' },
     fileInfo: { title: 'File Management' },
     entity: { title: 'Entity Config' },
+    meetingSession: { title: 'Meeting' },
+    meetingParticipant: { title: 'Participant' },
+    meetingTranscript: { title: 'Transcript' },
+    meetingSummary: { title: 'Summary' },
   },
   field: {
     id: 'ID',

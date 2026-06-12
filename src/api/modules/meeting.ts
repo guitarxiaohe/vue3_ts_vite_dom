@@ -33,6 +33,12 @@ export function acceptMeetingApi(meetingId: number) {
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
+export function declineMeetingApi(meetingId: number) {
+  return httpClient.post(
+    `/cms/meeting/session/${meetingId}/decline`
+  ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
+}
+
 export function getMeetingDetailApi(meetingId: number) {
   return httpClient.get(
     `/cms/meeting/session/${meetingId}`

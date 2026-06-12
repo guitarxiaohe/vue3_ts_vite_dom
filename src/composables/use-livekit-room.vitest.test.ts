@@ -143,6 +143,7 @@ describe('useLivekitRoom audio playback', () => {
     livekitMocks.rooms.length = 0;
     livekitMocks.nextRemoteParticipants.length = 0;
     document.body.innerHTML = '';
+    localStorage.clear();
   });
 
   test('attaches existing remote audio tracks after joining the room', async () => {
@@ -171,5 +172,26 @@ describe('useLivekitRoom audio playback', () => {
     await nextTick();
 
     expect(remote.attach).toHaveBeenCalledTimes(1);
+  });
+
+  test('restores shared mic state and playback volume after refresh', async () => {
+    localStorage.setItem(
+      'xiaohe:meeting:audio-state',
+      JSON.stringify({
+        isMicEnabled: false,
+        isSpeakerMuted: false,
+        playbackVolume: 0.35,
+      })
+    );
+
+    const livekitRoom = useLivekitRoom();
+    await livekitRoom.joinRoom(createTokenInfo());
+
+    const room = livekitMocks.rooms[0];
+    expect(room.localParticipant.setMicrophoneEnabled).toHaveBeenLastCalledWith(
+      false
+    );
+    expect(livekitRoom.isMicEnabled.value).toBe(false);
+    expect(livekitRoom.playbackVolume.value).toBe(0.35);
   });
 });

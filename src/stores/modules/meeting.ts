@@ -8,11 +8,13 @@ import type {
   CmsMeetingTranscript,
   CreateMeetingRequest,
   MeetingSelectableUser,
+  PendingTranscript,
   UploadMeetingAudioRequest,
 } from '@/api/modules/meeting.type';
 import {
   acceptMeetingApi,
   createMeetingApi,
+  declineMeetingApi,
   getCurrentMeetingApi,
   getMeetingDetailApi,
   getPendingMeetingsApi,
@@ -22,25 +24,237 @@ import {
   stopMeetingApi,
   uploadMeetingAudioApi,
 } from '@/api/modules/meeting';
+import {
+  claimMeetingRtcOwner,
+  ensureMeetingClientId,
+  readMeetingRtcOwner,
+  releaseMeetingRtcOwner,
+} from '@/utils/meeting-cross-window';
 
+/******************************** 类型定义 ********************************/
+
+type MeetingTranscriptBlockKind = 'speaker' | 'pending';
+
+/** 转写块（用于 UI 渲染，合并 final + pending） */
+export interface MeetingTranscriptBlock {
+  id: string;
+  kind: MeetingTranscriptBlockKind;
+  label: string;
+  text: string;
+  timestamp: number;
+  pending?: boolean;
+}
+
+/** 流式 AI 摘要草稿 */
+interface MeetingLiveSummaryDraft {
+  meetingId: number;
+  summaryText: string;
+  sourceTranscriptCount?: number;
+  updatedAt?: string | null;
+}
+
+type MeetingLiveSummaryStatus = 'empty' | 'streaming' | 'ready';
+
+/******************************** 工具函数 ********************************/
+
+/** 安全转换为会议 ID，无效值返回 0 */
 function toMeetingId(value: unknown) {
   const meetingId = Number(value);
   return Number.isNaN(meetingId) ? 0 : meetingId;
 }
 
+/** 安全转换为数字 ID，无效值返回 0 */
 function toNumericId(value: unknown) {
   const numericId = Number(value);
   return Number.isNaN(numericId) ? 0 : numericId;
 }
 
+/** 解析时间字符串为毫秒时间戳，无效返回 0 */
+function toTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return 0;
+  }
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+/** 去除首尾空白，null/undefined 返回空字符串 */
+function normalizeNarrativeText(value: string | null | undefined) {
+  return (value || '').trim();
+}
+
+/** 生成转写块的说话人标签，如 "张三提到" / "张三补充" */
+function createSpeakerNarrativeLabel(
+  displayName: string | null | undefined,
+  isPending = false
+) {
+  const safeDisplayName = normalizeNarrativeText(displayName) || '参会人';
+  return `${safeDisplayName}${isPending ? '补充' : '提到'}`;
+}
+
+/******************************** 数据转换 ********************************/
+
+/** 合并 final transcript 和 pending transcript，按时间排序生成渲染用的 blocks */
+function createTranscriptBlocks(
+  detail: CmsMeetingDetail | null,
+  pendingTranscripts: Record<string, PendingTranscript>
+) {
+  if (!detail) {
+    return [] as MeetingTranscriptBlock[];
+  }
+
+  const blocks: MeetingTranscriptBlock[] = [];
+  const transcripts = detail.transcripts ?? [];
+
+  // 已确认的转写
+  transcripts.forEach((item) => {
+    const text = normalizeNarrativeText(item.transcriptText);
+    if (!text) {
+      return;
+    }
+    blocks.push({
+      id: `transcript-${item.id}`,
+      kind: 'speaker',
+      label: createSpeakerNarrativeLabel(item.displayName),
+      text,
+      timestamp: toTimestamp(item.audioStartedAt || item.createTime),
+    });
+  });
+
+  // 流式进行中的转写（partial result）
+  Object.entries(pendingTranscripts).forEach(([participantIdentity, item]) => {
+    const text = normalizeNarrativeText(item.transcriptText);
+    if (!text) {
+      return;
+    }
+    blocks.push({
+      id: `pending-${participantIdentity}`,
+      kind: 'pending',
+      label: createSpeakerNarrativeLabel(item.displayName, true),
+      text,
+      timestamp: toTimestamp(item.audioStartedAt || item.audioEndedAt),
+      pending: true,
+    });
+  });
+
+  // 同时间戳时 speaker 优先于 pending
+  const orderWeight: Record<MeetingTranscriptBlockKind, number> = {
+    speaker: 1,
+    pending: 2,
+  };
+
+  return blocks.sort((left, right) => {
+    if (left.timestamp !== right.timestamp) {
+      return left.timestamp - right.timestamp;
+    }
+    return orderWeight[left.kind] - orderWeight[right.kind];
+  });
+}
+
+/** 获取最新的已持久化摘要（优先 FINAL，其次 STAGE） */
+function getLatestPersistedSummary(detail: CmsMeetingDetail | null) {
+  if (!detail) {
+    return null as
+      | { text: string; updatedAt: string | null; source: 'stage' | 'final' }
+      | null;
+  }
+
+  const summaries = detail.summaries ?? [];
+
+  // 优先取最新的 FINAL 摘要
+  const latestFinalSummary = [...summaries]
+    .filter((item) => item.summaryType === 'FINAL')
+    .sort((left, right) => {
+      if ((left.summaryIndex ?? 0) !== (right.summaryIndex ?? 0)) {
+        return (right.summaryIndex ?? 0) - (left.summaryIndex ?? 0);
+      }
+      return toTimestamp(right.createTime) - toTimestamp(left.createTime);
+    })[0];
+  const finalSummaryText =
+    normalizeNarrativeText(latestFinalSummary?.summaryText) ||
+    normalizeNarrativeText(detail.session.finalSummary);
+  if (finalSummaryText) {
+    return {
+      text: finalSummaryText,
+      updatedAt:
+        latestFinalSummary?.createTime ||
+        detail.session.endedAt ||
+        detail.session.updateTime ||
+        detail.session.createTime,
+      source: 'final' as const,
+    };
+  }
+
+  // 回退到最新的 STAGE 摘要
+  const latestStageSummary = [...summaries]
+    .filter((item) => item.summaryType === 'STAGE')
+    .sort((left, right) => {
+      if ((left.summaryIndex ?? 0) !== (right.summaryIndex ?? 0)) {
+        return (right.summaryIndex ?? 0) - (left.summaryIndex ?? 0);
+      }
+      return toTimestamp(right.createTime) - toTimestamp(left.createTime);
+    })[0];
+  const stageSummaryText = normalizeNarrativeText(latestStageSummary?.summaryText);
+  if (!stageSummaryText) {
+    return null;
+  }
+  return {
+    text: stageSummaryText,
+    updatedAt: latestStageSummary?.createTime || null,
+    source: 'stage' as const,
+  };
+}
+
+/** 标准化会议详情：同一会议时保留旧的 participants/transcripts/summaries 避免闪烁 */
+function normalizeMeetingDetail(
+  detail: CmsMeetingDetail | null,
+  previousDetail: CmsMeetingDetail | null
+) {
+  if (!detail) {
+    return null;
+  }
+
+  const isSameMeeting =
+    toMeetingId(previousDetail?.session.id) === toMeetingId(detail.session.id);
+  const previousTranscripts = isSameMeeting
+    ? (previousDetail?.transcripts ?? [])
+    : [];
+  const previousSummaries = isSameMeeting
+    ? (previousDetail?.summaries ?? [])
+    : [];
+  const previousParticipants = isSameMeeting
+    ? (previousDetail?.participants ?? [])
+    : [];
+  const fallbackCurrentUserId =
+    detail.currentUserId ??
+    (isSameMeeting ? (previousDetail?.currentUserId ?? null) : null);
+
+  return {
+    ...detail,
+    participants: detail.participants ?? previousParticipants,
+    transcripts: detail.transcripts ?? previousTranscripts,
+    summaries: detail.summaries ?? previousSummaries,
+    currentUserId: fallbackCurrentUserId,
+  };
+}
+
+/******************************** Store 定义 ********************************/
+
 export const useMeetingStore = defineStore(
   'meeting',
   () => {
+    /******************************** 持久化状态 ********************************/
+
     const currentMeetingId = ref<number | null>(null);
     const shouldResumeCapture = ref(false);
     const speakerUserId = ref<number | null>(null);
     const seenPendingInviteIds = ref<number[]>([]);
     const shouldAutoOpenDrawer = ref(false);
+    const meetingClientId = ref(ensureMeetingClientId(sessionStorage));
+    const rtcOwnerClientId = ref<string | null>(null);
+    const rtcOwnerMeetingId = ref<number | null>(null);
+
+    /******************************** 运行时状态 ********************************/
 
     const meetingDetail = ref<CmsMeetingDetail | null>(null);
     const drawerVisible = ref(false);
@@ -49,14 +263,30 @@ export const useMeetingStore = defineStore(
     const selectableUsers = ref<MeetingSelectableUser[]>([]);
     const loading = ref(false);
 
+    /** 流式 ASR 进行中的转写，按 participantIdentity 索引 */
+    const pendingTranscripts = ref<Record<string, PendingTranscript>>({});
+    const liveSummaryDraft = ref<MeetingLiveSummaryDraft | null>(null);
+
+    /******************************** 计算属性 ********************************/
+
+    /** 是否有进行中的会议 */
     const hasActiveMeeting = computed(
       () => meetingDetail.value?.session.status === 'ACTIVE'
     );
+
+    /** 所有阶段摘要列表 */
     const stageSummaries = computed(() =>
       (meetingDetail.value?.summaries || []).filter(
         (item) => item.summaryType === 'STAGE'
       )
     );
+
+    /** 合并后的转写块列表（final + pending，按时间排序） */
+    const liveTranscriptBlocks = computed(() =>
+      createTranscriptBlocks(meetingDetail.value, pendingTranscripts.value)
+    );
+
+    /** 最终摘要文本 */
     const finalSummary = computed(
       () =>
         (meetingDetail.value?.summaries || []).find(
@@ -66,19 +296,47 @@ export const useMeetingStore = defineStore(
         ''
     );
 
-    function setMeetingDetail(detail: CmsMeetingDetail | null) {
-      if (detail) {
-        const fallbackCurrentUserId =
-          detail.currentUserId ??
-          (toMeetingId(meetingDetail.value?.session.id) ===
-          toMeetingId(detail.session.id)
-            ? (meetingDetail.value?.currentUserId ?? null)
-            : null);
-        detail = {
-          ...detail,
-          currentUserId: fallbackCurrentUserId,
-        };
+    /** 实时摘要文本（流式草稿 > 已持久化摘要） */
+    const liveSummaryText = computed(() => {
+      const persisted = getLatestPersistedSummary(meetingDetail.value);
+      const draftText = normalizeNarrativeText(liveSummaryDraft.value?.summaryText);
+      if (
+        meetingDetail.value?.session.status === 'ENDED' &&
+        persisted?.source === 'final'
+      ) {
+        return persisted.text;
       }
+      return draftText || persisted?.text || '';
+    });
+
+    /** 实时摘要更新时间 */
+    const liveSummaryUpdatedAt = computed(() => {
+      const persisted = getLatestPersistedSummary(meetingDetail.value);
+      if (
+        meetingDetail.value?.session.status === 'ENDED' &&
+        persisted?.source === 'final'
+      ) {
+        return persisted.updatedAt || null;
+      }
+      return liveSummaryDraft.value?.updatedAt || persisted?.updatedAt || null;
+    });
+
+    /** 实时摘要状态：empty / streaming / ready */
+    const liveSummaryStatus = computed<MeetingLiveSummaryStatus>(() => {
+      if (!liveSummaryText.value) {
+        return 'empty';
+      }
+      return meetingDetail.value?.session.status === 'ENDED'
+        ? 'ready'
+        : 'streaming';
+    });
+
+    /******************************** 会议详情管理 ********************************/
+
+    /** 设置会议详情，处理新参会者高亮、状态同步等 */
+    function setMeetingDetail(detail: CmsMeetingDetail | null) {
+      const previousMeetingId = toMeetingId(meetingDetail.value?.session.id);
+      detail = normalizeMeetingDetail(detail, meetingDetail.value);
 
       const previousParticipants =
         detail &&
@@ -91,9 +349,18 @@ export const useMeetingStore = defineStore(
       if (!detail) {
         currentMeetingId.value = null;
         lastJoinedUserId.value = null;
+        liveSummaryDraft.value = null;
         return;
       }
+      // 切换会议或会议结束时清除摘要草稿
+      if (toMeetingId(detail.session.id) !== previousMeetingId) {
+        liveSummaryDraft.value = null;
+      }
+      if (detail.session.status === 'ENDED') {
+        liveSummaryDraft.value = null;
+      }
 
+      // 检测新加入的参会者（用于 UI 高亮动画）
       if (previousParticipants.length > 0) {
         const previousInviteStatusMap = new Map<number, string>();
         previousParticipants.forEach((item) => {
@@ -123,6 +390,7 @@ export const useMeetingStore = defineStore(
       if (detail.session.status !== 'ACTIVE') {
         shouldResumeCapture.value = false;
       }
+      // 默认选中当前用户作为发言人
       if (speakerUserId.value === null) {
         const participant =
           detail.participants.find(
@@ -136,6 +404,7 @@ export const useMeetingStore = defineStore(
       }
     }
 
+    /** 清除所有会议运行时状态 */
     function clearMeetingRuntime() {
       shouldResumeCapture.value = false;
       meetingDetail.value = null;
@@ -144,14 +413,25 @@ export const useMeetingStore = defineStore(
       lastJoinedUserId.value = null;
       shouldAutoOpenDrawer.value = false;
       drawerVisible.value = false;
+      pendingTranscripts.value = {};
+      liveSummaryDraft.value = null;
+      releaseRtcOwnership();
     }
+
+    /******************************** 抽屉控制 ********************************/
 
     function openDrawer() {
       drawerVisible.value = true;
+      shouldAutoOpenDrawer.value = true;
     }
 
     function closeDrawer() {
       drawerVisible.value = false;
+    }
+
+    function hideDrawerToBackground() {
+      drawerVisible.value = false;
+      shouldAutoOpenDrawer.value = false;
     }
 
     function clearLastJoinedUserId() {
@@ -162,6 +442,9 @@ export const useMeetingStore = defineStore(
       shouldAutoOpenDrawer.value = value;
     }
 
+    /******************************** 参会者查询 ********************************/
+
+    /** 获取当前用户在会议中的参会者记录 */
     function getCurrentParticipant() {
       if (!meetingDetail.value || meetingDetail.value.currentUserId === null) {
         return null;
@@ -175,12 +458,16 @@ export const useMeetingStore = defineStore(
       );
     }
 
+    /******************************** 数据加载 ********************************/
+
+    /** 加载可邀请的用户列表 */
     async function loadSelectableUsers() {
       const response = await listMeetingSelectableUsersApi();
       selectableUsers.value = response.data;
       return response.data;
     }
 
+    /** 加载待处理的会议邀请列表 */
     async function loadPendingMeetings() {
       const response = await getPendingMeetingsApi();
       pendingMeetings.value = response.data;
@@ -191,6 +478,7 @@ export const useMeetingStore = defineStore(
       return response.data;
     }
 
+    /** 将未见过的待处理邀请转为 WsMessage 格式（用于弹出通知） */
     function buildPendingInviteMessages() {
       const freshMeetings = pendingMeetings.value.filter(
         (item) => !seenPendingInviteIds.value.includes(item.meetingId)
@@ -211,6 +499,21 @@ export const useMeetingStore = defineStore(
       );
     }
 
+    /** 更新或插入待处理邀请（WebSocket 实时推送时调用） */
+    function upsertPendingMeeting(invite: CmsMeetingPendingInvite) {
+      const index = pendingMeetings.value.findIndex(
+        (item) => item.meetingId === invite.meetingId
+      );
+      if (index >= 0) {
+        pendingMeetings.value.splice(index, 1, invite);
+        return;
+      }
+      pendingMeetings.value.unshift(invite);
+    }
+
+    /******************************** 会议生命周期 ********************************/
+
+    /** 创建会议 */
     async function createMeeting(payload: CreateMeetingRequest) {
       loading.value = true;
       try {
@@ -218,6 +521,9 @@ export const useMeetingStore = defineStore(
         setMeetingDetail(response.data);
         shouldResumeCapture.value = true;
         shouldAutoOpenDrawer.value = response.data.session.status === 'ACTIVE';
+        if (response.data.session.status === 'ACTIVE') {
+          claimRtcOwnership(response.data.session.id);
+        }
         await loadPendingMeetings();
         return response.data;
       } finally {
@@ -225,18 +531,22 @@ export const useMeetingStore = defineStore(
       }
     }
 
+    /** 加载当前进行中的会议 */
     async function loadCurrentMeeting() {
       const response = await getCurrentMeetingApi();
       setMeetingDetail(response.data);
+      syncRtcOwnershipFromStorage();
       return response.data;
     }
 
+    /** 按 ID 加载会议详情 */
     async function loadMeetingDetail(meetingId: number) {
       const response = await getMeetingDetailApi(meetingId);
       setMeetingDetail(response.data);
       return response.data;
     }
 
+    /** 进入会议：加载详情，未接受时自动接受 */
     async function enterMeeting(meetingId: number) {
       const detail = await loadMeetingDetail(meetingId);
       const currentParticipant =
@@ -252,19 +562,30 @@ export const useMeetingStore = defineStore(
         const accepted = await acceptMeeting(meetingId);
         shouldResumeCapture.value = true;
         shouldAutoOpenDrawer.value = accepted.session.status === 'ACTIVE';
+        if (accepted.session.status === 'ACTIVE') {
+          claimRtcOwnership(accepted.session.id);
+        }
         await loadPendingMeetings();
         return accepted;
       }
       shouldResumeCapture.value = detail.session.status === 'ACTIVE';
       shouldAutoOpenDrawer.value = detail.session.status === 'ACTIVE';
+      if (detail.session.status === 'ACTIVE') {
+        claimRtcOwnership(detail.session.id);
+      }
       return detail;
     }
 
+    /** 接受会议邀请 */
     async function acceptMeeting(meetingId: number) {
       const response = await acceptMeetingApi(meetingId);
       setMeetingDetail(response.data);
       shouldResumeCapture.value = response.data.session.status === 'ACTIVE';
       shouldAutoOpenDrawer.value = response.data.session.status === 'ACTIVE';
+      if (response.data.session.status === 'ACTIVE') {
+        claimRtcOwnership(response.data.session.id);
+      }
+      // 从待处理列表中移除
       pendingMeetings.value = pendingMeetings.value.filter(
         (item) => item.meetingId !== meetingId
       );
@@ -274,6 +595,22 @@ export const useMeetingStore = defineStore(
       return response.data;
     }
 
+    /** 拒绝会议邀请，从待处理列表中移除 */
+    async function declineMeeting(meetingId: number) {
+      const response = await declineMeetingApi(meetingId);
+      pendingMeetings.value = pendingMeetings.value.filter(
+        (item) => item.meetingId !== meetingId
+      );
+      seenPendingInviteIds.value = seenPendingInviteIds.value.filter(
+        (item) => item !== meetingId
+      );
+      if (toMeetingId(meetingDetail.value?.session.id) === toMeetingId(meetingId)) {
+        setMeetingDetail(response.data);
+      }
+      return response.data;
+    }
+
+    /** 离开会议：主持人调用停止，普通成员调用离开 */
     async function leaveMeeting() {
       if (!currentMeetingId.value || !meetingDetail.value) {
         return null;
@@ -289,9 +626,11 @@ export const useMeetingStore = defineStore(
       setMeetingDetail(response.data);
       shouldResumeCapture.value = false;
       shouldAutoOpenDrawer.value = false;
+      releaseRtcOwnership(currentMeetingId.value);
       return response.data;
     }
 
+    /** 停止会议（主持人操作） */
     async function stopMeeting() {
       if (!currentMeetingId.value) {
         return null;
@@ -299,9 +638,11 @@ export const useMeetingStore = defineStore(
       const response = await stopMeetingApi(currentMeetingId.value);
       setMeetingDetail(response.data);
       shouldResumeCapture.value = false;
+      releaseRtcOwnership(currentMeetingId.value);
       return response.data;
     }
 
+    /** 重新发送最终摘要 */
     async function resendFinalSummary() {
       if (!currentMeetingId.value) {
         return null;
@@ -311,6 +652,9 @@ export const useMeetingStore = defineStore(
       return response.data;
     }
 
+    /******************************** 音频上传与转写 ********************************/
+
+    /** 上传音频片段，返回新增的 transcript */
     async function uploadAudio(payload: UploadMeetingAudioRequest) {
       if (!currentMeetingId.value) {
         return null;
@@ -325,6 +669,7 @@ export const useMeetingStore = defineStore(
       return response.data;
     }
 
+    /** 更新或插入已确认的转写记录，同时清除对应 pending */
     function upsertTranscript(transcript: CmsMeetingTranscript) {
       if (
         !meetingDetail.value ||
@@ -342,8 +687,13 @@ export const useMeetingStore = defineStore(
         return;
       }
       transcripts.push(transcript);
+      // final transcript 到达，清除对应参与者的 pending 状态
+      clearPendingTranscriptByUserId(toNumericId(transcript.userId));
     }
 
+    /******************************** 摘要管理 ********************************/
+
+    /** 更新或插入阶段/最终摘要 */
     function upsertSummary(summary: CmsMeetingSummary) {
       if (
         !meetingDetail.value ||
@@ -363,40 +713,118 @@ export const useMeetingStore = defineStore(
       summaries.push(summary);
     }
 
+    /** 更新实时摘要草稿（流式 AI 输出） */
+    function upsertLiveSummaryDraft(summary: MeetingLiveSummaryDraft) {
+      if (
+        !meetingDetail.value ||
+        toMeetingId(meetingDetail.value.session.id) !== toMeetingId(summary.meetingId)
+      ) {
+        return;
+      }
+      liveSummaryDraft.value = summary;
+    }
+
+    /******************************** 流式转写管理 ********************************/
+
+    /** 更新进行中的流式转写（partial result） */
+    function upsertPendingTranscript(pending: PendingTranscript) {
+      if (!meetingDetail.value || !pending.participantIdentity) {
+        console.warn('[upsertPendingTranscript] 跳过:', {
+          hasMeetingDetail: !!meetingDetail.value,
+          participantIdentity: pending.participantIdentity,
+          pending,
+        });
+        return;
+      }
+      pendingTranscripts.value = {
+        ...pendingTranscripts.value,
+        [pending.participantIdentity]: pending,
+      };
+      console.log('[upsertPendingTranscript] 更新:', pending.participantIdentity, pending.transcriptText, '当前条目数:', Object.keys(pendingTranscripts.value).length);
+    }
+
+    /** 根据 userId 清除对应的 pending 转写（final 到达时调用） */
+    function clearPendingTranscriptByUserId(userId: number) {
+      if (!userId) return;
+      const current = pendingTranscripts.value;
+      const next: Record<string, PendingTranscript> = {};
+      for (const [key, value] of Object.entries(current)) {
+        if (toNumericId(value.userId) !== userId) {
+          next[key] = value;
+        }
+      }
+      pendingTranscripts.value = next;
+    }
+
+    /******************************** WebSocket 消息处理 ********************************/
+
+    /** 消费 WebSocket 会议事件，按 type 分发到对应处理方法 */
     function consumeWsMessage(message: WsMessage) {
+      console.log('message ==>', message);
       if (!message.type) {
         return;
       }
+      // 会议状态变更
       if (message.type === 'meeting_state' && message.data) {
-        const detail = message.data as CmsMeetingDetail;
+        const detail = normalizeMeetingDetail(
+          message.data as CmsMeetingDetail,
+          meetingDetail.value
+        );
         if (
-          currentMeetingId.value === null ||
-          toMeetingId(currentMeetingId.value) === toMeetingId(detail.session.id)
+          detail &&
+          (currentMeetingId.value === null ||
+            toMeetingId(currentMeetingId.value) ===
+              toMeetingId(detail.session.id))
         ) {
           setMeetingDetail(detail);
         }
         return;
       }
+      // 已确认的转写
       if (message.type === 'meeting_transcript' && message.data) {
         upsertTranscript(message.data as CmsMeetingTranscript);
         return;
       }
-      if (message.type === 'meeting_stage_summary' && message.data) {
-        upsertSummary(message.data as CmsMeetingSummary);
+      // 流式转写的 partial result
+      if (message.type === 'meeting_transcript_partial' && message.data) {
+        upsertPendingTranscript(message.data as PendingTranscript);
         return;
       }
+      // 阶段摘要生成
+      if (message.type === 'meeting_stage_summary' && message.data) {
+        const summary = message.data as CmsMeetingSummary;
+        upsertSummary(summary);
+        upsertLiveSummaryDraft({
+          meetingId: toMeetingId(summary.meetingId),
+          summaryText: summary.summaryText,
+          sourceTranscriptCount: summary.sourceTranscriptCount,
+          updatedAt: summary.createTime,
+        });
+        return;
+      }
+      // 流式摘要更新
+      if (message.type === 'meeting_live_summary' && message.data) {
+        upsertLiveSummaryDraft(message.data as MeetingLiveSummaryDraft);
+        return;
+      }
+      // 最终摘要生成
       if (message.type === 'meeting_final_summary' && message.data) {
         setMeetingDetail(message.data as CmsMeetingDetail);
         shouldResumeCapture.value = false;
         shouldAutoOpenDrawer.value = false;
+        liveSummaryDraft.value = null;
         return;
       }
+      // 会议关闭
       if (message.type === 'meeting_closed' && message.data) {
         setMeetingDetail(message.data as CmsMeetingDetail);
         shouldResumeCapture.value = false;
         shouldAutoOpenDrawer.value = false;
+        liveSummaryDraft.value = null;
       }
     }
+
+    /******************************** Setters ********************************/
 
     function setSpeakerUserId(value: number | null) {
       speakerUserId.value = value;
@@ -406,6 +834,52 @@ export const useMeetingStore = defineStore(
       shouldResumeCapture.value = value;
     }
 
+    function syncRtcOwnershipFromStorage() {
+      const owner = readMeetingRtcOwner(localStorage);
+      rtcOwnerClientId.value = owner?.clientId || null;
+      rtcOwnerMeetingId.value = owner?.meetingId || null;
+      return owner;
+    }
+
+    function claimRtcOwnership(meetingId: number) {
+      const owner = claimMeetingRtcOwner(
+        meetingId,
+        meetingClientId.value,
+        localStorage
+      );
+      rtcOwnerClientId.value = owner.clientId;
+      rtcOwnerMeetingId.value = owner.meetingId;
+      return owner;
+    }
+
+    function releaseRtcOwnership(meetingId?: number | null) {
+      releaseMeetingRtcOwner(
+        meetingClientId.value,
+        localStorage,
+        meetingId || undefined
+      );
+      syncRtcOwnershipFromStorage();
+    }
+
+    function isCurrentTabRtcOwner(meetingId: number | null | undefined) {
+      const owner = syncRtcOwnershipFromStorage();
+      return (
+        !!owner &&
+        toMeetingId(meetingId) === owner.meetingId &&
+        owner.clientId === meetingClientId.value
+      );
+    }
+
+    function isRtcOwnedByOtherTab(meetingId: number | null | undefined) {
+      const owner = syncRtcOwnershipFromStorage();
+      return (
+        !!owner &&
+        toMeetingId(meetingId) === owner.meetingId &&
+        owner.clientId !== meetingClientId.value
+      );
+    }
+
+    /** 获取当前发言人显示名称 */
     function currentSpeakerName() {
       if (!meetingDetail.value || speakerUserId.value === null) {
         return '';
@@ -416,7 +890,10 @@ export const useMeetingStore = defineStore(
       return participant?.nickName || participant?.userName || '';
     }
 
+    /******************************** 返回 ********************************/
+
     return {
+      // 状态
       currentMeetingId,
       shouldResumeCapture,
       speakerUserId,
@@ -425,26 +902,36 @@ export const useMeetingStore = defineStore(
       drawerVisible,
       lastJoinedUserId,
       pendingMeetings,
+      pendingTranscripts,
       selectableUsers,
       loading,
+      // 计算属性
       hasActiveMeeting,
       stageSummaries,
+      liveTranscriptBlocks,
+      liveSummaryText,
+      liveSummaryUpdatedAt,
+      liveSummaryStatus,
       finalSummary,
+      // 方法
       getCurrentParticipant,
       setMeetingDetail,
       clearMeetingRuntime,
       openDrawer,
       closeDrawer,
+      hideDrawerToBackground,
       clearLastJoinedUserId,
       setShouldAutoOpenDrawer,
       loadSelectableUsers,
       loadPendingMeetings,
       buildPendingInviteMessages,
+      upsertPendingMeeting,
       createMeeting,
       loadCurrentMeeting,
       loadMeetingDetail,
       enterMeeting,
       acceptMeeting,
+      declineMeeting,
       stopMeeting,
       resendFinalSummary,
       leaveMeeting,
@@ -454,6 +941,11 @@ export const useMeetingStore = defineStore(
       consumeWsMessage,
       setSpeakerUserId,
       setShouldResumeCapture,
+      syncRtcOwnershipFromStorage,
+      claimRtcOwnership,
+      releaseRtcOwnership,
+      isCurrentTabRtcOwner,
+      isRtcOwnedByOtherTab,
       currentSpeakerName,
       toMeetingId,
       toNumericId,
@@ -461,6 +953,7 @@ export const useMeetingStore = defineStore(
   },
   {
     persist: {
+      storage: sessionStorage,
       pick: [
         'currentMeetingId',
         'shouldResumeCapture',

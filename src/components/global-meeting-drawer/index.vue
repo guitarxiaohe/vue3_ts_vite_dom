@@ -18,6 +18,7 @@ import { useMeetingStore, usePresenceStore, useUserStore } from '@/stores';
 import { useMeetingRtcStore } from '@/stores/modules/meeting-rtc';
 import { useLivekitRoom } from '@/composables/use-livekit-room';
 import { getRtcTokenApi, startRtcApi } from '@/api/modules/meeting-rtc';
+import { MEETING_RTC_OWNER_KEY } from '@/utils/meeting-cross-window';
 
 const route = useRoute();
 const { t } = useI18n();
@@ -46,13 +47,16 @@ const joinedHighlightUserId = ref<number | null>(null);
 const hydratedLastTranscriptId = ref<number | null>(null);
 const isJoining = ref(false);
 const isStartingRtc = ref(false);
+const isStoppingMeeting = ref(false);
 const waitingMicPermission = ref(false);
 const lastJoinAttemptMeetingId = ref<number | null>(null);
 
 let activeSpeakerTimer: ReturnType<typeof setTimeout> | null = null;
 let joinedHighlightTimer: ReturnType<typeof setTimeout> | null = null;
+let rtcOwnershipHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
 let permissionStatus: PermissionStatus | null = null;
 let permissionRetryRegistered = false;
+let disconnectOnUnloadSent = false;
 
 const drawerVisible = computed({
   get: () => meetingStore.drawerVisible,
@@ -67,8 +71,17 @@ const drawerVisible = computed({
 
 const meetingDetail = computed(() => meetingStore.meetingDetail);
 const pendingMeetings = computed(() => meetingStore.pendingMeetings);
-const stageSummaries = computed(() => meetingStore.stageSummaries);
-const finalSummary = computed(() => meetingStore.finalSummary);
+const liveTranscriptBlocks = computed(() => meetingStore.liveTranscriptBlocks);
+const liveSummaryText = computed(() => meetingStore.liveSummaryText);
+const liveSummaryStatus = computed(() => meetingStore.liveSummaryStatus);
+const liveSummaryUpdatedAt = computed(() => meetingStore.liveSummaryUpdatedAt);
+const liveSummaryRenderKey = computed(
+  () => `${liveSummaryUpdatedAt.value || 'empty'}:${liveSummaryText.value}`
+);
+const latestTranscript = computed(() => {
+  const transcripts = meetingDetail.value?.transcripts ?? [];
+  return transcripts[transcripts.length - 1] ?? null;
+});
 const currentUser = computed(() => userStore.userInfo);
 const isMeetingEnded = computed(
   () => meetingDetail.value?.session.status === 'ENDED'
@@ -82,12 +95,39 @@ const isConnected = computed(
 const isReconnecting = computed(
   () => connectionState.value === ConnectionState.Reconnecting
 );
+const currentMeetingId = computed(() => meetingDetail.value?.session.id ?? null);
 const speakerVolumePercent = computed({
   get: () => Math.round(playbackVolume.value * 100),
   set: (value: number) => {
     setPlaybackVolume(value / 100);
   },
 });
+const canCurrentUserJoinRtc = computed(() => {
+  if (!meetingDetail.value || !currentUser.value) {
+    return false;
+  }
+  if (meetingDetail.value.session.status !== 'ACTIVE') {
+    return false;
+  }
+  if (meetingDetail.value.session.rtcStatus !== 'RUNNING') {
+    return false;
+  }
+  const currentUserId = meetingStore.toNumericId(currentUser.value.userId);
+  return meetingDetail.value.participants.some(
+    (item) =>
+      meetingStore.toNumericId(item.userId) === currentUserId &&
+      item.inviteStatus === 'ACCEPTED'
+  );
+});
+const isCurrentTabRtcOwner = computed(() =>
+  meetingStore.isCurrentTabRtcOwner(currentMeetingId.value)
+);
+const isRtcOwnedByOtherTab = computed(() =>
+  meetingStore.isRtcOwnedByOtherTab(currentMeetingId.value)
+);
+const showJoinRtcButton = computed(
+  () => canCurrentUserJoinRtc.value && !isConnected.value
+);
 
 const canStopMeeting = computed(
   () =>
@@ -157,6 +197,9 @@ function participantInviteStatusType(status: string) {
   if (status === 'ACCEPTED') {
     return 'success';
   }
+  if (status === 'DECLINED') {
+    return 'danger';
+  }
   if (isMeetingEnded.value) {
     return 'danger';
   }
@@ -174,6 +217,9 @@ function participantInviteStatusType(status: string) {
 function participantInviteStatusText(status: string) {
   if (status === 'ACCEPTED') {
     return t('meeting.participantAccepted');
+  }
+  if (status === 'DECLINED') {
+    return t('meeting.participantDeclined');
   }
   if (isMeetingEnded.value) {
     return t('meeting.participantAbsent');
@@ -209,6 +255,9 @@ function participantMeetingStatusType(participant: {
   inviteStatus: string;
   userId: number;
 }) {
+  if (participant.inviteStatus === 'DECLINED') {
+    return 'danger';
+  }
   if (participant.inviteStatus !== 'ACCEPTED') {
     return 'warning';
   }
@@ -224,6 +273,9 @@ function participantMeetingStatusText(participant: {
   inviteStatus: string;
   userId: number;
 }) {
+  if (participant.inviteStatus === 'DECLINED') {
+    return t('meeting.participantDeclined');
+  }
   if (participant.inviteStatus !== 'ACCEPTED') {
     return t('meeting.participantPending');
   }
@@ -245,6 +297,9 @@ function isParticipantWaiting(participant: {
   if (isMeetingEnded.value) {
     return false;
   }
+  if (participant.inviteStatus === 'DECLINED') {
+    return false;
+  }
   return !isParticipantConnected(participant);
 }
 
@@ -254,7 +309,15 @@ function isParticipantWaiting(participant: {
  * @returns 是否缺席
  */
 function isParticipantAbsent(participant: { inviteStatus: string }) {
-  return isMeetingEnded.value && participant.inviteStatus !== 'ACCEPTED';
+  return (
+    isMeetingEnded.value &&
+    participant.inviteStatus !== 'ACCEPTED' &&
+    participant.inviteStatus !== 'DECLINED'
+  );
+}
+
+function isParticipantDeclined(participant: { inviteStatus: string }) {
+  return participant.inviteStatus === 'DECLINED';
 }
 
 /**
@@ -311,29 +374,25 @@ async function bootstrapMeetingDrawer() {
     return;
   }
 
-  if (meetingStore.currentMeetingId && meetingStore.shouldAutoOpenDrawer) {
-    const detail = await meetingStore.loadMeetingDetail(
-      meetingStore.currentMeetingId
-    );
-    if (detail?.session.status === 'ACTIVE') {
+  const currentMeeting = await meetingStore.loadCurrentMeeting();
+  const activeMeetingId = currentMeeting?.session?.id ?? null;
+
+  if (
+    activeMeetingId &&
+    meetingStore.shouldResumeCapture &&
+    !meetingStore.isRtcOwnedByOtherTab(activeMeetingId)
+  ) {
+    meetingStore.claimRtcOwnership(activeMeetingId);
+  }
+
+  if (currentMeeting?.session.status === 'ACTIVE') {
+    if (meetingStore.shouldAutoOpenDrawer) {
       meetingStore.openDrawer();
-    } else {
-      meetingStore.setShouldAutoOpenDrawer(false);
     }
     return;
   }
 
-  if (meetingStore.shouldAutoOpenDrawer) {
-    const currentMeeting = await meetingStore.loadCurrentMeeting();
-    if (currentMeeting?.session.status === 'ACTIVE') {
-      meetingStore.openDrawer();
-      return;
-    }
-    meetingStore.setShouldAutoOpenDrawer(false);
-    return;
-  }
-
-  meetingStore.setMeetingDetail(null);
+  meetingStore.setShouldAutoOpenDrawer(false);
 }
 
 /**
@@ -392,12 +451,26 @@ async function handleJoinVoice(silent = false) {
   }
 }
 
+async function handleTakeOverRtc() {
+  const meetingId = currentMeetingId.value;
+  if (!meetingId || isJoining.value) {
+    return;
+  }
+  meetingStore.claimRtcOwnership(meetingId);
+  await handleJoinVoice();
+}
+
 /**
  * 主持人自动拉起 RTC 服务
  * 当当前用户是主持人、会议为 ACTIVE 状态、RTC 尚未运行时，自动调用 API 启动 RTC
  */
 async function ensureHostRtcStarted() {
-  if (!meetingDetail.value || !isHost.value || isStartingRtc.value) {
+  if (
+    !meetingDetail.value ||
+    !isHost.value ||
+    isStartingRtc.value ||
+    isStoppingMeeting.value
+  ) {
     return;
   }
   if (meetingDetail.value.session.status !== 'ACTIVE') {
@@ -424,22 +497,73 @@ async function ensureHostRtcStarted() {
  */
 async function handleStopMeeting() {
   const currentMeeting = meetingDetail.value;
-  if (!currentMeeting) {
+  if (!currentMeeting || isStoppingMeeting.value) {
     return;
   }
+  isStoppingMeeting.value = true;
   const exitingAsHost =
     meetingStore.toNumericId(currentMeeting.session.hostUserId) ===
     meetingStore.toNumericId(currentMeeting.currentUserId);
 
-  await meetingStore.leaveMeeting();
-  if (!exitingAsHost) {
+  try {
+    await meetingStore.leaveMeeting();
+    meetingStore.releaseRtcOwnership(currentMeeting.session.id);
     await leaveRoom();
     rtcStore.reset();
     meetingStore.clearMeetingRuntime();
-    ElMessage.success(t('meeting.leaveSuccess'));
+    if (!exitingAsHost) {
+      ElMessage.success(t('meeting.leaveSuccess'));
+      return;
+    }
+    ElMessage.success(t('meeting.endSuccess'));
+  } finally {
+    isStoppingMeeting.value = false;
+  }
+}
+
+function disconnectMeetingOnPageUnload() {
+  if (disconnectOnUnloadSent) {
     return;
   }
-  ElMessage.success(t('meeting.endSuccess'));
+  const currentMeeting = meetingDetail.value;
+  if (!currentMeeting || currentMeeting.session.status !== 'ACTIVE') {
+    return;
+  }
+  const token = localStorage.getItem('token');
+  if (!token) {
+    return;
+  }
+  disconnectOnUnloadSent = true;
+  const baseApi = String(import.meta.env.VITE_APP_BASE_API || '/dev-api');
+  const url = `${baseApi}/cms/meeting/session/${currentMeeting.session.id}/disconnect`;
+  const locale = localStorage.getItem('app_locale') || 'zh-CN';
+
+  try {
+    fetch(url, {
+      method: 'POST',
+      keepalive: true,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Accept-Language': locale,
+      },
+    });
+  } catch (_error) {
+    // 页面关闭阶段不做额外兜底
+  }
+
+  meetingStore.releaseRtcOwnership(currentMeeting.session.id);
+  rtcStore.reset();
+  meetingStore.clearMeetingRuntime();
+  void leaveRoom();
+}
+
+async function declinePendingMeeting(meetingId: number) {
+  try {
+    await meetingStore.declineMeeting(meetingId);
+    ElMessage.success(t('meeting.declineSuccess'));
+  } catch (error: any) {
+    ElMessage.error(error?.message || t('meeting.declineFailed'));
+  }
 }
 
 /**
@@ -471,6 +595,7 @@ function handleDrawerAttemptClose(done?: () => void) {
     })
     .catch((action: any) => {
       if (action === 'cancel') {
+        meetingStore.hideDrawerToBackground();
         done?.();
         ElMessage.info(t('meeting.backgroundRunning'));
       }
@@ -483,21 +608,7 @@ function handleDrawerAttemptClose(done?: () => void) {
  * @returns 是否应自动加入
  */
 function shouldAutoJoinCurrentMeeting() {
-  if (!meetingDetail.value || !currentUser.value) {
-    return false;
-  }
-  if (meetingDetail.value.session.status !== 'ACTIVE') {
-    return false;
-  }
-  if (meetingDetail.value.session.rtcStatus !== 'RUNNING') {
-    return false;
-  }
-  const currentUserId = meetingStore.toNumericId(currentUser.value.userId);
-  return meetingDetail.value.participants.some(
-    (item) =>
-      meetingStore.toNumericId(item.userId) === currentUserId &&
-      item.inviteStatus === 'ACCEPTED'
-  );
+  return canCurrentUserJoinRtc.value && isCurrentTabRtcOwner.value;
 }
 
 /**
@@ -612,11 +723,52 @@ function handleVisibilityRetry() {
   }
 }
 
+function handlePageHide() {
+  disconnectMeetingOnPageUnload();
+}
+
+function handleBeforeUnload() {
+  disconnectMeetingOnPageUnload();
+}
+
+function syncRtcOwnership() {
+  meetingStore.syncRtcOwnershipFromStorage();
+}
+
+function handleRtcOwnershipStorageChange(event: StorageEvent) {
+  if (event.storageArea !== localStorage) {
+    return;
+  }
+  if (event.key && event.key !== MEETING_RTC_OWNER_KEY) {
+    return;
+  }
+  syncRtcOwnership();
+}
+
+function stopRtcOwnershipHeartbeat() {
+  if (!rtcOwnershipHeartbeatTimer) {
+    return;
+  }
+  clearInterval(rtcOwnershipHeartbeatTimer);
+  rtcOwnershipHeartbeatTimer = null;
+}
+
+function startRtcOwnershipHeartbeat() {
+  stopRtcOwnershipHeartbeat();
+  if (!isCurrentTabRtcOwner.value || !currentMeetingId.value) {
+    return;
+  }
+  rtcOwnershipHeartbeatTimer = setInterval(() => {
+    if (!currentMeetingId.value) {
+      return;
+    }
+    meetingStore.claimRtcOwnership(currentMeetingId.value);
+  }, 5000);
+}
+
 // 监听转写更新，高亮发言人
 watch(
-  () =>
-    meetingDetail.value?.transcripts[meetingDetail.value.transcripts.length - 1]
-      ?.id,
+  () => latestTranscript.value?.id,
   (latestId) => {
     if (!meetingDetail.value) {
       return;
@@ -629,21 +781,14 @@ watch(
       return;
     }
     hydratedLastTranscriptId.value = latestId;
-    const transcript =
-      meetingDetail.value.transcripts[
-        meetingDetail.value.transcripts.length - 1
-      ];
-    pulseSpeaker(meetingStore.toNumericId(transcript?.userId));
+    pulseSpeaker(meetingStore.toNumericId(latestTranscript.value?.userId));
   }
 );
 
 watch(
   () => meetingDetail.value?.session.id,
   () => {
-    hydratedLastTranscriptId.value =
-      meetingDetail.value?.transcripts[
-        meetingDetail.value.transcripts.length - 1
-      ]?.id ?? null;
+    hydratedLastTranscriptId.value = latestTranscript.value?.id ?? null;
   },
   { immediate: true }
 );
@@ -657,6 +802,7 @@ watch(
     if (previousStatus !== 'ACTIVE' || status !== 'ENDED') {
       return;
     }
+    meetingStore.releaseRtcOwnership(currentMeetingId.value);
     await leaveRoom();
     rtcStore.reset();
     meetingStore.clearMeetingRuntime();
@@ -671,7 +817,7 @@ watch(
     currentUser.value?.userId,
   ],
   async () => {
-    if (!meetingDetail.value || !isHost.value) {
+    if (!meetingDetail.value || !isHost.value || isStoppingMeeting.value) {
       return;
     }
     if (meetingDetail.value.session.status !== 'ACTIVE') {
@@ -700,6 +846,24 @@ watch(
       return;
     }
     await handleJoinVoice(true);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => [currentMeetingId.value, isCurrentTabRtcOwner.value, isConnected.value],
+  async () => {
+    if (!isConnected.value) {
+      stopRtcOwnershipHeartbeat();
+      return;
+    }
+    if (!isCurrentTabRtcOwner.value) {
+      stopRtcOwnershipHeartbeat();
+      await leaveRoom();
+      rtcStore.reset();
+      return;
+    }
+    startRtcOwnershipHeartbeat();
   },
   { immediate: true }
 );
@@ -755,6 +919,10 @@ watch(isMicEnabled, (enabled) => {
 
 onMounted(async () => {
   requestPlaybackPermission();
+  syncRtcOwnership();
+  window.addEventListener('storage', handleRtcOwnershipStorageChange);
+  window.addEventListener('pagehide', handlePageHide);
+  window.addEventListener('beforeunload', handleBeforeUnload);
   await bootstrapMeetingDrawer();
 });
 
@@ -772,6 +940,11 @@ onBeforeUnmount(() => {
   if (permissionStatus) {
     permissionStatus.onchange = null;
   }
+  stopRtcOwnershipHeartbeat();
+  window.removeEventListener('storage', handleRtcOwnershipStorageChange);
+  window.removeEventListener('pagehide', handlePageHide);
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+  meetingStore.releaseRtcOwnership(currentMeetingId.value);
   void leaveRoom();
 });
 </script>
@@ -784,7 +957,7 @@ onBeforeUnmount(() => {
     :before-close="handleDrawerAttemptClose"
     :close-on-click-modal="true"
     :modal-class="'meeting-drawer-modal'"
-    :size="'min(1200px, 96vw)'"
+    :size="'100%'"
     :title="t('meeting.drawerTitle')"
     custom-class="meeting-drawer"
   >
@@ -850,6 +1023,27 @@ onBeforeUnmount(() => {
             {{ t('meeting.rtcConnecting') }}
           </el-tag>
 
+          <el-tag
+            v-if="meetingDetail.session.status === 'ACTIVE' && isRtcOwnedByOtherTab"
+            type="info"
+          >
+            {{ t('meeting.audioInOtherWindow') }}
+          </el-tag>
+
+          <el-tag
+            v-if="canCurrentUserJoinRtc"
+            :type="isMicEnabled ? 'success' : 'info'"
+          >
+            {{ isMicEnabled ? t('meeting.micOn') : t('meeting.micOff') }}
+          </el-tag>
+
+          <el-tag
+            v-if="canCurrentUserJoinRtc"
+            :type="isSpeakerMuted ? 'info' : 'success'"
+          >
+            {{ isSpeakerMuted ? t('meeting.muteSpeaker') : t('meeting.unmuteSpeaker') }}
+          </el-tag>
+
           <template v-if="meetingDetail.session.status === 'ACTIVE'">
             <el-button
               v-if="!isHost"
@@ -859,6 +1053,18 @@ onBeforeUnmount(() => {
             >
               <el-icon><PhoneOff /></el-icon>
               {{ t('meeting.leaveMeeting') }}
+            </el-button>
+
+            <el-button
+              v-if="showJoinRtcButton"
+              type="primary"
+              @click="handleTakeOverRtc"
+            >
+              {{
+                isRtcOwnedByOtherTab
+                  ? t('meeting.takeOverAudio')
+                  : t('meeting.joinMeeting')
+              }}
             </el-button>
 
             <!-- 麦克风控制 -->
@@ -931,11 +1137,10 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="meeting-pending-list">
-              <button
+              <div
                 v-for="item in pendingMeetings"
                 :key="item.meetingId"
                 class="meeting-pending-item"
-                @click="openPendingMeeting(item.meetingId)"
               >
                 <strong>{{ item.title }}</strong>
                 <span>
@@ -946,7 +1151,23 @@ onBeforeUnmount(() => {
                   }}
                 </span>
                 <small>{{ item.inviteSentAt }}</small>
-              </button>
+                <div class="meeting-pending-item__actions">
+                  <el-button
+                    size="small"
+                    type="primary"
+                    @click="openPendingMeeting(item.meetingId)"
+                  >
+                    {{ t('meeting.pendingAccept') }}
+                  </el-button>
+                  <el-button
+                    size="small"
+                    plain
+                    @click="declinePendingMeeting(item.meetingId)"
+                  >
+                    {{ t('meeting.pendingDecline') }}
+                  </el-button>
+                </div>
+              </div>
             </div>
           </article>
 
@@ -987,6 +1208,8 @@ onBeforeUnmount(() => {
                       joinedHighlightUserId,
                   'meeting-participant-item--absent':
                     isParticipantAbsent(participant),
+                  'meeting-participant-item--declined':
+                    isParticipantDeclined(participant),
                   'meeting-participant-item--waiting':
                     isParticipantWaiting(participant),
                 }"
@@ -1100,89 +1323,96 @@ onBeforeUnmount(() => {
         <main class="meeting-main">
           <article class="meeting-card" v-if="meetingDetail">
             <div class="meeting-card__header">
-              <h2>{{ t('meeting.transcriptTitle') }}</h2>
+              <h2>{{ t('meeting.rawTranscriptTitle') }}</h2>
               <span>
-                {{
-                  t('meeting.transcriptCount', {
-                    count: meetingDetail.transcripts.length,
-                  })
-                }}
+                {{ t('meeting.transcriptCount', { count: liveTranscriptBlocks.length }) }}
               </span>
             </div>
 
-            <div class="meeting-transcript-list">
+            <div class="meeting-live-feed">
               <div
-                v-for="item in meetingDetail.transcripts"
+                v-for="item in liveTranscriptBlocks"
                 :key="item.id"
-                class="meeting-transcript-item"
+                :class="[
+                  'meeting-live-block',
+                  `meeting-live-block--${item.kind}`,
+                  item.pending ? 'meeting-live-block--pending' : '',
+                ]"
               >
-                <div class="meeting-transcript-item__meta">
-                  <strong>{{ item.displayName }}</strong>
-                  <small>{{ item.audioStartedAt || item.createTime }}</small>
+                <div class="meeting-live-block__meta">
+                  <strong>{{ item.label }}</strong>
+                  <small v-if="item.pending" class="meeting-transcript-pending-label">
+                    <el-icon class="is-loading" :size="12">
+                      <LoaderCircle />
+                    </el-icon>
+                    {{ t('meeting.liveDigestPolishing') }}
+                  </small>
                 </div>
-                <p>{{ item.transcriptText }}</p>
+                <p>
+                  {{ item.text }}
+                  <span v-if="item.pending" class="typing-cursor" />
+                </p>
               </div>
 
               <el-empty
-                v-if="!meetingDetail.transcripts.length"
-                :description="t('meeting.transcriptEmpty')"
+                v-if="!liveTranscriptBlocks.length"
+                :description="t('meeting.rawTranscriptEmpty')"
               />
             </div>
           </article>
 
           <article class="meeting-card" v-if="meetingDetail">
             <div class="meeting-card__header">
-              <h2>{{ t('meeting.stageSummaryTitle') }}</h2>
+              <h2>{{ t('meeting.aiSummaryTitle') }}</h2>
               <span>
                 {{
-                  t('meeting.stageSummaryCount', {
-                    count: stageSummaries.length,
-                  })
+                  liveSummaryStatus === 'ready'
+                    ? t('meeting.aiSummaryReady')
+                    : t('meeting.aiSummaryStreaming')
                 }}
               </span>
             </div>
 
-            <div class="meeting-summary-list">
-              <div
-                v-for="item in stageSummaries"
-                :key="item.id"
-                class="meeting-summary-item"
-              >
-                <div class="meeting-summary-item__meta">
-                  <strong>
-                    {{
-                      t('meeting.stageSummaryItem', {
-                        index: item.summaryIndex,
-                      })
-                    }}
-                  </strong>
-                  <small>{{ item.createTime }}</small>
-                </div>
-                <pre>{{ item.summaryText }}</pre>
+            <div
+              :class="[
+                'meeting-live-summary',
+                liveSummaryStatus === 'streaming'
+                  ? 'meeting-live-summary--streaming'
+                  : '',
+              ]"
+            >
+              <div class="meeting-live-summary__meta">
+                <strong>{{ t('meeting.aiSummaryTitle') }}</strong>
+                <small
+                  v-if="liveSummaryStatus === 'streaming'"
+                  class="meeting-transcript-pending-label"
+                >
+                  <el-icon class="is-loading" :size="12">
+                    <LoaderCircle />
+                  </el-icon>
+                  {{ t('meeting.aiSummaryPolishing') }}
+                </small>
               </div>
 
-              <el-empty
-                v-if="!stageSummaries.length"
-                :description="t('meeting.stageSummaryEmpty')"
-              />
+              <transition name="meeting-summary-fade" mode="out-in">
+                <p
+                  v-if="liveSummaryText"
+                  :key="liveSummaryRenderKey"
+                  class="meeting-live-summary__text"
+                >
+                  {{ liveSummaryText }}
+                  <span
+                    v-if="liveSummaryStatus === 'streaming'"
+                    class="typing-cursor"
+                  />
+                </p>
+                <el-empty
+                  v-else
+                  key="empty"
+                  :description="t('meeting.aiSummaryEmpty')"
+                />
+              </transition>
             </div>
-          </article>
-
-          <article class="meeting-card" v-if="meetingDetail">
-            <div class="meeting-card__header">
-              <h2>{{ t('meeting.finalSummaryTitle') }}</h2>
-              <span>
-                {{
-                  meetingDetail.session.status === 'ENDED'
-                    ? t('meeting.finalSummaryReady')
-                    : t('meeting.finalSummaryWaiting')
-                }}
-              </span>
-            </div>
-
-            <pre class="meeting-final-summary"
-              >{{ finalSummary || t('meeting.finalSummaryEmpty') }}
-            </pre>
           </article>
         </main>
       </div>
@@ -1335,6 +1565,122 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
+.meeting-live-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 280px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.92)),
+    radial-gradient(circle at top, rgba(14, 165, 233, 0.06), transparent 34%);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.meeting-live-summary {
+  min-height: 220px;
+  padding: 20px 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.92)),
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.08), transparent 36%);
+}
+
+.meeting-live-summary--streaming {
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.08);
+}
+
+.meeting-live-summary__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.meeting-live-summary__meta strong {
+  color: #0f172a;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+.meeting-live-summary__text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.9;
+  color: #1e293b;
+  font-size: 15px;
+}
+
+.meeting-summary-fade-enter-active,
+.meeting-summary-fade-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.meeting-summary-fade-enter-from,
+.meeting-summary-fade-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.meeting-live-block {
+  position: relative;
+  padding-left: 18px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 4px;
+    bottom: 4px;
+    width: 3px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.28);
+  }
+}
+
+.meeting-live-block--speaker::before {
+  background: rgba(59, 130, 246, 0.42);
+}
+
+.meeting-live-block--pending::before {
+  background: rgba(14, 165, 233, 0.62);
+}
+
+.meeting-live-block--summary::before {
+  background: rgba(245, 158, 11, 0.58);
+}
+
+.meeting-live-block--final::before {
+  background: rgba(34, 197, 94, 0.62);
+}
+
+.meeting-live-block__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.meeting-live-block__meta strong {
+  color: #0f172a;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.meeting-live-block p {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.85;
+  color: #1e293b;
+  font-size: 15px;
+}
+
 .meeting-pending-item {
   display: flex;
   flex-direction: column;
@@ -1353,6 +1699,12 @@ onBeforeUnmount(() => {
 .meeting-pending-item:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 30px rgba(245, 158, 11, 0.16);
+}
+
+.meeting-pending-item__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .meeting-participant-item,
@@ -1410,6 +1762,14 @@ onBeforeUnmount(() => {
     linear-gradient(135deg, rgba(254, 226, 226, 0.96), rgba(255, 245, 245, 1)),
     #fff5f5;
   box-shadow: 0 12px 24px rgba(239, 68, 68, 0.08);
+}
+
+.meeting-participant-item--declined {
+  border-color: rgba(244, 63, 94, 0.28);
+  background:
+    linear-gradient(135deg, rgba(255, 241, 242, 0.96), rgba(248, 250, 252, 1)),
+    #fff7f8;
+  box-shadow: 0 12px 24px rgba(244, 63, 94, 0.08);
 }
 
 .meeting-participant-item__main {
@@ -1523,6 +1883,42 @@ onBeforeUnmount(() => {
   border-radius: 20px;
   background: linear-gradient(180deg, #fff7ed, #fff);
   border: 1px solid rgba(249, 115, 22, 0.18);
+}
+
+/* 流式 ASR 进行中的转写 */
+.meeting-transcript-item--pending {
+  opacity: 0.9;
+  border-left: 3px solid #3b82f6;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), #f8fafc);
+}
+
+.meeting-transcript-pending-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #3b82f6;
+  font-size: 12px;
+}
+
+/* 打字机光标闪烁 */
+.typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  background: #3b82f6;
+  vertical-align: text-bottom;
+  animation: cursor-blink 0.8s step-end infinite;
+}
+
+@keyframes cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 .meeting-error {

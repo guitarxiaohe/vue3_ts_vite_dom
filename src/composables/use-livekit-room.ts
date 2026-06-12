@@ -1,4 +1,4 @@
-import { ref, shallowRef, onUnmounted } from 'vue';
+import { getCurrentInstance, onUnmounted, ref, shallowRef } from 'vue';
 import {
   Room,
   RoomEvent,
@@ -10,6 +10,10 @@ import {
   DisconnectReason,
 } from 'livekit-client';
 import type { MeetingRtcTokenResponse } from '@/api/modules/meeting-rtc.type';
+import {
+  readMeetingSharedAudioState,
+  writeMeetingSharedAudioState,
+} from '@/utils/meeting-cross-window';
 
 export interface ParticipantInfo {
   identity: string;
@@ -21,22 +25,51 @@ export interface ParticipantInfo {
 }
 
 export function useLivekitRoom() {
+  const sharedAudioState = readMeetingSharedAudioState(localStorage);
   const room = shallowRef<Room | null>(null);
   const connectionState = ref<ConnectionState>(ConnectionState.Disconnected);
   const participants = ref<ParticipantInfo[]>([]);
   const activeSpeakers = ref<string[]>([]);
-  const isMicEnabled = ref(true);
-  const isSpeakerMuted = ref(false);
-  const playbackVolume = ref(1);
+  const isMicEnabled = ref(sharedAudioState.isMicEnabled);
+  const isSpeakerMuted = ref(sharedAudioState.isSpeakerMuted);
+  const playbackVolume = ref(sharedAudioState.playbackVolume);
   const localParticipant = ref<LocalParticipant | null>(null);
 
   let updateParticipantsTimer: ReturnType<typeof setInterval> | null = null;
-  let lastAudiblePlaybackVolume = 1;
+  let lastAudiblePlaybackVolume = sharedAudioState.playbackVolume || 1;
   let audioContextResumed = false;
   const attachedAudioElements = new Map<
     string,
     { track: Track; element: HTMLMediaElement }
   >();
+
+  function applySharedAudioStateFromStorage() {
+    const nextState = readMeetingSharedAudioState(localStorage);
+    isMicEnabled.value = nextState.isMicEnabled;
+    isSpeakerMuted.value = nextState.isSpeakerMuted;
+    playbackVolume.value = nextState.playbackVolume;
+    if (nextState.playbackVolume > 0) {
+      lastAudiblePlaybackVolume = nextState.playbackVolume;
+    }
+    applyPlaybackVolume(nextState.playbackVolume);
+  }
+
+  function persistSharedAudioState(
+    patch: Partial<{
+      isMicEnabled: boolean;
+      isSpeakerMuted: boolean;
+      playbackVolume: number;
+    }>
+  ) {
+    const nextState = writeMeetingSharedAudioState(patch, localStorage);
+    isMicEnabled.value = nextState.isMicEnabled;
+    isSpeakerMuted.value = nextState.isSpeakerMuted;
+    playbackVolume.value = nextState.playbackVolume;
+    if (nextState.playbackVolume > 0) {
+      lastAudiblePlaybackVolume = nextState.playbackVolume;
+    }
+    return nextState;
+  }
 
   /**
    * 恢复被浏览器挂起的 AudioContext
@@ -209,11 +242,11 @@ export function useLivekitRoom() {
     });
 
     // 发布本地麦克风
-    await newRoom.localParticipant.setMicrophoneEnabled(true);
+    await newRoom.localParticipant.setMicrophoneEnabled(isMicEnabled.value);
 
     room.value = newRoom;
     localParticipant.value = newRoom.localParticipant;
-    isMicEnabled.value = true;
+    applyPlaybackVolume(playbackVolume.value);
 
     // 定期更新参与者列表
     updateParticipantsTimer = setInterval(updateParticipantsList, 2000);
@@ -249,7 +282,7 @@ export function useLivekitRoom() {
 
     const enabled = !isMicEnabled.value;
     await room.value.localParticipant.setMicrophoneEnabled(enabled);
-    isMicEnabled.value = enabled;
+    persistSharedAudioState({ isMicEnabled: enabled });
   }
 
   /**
@@ -257,11 +290,10 @@ export function useLivekitRoom() {
    */
   function setPlaybackVolume(volume: number) {
     const normalized = Math.max(0, Math.min(1, volume));
-    playbackVolume.value = normalized;
-    isSpeakerMuted.value = normalized === 0;
-    if (normalized > 0) {
-      lastAudiblePlaybackVolume = normalized;
-    }
+    persistSharedAudioState({
+      playbackVolume: normalized,
+      isSpeakerMuted: normalized === 0,
+    });
     applyPlaybackVolume(normalized);
   }
 
@@ -352,9 +384,24 @@ export function useLivekitRoom() {
     return null;
   }
 
-  onUnmounted(() => {
-    leaveRoom();
-  });
+  function handleStorageChange(event: StorageEvent) {
+    if (event.storageArea !== localStorage) {
+      return;
+    }
+    if (event.key && event.key !== 'xiaohe:meeting:audio-state') {
+      return;
+    }
+    applySharedAudioStateFromStorage();
+  }
+
+  window.addEventListener('storage', handleStorageChange);
+
+  if (getCurrentInstance()) {
+    onUnmounted(() => {
+      window.removeEventListener('storage', handleStorageChange);
+      leaveRoom();
+    });
+  }
 
   return {
     room,
