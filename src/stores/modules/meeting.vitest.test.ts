@@ -11,9 +11,11 @@ const meetingApiMocks = vi.hoisted(() => ({
   getCurrentMeetingApi: vi.fn(),
   getMeetingDetailApi: vi.fn(),
   getPendingMeetingsApi: vi.fn(),
+  inviteMeetingParticipantsApi: vi.fn(),
   leaveMeetingApi: vi.fn(),
   listMeetingSelectableUsersApi: vi.fn(),
   resendFinalSummaryApi: vi.fn(),
+  sendMeetingInteractionApi: vi.fn(),
   stopMeetingApi: vi.fn(),
   uploadMeetingAudioApi: vi.fn(),
 }));
@@ -194,9 +196,54 @@ describe('meeting store', () => {
     expect(store.pendingMeetings.map((item) => item.meetingId)).toEqual([11]);
   });
 
+  test('inviteParticipants should refresh current meeting detail with newly invited members', async () => {
+    const store = useMeetingStore();
+    store.setMeetingDetail(
+      createMeetingDetail({ currentUserId: 1, hostUserId: 1 })
+    );
+    const invitedDetail = createMeetingDetail({
+      currentUserId: 1,
+      hostUserId: 1,
+    });
+    invitedDetail.participants = [
+      ...invitedDetail.participants,
+      {
+        id: 3,
+        meetingId: 10,
+        userId: 3,
+        userName: 'new-user',
+        nickName: '新成员',
+        isHost: 0,
+        inviteStatus: 'PENDING',
+        inviteSentAt: '2026-06-11 15:05:00',
+        acceptedAt: null,
+        leftAt: null,
+        createBy: 'host',
+        createTime: '2026-06-11 15:05:00',
+        updateBy: 'host',
+        updateTime: '2026-06-11 15:05:00',
+      },
+    ];
+
+    meetingApiMocks.inviteMeetingParticipantsApi.mockResolvedValue({
+      data: invitedDetail,
+    });
+
+    const result = await store.inviteParticipants([3]);
+
+    expect(meetingApiMocks.inviteMeetingParticipantsApi).toHaveBeenCalledWith(
+      10,
+      { inviteUserIds: [3] }
+    );
+    expect(result?.participants).toHaveLength(3);
+    expect(store.meetingDetail?.participants[2]?.inviteStatus).toBe('PENDING');
+  });
+
   test('hideDrawerToBackground should keep the meeting but stop auto-opening it', () => {
     const store = useMeetingStore();
-    store.setMeetingDetail(createMeetingDetail({ currentUserId: 2, hostUserId: 1 }));
+    store.setMeetingDetail(
+      createMeetingDetail({ currentUserId: 2, hostUserId: 1 })
+    );
     store.openDrawer();
 
     store.hideDrawerToBackground();
@@ -220,6 +267,7 @@ describe('meeting store', () => {
         transcriptText: '最新转写',
         audioStartedAt: '2026-06-11 15:01:00',
         audioEndedAt: '2026-06-11 15:01:10',
+        sourceType: 'RTC_PARTICIPANT',
         createBy: 'worker',
         createTime: '2026-06-11 15:01:10',
       },
@@ -269,6 +317,7 @@ describe('meeting store', () => {
         transcriptText: '我们先确认上线时间。',
         audioStartedAt: '2026-06-11 15:01:00',
         audioEndedAt: '2026-06-11 15:01:10',
+        sourceType: 'RTC_PARTICIPANT',
         createBy: 'worker',
         createTime: '2026-06-11 15:01:10',
       },
@@ -322,9 +371,7 @@ describe('meeting store', () => {
         pending: true,
       }),
     ]);
-    expect(store.liveSummaryText).toBe(
-      'AI 归纳：当前先聚焦上线时间与负责人。'
-    );
+    expect(store.liveSummaryText).toBe('AI 归纳：当前先聚焦上线时间与负责人。');
     expect(store.liveSummaryStatus).toBe('streaming');
   });
 
@@ -341,6 +388,7 @@ describe('meeting store', () => {
         transcriptText: '我们先确认上线时间。',
         audioStartedAt: '2026-06-11 15:01:00',
         audioEndedAt: '2026-06-11 15:01:10',
+        sourceType: 'RTC_PARTICIPANT',
         createBy: 'worker',
         createTime: '2026-06-11 15:01:10',
       },
@@ -351,7 +399,8 @@ describe('meeting store', () => {
       type: 'meeting_live_summary',
       data: {
         meetingId: 10,
-        summaryText: 'AI 实时总结：会议先确认本周上线时间，并继续补充测试安排。',
+        summaryText:
+          'AI 实时总结：会议先确认本周上线时间，并继续补充测试安排。',
         sourceTranscriptCount: 1,
         updatedAt: '2026-06-11 15:02:00',
       },

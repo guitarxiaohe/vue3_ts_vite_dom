@@ -1,25 +1,46 @@
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+/******************************** 依赖导入 ********************************/
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
+  Camera,
+  CircleDot,
+  Hand,
   LoaderCircle,
   Mic,
   MicOff,
-  PhoneOff,
+  MonitorUp,
+  SendHorizontal,
+  Settings2,
+  Sparkles,
   Users,
+  Volume2,
+  VolumeX,
   Wifi,
   WifiOff,
 } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import { ConnectionState } from 'livekit-client';
-import UserAvatarInfo from '@/components/user-avatar-info/index.vue';
+import MeetingParticipantGrid from '@/components/meeting-participant-grid/index.vue';
 import { useMeetingStore, usePresenceStore, useUserStore } from '@/stores';
 import { useMeetingRtcStore } from '@/stores/modules/meeting-rtc';
-import { useLivekitRoom } from '@/composables/use-livekit-room';
+import {
+  MEDIADEVICES_OPTIONS,
+  useLivekitRoom,
+} from '@/composables/use-livekit-room';
 import { getRtcTokenApi, startRtcApi } from '@/api/modules/meeting-rtc';
 import { MEETING_RTC_OWNER_KEY } from '@/utils/meeting-cross-window';
-
+import { buildSpeakerTranscriptLines } from '@/utils/meeting-transcript';
+import { AsyncSelect } from '@/components/async-select';
+/***************************** Store / Composable 初始化 *****************************/
 const route = useRoute();
 const { t } = useI18n();
 const meetingStore = useMeetingStore();
@@ -27,6 +48,7 @@ const userStore = useUserStore();
 const presenceStore = usePresenceStore();
 const rtcStore = useMeetingRtcStore();
 
+/***************************** LiveKit RTC 解构 *****************************/
 const {
   connectionState,
   participants: rtcParticipants,
@@ -42,22 +64,51 @@ const {
   requestPlaybackPermission,
 } = useLivekitRoom();
 
+/***************************** 响应式状态 *****************************/
+// 当前正在发言的用户 ID，用于触发发言人头像高亮脉冲效果
 const activeSpeakerUserId = ref<number | null>(null);
+// 新加入会议的用户 ID，用于触发参与者加入时的高亮动画
 const joinedHighlightUserId = ref<number | null>(null);
+// 上一次水合（初始化）时记录的最新转写 ID，用于判断转写内容是否为增量更新、避免重复触发高亮
 const hydratedLastTranscriptId = ref<number | null>(null);
+// 实时转写面板的 DOM 元素引用，用于在新转写内容出现时自动滚动到底部
+const transcriptPanelRef = ref<HTMLElement | null>(null);
+// 当前时间戳（每秒刷新），驱动会议已进行时长的计算显示
+const meetingClockNow = ref(Date.now());
+// 是否正在加入语音会议（RTC 连接进行中），防止重复点击加入按钮
 const isJoining = ref(false);
+// 主持人是否正在启动 RTC 服务，防止重复调用 startRtcApi
 const isStartingRtc = ref(false);
+// 是否正在结束/离开会议，防止重复提交停止会议请求
 const isStoppingMeeting = ref(false);
+// 是否正在提交邀请参与者请求，控制邀请按钮的 loading 状态
+const isInvitingParticipants = ref(false);
+// 是否正在发送互动消息（举手/表情/文字），控制发送按钮的 loading 状态
+const isSendingInteraction = ref(false);
+// 是否正在等待用户授予麦克风权限，显示"等待麦克风权限"提示标签
 const waitingMicPermission = ref(false);
+// 上一次尝试加入语音的会议 ID，用于避免同一会议重复弹出"等待麦克风权限"提示
 const lastJoinAttemptMeetingId = ref<number | null>(null);
+// 邀请参与者弹窗是否可见
+const inviteDialogVisible = ref(false);
+// 邀请弹窗中已选中的待邀请用户 ID 列表
+const inviteUserIds = ref<number[]>([]);
+// 互动文字输入框的当前内容
+const interactionText = ref('');
+// 互动表情面板中可选的表情列表
+const interactionEmojiOptions = ['👍', '👏', '🎉', '🔥', '✅', '❓'];
 
+/***************************** 定时器 / 权限状态 *****************************/
 let activeSpeakerTimer: ReturnType<typeof setTimeout> | null = null;
 let joinedHighlightTimer: ReturnType<typeof setTimeout> | null = null;
 let rtcOwnershipHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
+let meetingClockTimer: ReturnType<typeof setInterval> | null = null;
 let permissionStatus: PermissionStatus | null = null;
 let permissionRetryRegistered = false;
 let disconnectOnUnloadSent = false;
 
+/***************************** 计算属性 *****************************/
+// 抽屉显隐双向绑定
 const drawerVisible = computed({
   get: () => meetingStore.drawerVisible,
   set: (value: boolean) => {
@@ -69,20 +120,121 @@ const drawerVisible = computed({
   },
 });
 
+// 会议详情 / 待处理会议 / 转写 / 摘要
 const meetingDetail = computed(() => meetingStore.meetingDetail);
 const pendingMeetings = computed(() => meetingStore.pendingMeetings);
 const liveTranscriptBlocks = computed(() => meetingStore.liveTranscriptBlocks);
 const liveSummaryText = computed(() => meetingStore.liveSummaryText);
 const liveSummaryStatus = computed(() => meetingStore.liveSummaryStatus);
 const liveSummaryUpdatedAt = computed(() => meetingStore.liveSummaryUpdatedAt);
+// 摘要内容变化时强制重新渲染（避免 transition 不触发）
 const liveSummaryRenderKey = computed(
   () => `${liveSummaryUpdatedAt.value || 'empty'}:${liveSummaryText.value}`
 );
+const renderedTranscriptLines = computed(() =>
+  buildSpeakerTranscriptLines(liveTranscriptBlocks.value)
+);
+const transcriptScrollEnabled = computed(
+  () => liveTranscriptBlocks.value.length > 20
+);
+const visibleMeetingParticipants = computed(() =>
+  (meetingDetail.value?.participants ?? []).filter(
+    (participant) => participant.inviteStatus !== 'DECLINED'
+  )
+);
+const participantRtcCount = computed(
+  () =>
+    visibleMeetingParticipants.value.filter((participant) =>
+      isParticipantInRtc(participant.userId)
+    ).length
+);
+const participantDisplayItems = computed(() =>
+  visibleMeetingParticipants.value.map((participant) => ({
+    id: participant.id,
+    userId: participant.userId,
+    name: participant.nickName || participant.userName,
+    subtitle: participant.userName,
+    isHost: participant.isHost === 1,
+    statusText: participantMeetingStatusText(participant),
+    statusType: participantMeetingStatusType(participant),
+    isActive:
+      activeSpeakerUserId.value !== null &&
+      meetingStore.toNumericId(participant.userId) ===
+        activeSpeakerUserId.value,
+    isSpeaking: isParticipantSpeaking(participant.userId),
+    isJoined:
+      joinedHighlightUserId.value !== null &&
+      meetingStore.toNumericId(participant.userId) ===
+        joinedHighlightUserId.value,
+    isWaiting: isParticipantWaiting(participant),
+    isAbsent: isParticipantAbsent(participant),
+    isInRtc: isParticipantInRtc(participant.userId),
+    isMicMuted:
+      isParticipantInRtc(participant.userId) &&
+      isParticipantMicMuted(participant.userId),
+    interactionText:
+      meetingStore.interactionBubbles[
+        meetingStore.toNumericId(participant.userId)
+      ]?.content || '',
+    interactionType:
+      meetingStore.interactionBubbles[
+        meetingStore.toNumericId(participant.userId)
+      ]?.interactionType || '',
+  }))
+);
+const meetingElapsedLabel = computed(() => {
+  const startedAt = meetingDetail.value?.session.startedAt;
+  const startedAtMs = startedAt ? Date.parse(startedAt) : 0;
+  if (!startedAtMs) {
+    return '00:00';
+  }
+  const totalSeconds = Math.max(
+    0,
+    Math.floor((meetingClockNow.value - startedAtMs) / 1000)
+  );
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return [hours, minutes, seconds]
+      .map((value) => String(value).padStart(2, '0'))
+      .join(':');
+  }
+  return [minutes, seconds]
+    .map((value) => String(value).padStart(2, '0'))
+    .join(':');
+});
+const networkStatusText = computed(() => {
+  if (isReconnecting.value) {
+    return '重连中';
+  }
+  if (isConnected.value) {
+    return '网络良好';
+  }
+  if (isRtcRunning.value) {
+    return '待接入';
+  }
+  return '未连接';
+});
+const networkStatusTone = computed(() => {
+  if (isReconnecting.value) {
+    return 'warning';
+  }
+  if (isConnected.value) {
+    return 'success';
+  }
+  if (isRtcRunning.value) {
+    return 'info';
+  }
+  return 'danger';
+});
+// 最新一条转写记录
 const latestTranscript = computed(() => {
   const transcripts = meetingDetail.value?.transcripts ?? [];
   return transcripts[transcripts.length - 1] ?? null;
 });
 const currentUser = computed(() => userStore.userInfo);
+// 会议 / RTC 状态
 const isMeetingEnded = computed(
   () => meetingDetail.value?.session.status === 'ENDED'
 );
@@ -95,13 +247,17 @@ const isConnected = computed(
 const isReconnecting = computed(
   () => connectionState.value === ConnectionState.Reconnecting
 );
-const currentMeetingId = computed(() => meetingDetail.value?.session.id ?? null);
+const currentMeetingId = computed(
+  () => meetingDetail.value?.session.id ?? null
+);
+// 扬声器音量百分比（双向绑定）
 const speakerVolumePercent = computed({
   get: () => Math.round(playbackVolume.value * 100),
   set: (value: number) => {
     setPlaybackVolume(value / 100);
   },
 });
+// 当前用户是否可加入 RTC（已接受邀请 且 会议进行中）
 const canCurrentUserJoinRtc = computed(() => {
   if (!meetingDetail.value || !currentUser.value) {
     return false;
@@ -119,16 +275,19 @@ const canCurrentUserJoinRtc = computed(() => {
       item.inviteStatus === 'ACCEPTED'
   );
 });
+// 跨 Tab RTC 归属判断
 const isCurrentTabRtcOwner = computed(() =>
   meetingStore.isCurrentTabRtcOwner(currentMeetingId.value)
 );
 const isRtcOwnedByOtherTab = computed(() =>
   meetingStore.isRtcOwnedByOtherTab(currentMeetingId.value)
 );
+// 是否显示"加入语音"按钮
 const showJoinRtcButton = computed(
   () => canCurrentUserJoinRtc.value && !isConnected.value
 );
 
+// 主持人权限 / 邀请相关
 const canStopMeeting = computed(
   () =>
     meetingDetail.value?.session.status === 'ACTIVE' &&
@@ -141,6 +300,28 @@ const canStopMeeting = computed(
           item.isHost === 1
       ))
 );
+const canInviteParticipants = computed(
+  () => isHost.value && meetingDetail.value?.session.status === 'ACTIVE'
+);
+const inviteSelectableUsers = computed(() => {
+  if (!meetingDetail.value) {
+    return [];
+  }
+
+  const blockedUserIds = new Set(
+    meetingDetail.value.participants
+      .filter(
+        (item) =>
+          item.inviteStatus === 'ACCEPTED' || item.inviteStatus === 'PENDING'
+      )
+      .map((item) => meetingStore.toNumericId(item.userId))
+  );
+  blockedUserIds.add(meetingStore.toNumericId(currentUser.value?.userId));
+
+  return meetingStore.selectableUsers.filter(
+    (item) => !blockedUserIds.has(meetingStore.toNumericId(item.userId))
+  );
+});
 
 const isHost = computed(() => {
   if (!meetingDetail.value || !currentUser.value) return false;
@@ -149,6 +330,8 @@ const isHost = computed(() => {
     meetingStore.toNumericId(currentUser.value.userId)
   );
 });
+
+/***************************** 高亮脉冲效果 *****************************/
 
 /**
  * 触发发言人高亮脉冲效果
@@ -188,47 +371,7 @@ function pulseJoinedParticipant(userId: number | null, duration = 3600) {
   }, duration);
 }
 
-/**
- * 根据邀请状态返回对应的标签类型（用于 el-tag 的 type 属性）
- * @param status - 邀请状态字符串（ACCEPTED / PENDING 等）
- * @returns Element Plus 标签类型
- */
-function participantInviteStatusType(status: string) {
-  if (status === 'ACCEPTED') {
-    return 'success';
-  }
-  if (status === 'DECLINED') {
-    return 'danger';
-  }
-  if (isMeetingEnded.value) {
-    return 'danger';
-  }
-  if (status === 'PENDING') {
-    return 'warning';
-  }
-  return 'info';
-}
-
-/**
- * 根据邀请状态返回对应的国际化文本
- * @param status - 邀请状态字符串（ACCEPTED / PENDING 等）
- * @returns 状态描述文本
- */
-function participantInviteStatusText(status: string) {
-  if (status === 'ACCEPTED') {
-    return t('meeting.participantAccepted');
-  }
-  if (status === 'DECLINED') {
-    return t('meeting.participantDeclined');
-  }
-  if (isMeetingEnded.value) {
-    return t('meeting.participantAbsent');
-  }
-  if (status === 'PENDING') {
-    return t('meeting.participantPending');
-  }
-  return t('meeting.participantLeft');
-}
+/***************************** 参与者状态判断 *****************************/
 
 /**
  * 判断参与者是否已连接（邀请已接受 且 在线状态为在线）
@@ -316,9 +459,7 @@ function isParticipantAbsent(participant: { inviteStatus: string }) {
   );
 }
 
-function isParticipantDeclined(participant: { inviteStatus: string }) {
-  return participant.inviteStatus === 'DECLINED';
-}
+/***************************** RTC 参与者状态查询 *****************************/
 
 /**
  * 获取参与者的 RTC 实时状态信息
@@ -359,6 +500,8 @@ function isParticipantMicMuted(userId: number) {
   const info = getParticipantRtcInfo(userId);
   return info?.isMuted ?? true;
 }
+
+/***************************** 会议生命周期 *****************************/
 
 /**
  * 初始化会议抽屉
@@ -403,6 +546,8 @@ async function openPendingMeeting(meetingId: number) {
   await meetingStore.enterMeeting(meetingId);
   meetingStore.openDrawer();
 }
+
+/***************************** 语音 RTC 连接 *****************************/
 
 /**
  * 加入语音会议
@@ -451,6 +596,7 @@ async function handleJoinVoice(silent = false) {
   }
 }
 
+// 接管其他 Tab 的 RTC 连接并加入语音
 async function handleTakeOverRtc() {
   const meetingId = currentMeetingId.value;
   if (!meetingId || isJoining.value) {
@@ -459,6 +605,43 @@ async function handleTakeOverRtc() {
   meetingStore.claimRtcOwnership(meetingId);
   await handleJoinVoice();
 }
+
+/***************************** 邀请参与者 *****************************/
+
+// 打开邀请参与者弹窗，加载可选用户列表
+async function openInviteParticipantsDialog() {
+  if (!canInviteParticipants.value) {
+    return;
+  }
+  inviteUserIds.value = [];
+  await meetingStore.loadSelectableUsers();
+  inviteDialogVisible.value = true;
+}
+
+// 提交邀请选中的用户
+async function handleInviteParticipants() {
+  if (inviteUserIds.value.length === 0 || isInvitingParticipants.value) {
+    return;
+  }
+  isInvitingParticipants.value = true;
+  const invitedCount = inviteUserIds.value.length;
+  try {
+    await meetingStore.inviteParticipants(inviteUserIds.value);
+    inviteDialogVisible.value = false;
+    inviteUserIds.value = [];
+    ElMessage.success(
+      t('meeting.inviteMoreSuccess', {
+        count: invitedCount,
+      })
+    );
+  } catch (error: any) {
+    ElMessage.error(error?.message || t('meeting.inviteMoreFailed'));
+  } finally {
+    isInvitingParticipants.value = false;
+  }
+}
+
+/***************************** RTC 服务启停 *****************************/
 
 /**
  * 主持人自动拉起 RTC 服务
@@ -521,6 +704,7 @@ async function handleStopMeeting() {
   }
 }
 
+// 页面关闭/卸载时断开会议连接（keepalive fetch）
 function disconnectMeetingOnPageUnload() {
   if (disconnectOnUnloadSent) {
     return;
@@ -557,6 +741,7 @@ function disconnectMeetingOnPageUnload() {
   void leaveRoom();
 }
 
+// 拒绝待处理的会议邀请
 async function declinePendingMeeting(meetingId: number) {
   try {
     await meetingStore.declineMeeting(meetingId);
@@ -565,6 +750,8 @@ async function declinePendingMeeting(meetingId: number) {
     ElMessage.error(error?.message || t('meeting.declineFailed'));
   }
 }
+
+/***************************** 抽屉关闭处理 *****************************/
 
 /**
  * 处理抽屉关闭尝试
@@ -610,6 +797,8 @@ function handleDrawerAttemptClose(done?: () => void) {
 function shouldAutoJoinCurrentMeeting() {
   return canCurrentUserJoinRtc.value && isCurrentTabRtcOwner.value;
 }
+
+/***************************** 麦克风权限重试 *****************************/
 
 /**
  * 判断错误是否为麦克风权限相关错误
@@ -723,18 +912,26 @@ function handleVisibilityRetry() {
   }
 }
 
+/***************************** 页面生命周期事件处理 *****************************/
+
+// 页面隐藏时断开连接
 function handlePageHide() {
   disconnectMeetingOnPageUnload();
 }
 
+// 页面卸载前断开连接
 function handleBeforeUnload() {
   disconnectMeetingOnPageUnload();
 }
 
+// 从 localStorage 同步 RTC 归属状态
 function syncRtcOwnership() {
   meetingStore.syncRtcOwnershipFromStorage();
 }
 
+/***************************** RTC 跨 Tab 归属心跳 *****************************/
+
+// 监听 localStorage 变化，同步 RTC 归属
 function handleRtcOwnershipStorageChange(event: StorageEvent) {
   if (event.storageArea !== localStorage) {
     return;
@@ -745,6 +942,7 @@ function handleRtcOwnershipStorageChange(event: StorageEvent) {
   syncRtcOwnership();
 }
 
+// 停止 RTC 归属心跳定时器
 function stopRtcOwnershipHeartbeat() {
   if (!rtcOwnershipHeartbeatTimer) {
     return;
@@ -753,6 +951,7 @@ function stopRtcOwnershipHeartbeat() {
   rtcOwnershipHeartbeatTimer = null;
 }
 
+// 启动 RTC 归属心跳（每 5s 续期）
 function startRtcOwnershipHeartbeat() {
   stopRtcOwnershipHeartbeat();
   if (!isCurrentTabRtcOwner.value || !currentMeetingId.value) {
@@ -765,6 +964,72 @@ function startRtcOwnershipHeartbeat() {
     meetingStore.claimRtcOwnership(currentMeetingId.value);
   }, 5000);
 }
+
+function handleUnavailableFeature(label: string) {
+  ElMessage.info(`${label}能力正在接入中`);
+}
+
+// 共享屏幕功能通
+async function handleSharedScreen() {
+  const mediaStream =
+    await navigator.mediaDevices.getDisplayMedia(MEDIADEVICES_OPTIONS);
+  mediaStream.getVideoTracks()[0];
+}
+
+async function handleSendInteraction(
+  interactionType: 'HAND' | 'EMOJI' | 'TEXT',
+  content: string
+) {
+  if (!meetingDetail.value || !content.trim()) {
+    return;
+  }
+  isSendingInteraction.value = true;
+  try {
+    await meetingStore.sendInteraction({
+      interactionType,
+      content: content.trim(),
+    });
+    if (interactionType === 'HAND') {
+      ElMessage.success(t('meeting.interactionHandSent'));
+      return;
+    }
+    if (interactionType === 'EMOJI') {
+      ElMessage.success(t('meeting.interactionEmojiSent'));
+      return;
+    }
+    ElMessage.success(t('meeting.interactionTextSent'));
+  } catch (error: any) {
+    ElMessage.error(error?.message || t('meeting.interactionSendFailed'));
+  } finally {
+    isSendingInteraction.value = false;
+  }
+}
+
+function handleRaiseHand() {
+  void handleSendInteraction('HAND', t('meeting.interactionHandBubble'));
+}
+
+function handleSendEmoji(emoji: string) {
+  void handleSendInteraction('EMOJI', emoji);
+}
+
+function handleSendTextInteraction() {
+  const content = interactionText.value.trim();
+  if (!content) {
+    return;
+  }
+  interactionText.value = '';
+  void handleSendInteraction('TEXT', content);
+}
+
+function scrollTranscriptPanelToBottom() {
+  if (!transcriptScrollEnabled.value || !transcriptPanelRef.value) {
+    return;
+  }
+  transcriptPanelRef.value.scrollTop = transcriptPanelRef.value.scrollHeight;
+}
+
+/***************************** Watch 监听器 *****************************/
 
 // 监听转写更新，高亮发言人
 watch(
@@ -786,6 +1051,18 @@ watch(
 );
 
 watch(
+  () =>
+    liveTranscriptBlocks.value
+      .map((item) => `${item.id}:${item.text}`)
+      .join('|'),
+  async () => {
+    await nextTick();
+    scrollTranscriptPanelToBottom();
+  }
+);
+
+// 切换会议时重置转写水位线
+watch(
   () => meetingDetail.value?.session.id,
   () => {
     hydratedLastTranscriptId.value = latestTranscript.value?.id ?? null;
@@ -793,6 +1070,7 @@ watch(
   { immediate: true }
 );
 
+// 会议状态变化：结束时清理 RTC 连接
 watch(
   () => meetingDetail.value?.session.status,
   async (status, previousStatus) => {
@@ -831,6 +1109,7 @@ watch(
   { immediate: true }
 );
 
+// 参与者或 RTC 状态变化时自动加入语音
 watch(
   () => [
     meetingDetail.value?.session.id,
@@ -850,6 +1129,7 @@ watch(
   { immediate: true }
 );
 
+// RTC 归属变化时管理心跳和连接
 watch(
   () => [currentMeetingId.value, isCurrentTabRtcOwner.value, isConnected.value],
   async () => {
@@ -868,6 +1148,7 @@ watch(
   { immediate: true }
 );
 
+// URL 参数变化时打开对应会议
 watch(
   () => route.query.meetingId,
   async (value, oldValue) => {
@@ -881,6 +1162,7 @@ watch(
   }
 );
 
+// 新参与者加入时显示提示并高亮
 watch(
   () => meetingStore.lastJoinedUserId,
   (userId) => {
@@ -900,7 +1182,7 @@ watch(
   }
 );
 
-// 同步 RTC 状态到 Store
+/***************************** 同步 RTC 状态到 Store *****************************/
 watch(connectionState, (state) => {
   rtcStore.setConnectionState(state);
 });
@@ -917,9 +1199,14 @@ watch(isMicEnabled, (enabled) => {
   rtcStore.setMicEnabled(enabled);
 });
 
+/***************************** 生命周期钩子 *****************************/
+
 onMounted(async () => {
   requestPlaybackPermission();
   syncRtcOwnership();
+  meetingClockTimer = setInterval(() => {
+    meetingClockNow.value = Date.now();
+  }, 1000);
   window.addEventListener('storage', handleRtcOwnershipStorageChange);
   window.addEventListener('pagehide', handlePageHide);
   window.addEventListener('beforeunload', handleBeforeUnload);
@@ -932,6 +1219,10 @@ onBeforeUnmount(() => {
   }
   if (joinedHighlightTimer) {
     clearTimeout(joinedHighlightTimer);
+  }
+  if (meetingClockTimer) {
+    clearInterval(meetingClockTimer);
+    meetingClockTimer = null;
   }
   if (permissionRetryRegistered) {
     window.removeEventListener('focus', handleWindowFocusRetry);
@@ -962,22 +1253,35 @@ onBeforeUnmount(() => {
     custom-class="meeting-drawer"
   >
     <div class="meeting-drawer__body">
-      <section class="meeting-hero">
-        <div>
-          <p class="meeting-hero__eyebrow">{{ t('meeting.heroEyebrow') }}</p>
-          <h1>{{ t('meeting.heroTitle') }}</h1>
-          <p>
-            {{ t('meeting.currentUser') }}：{{ userStore.displayName }}
-            <span v-if="meetingDetail">
-              · {{ t('meeting.currentMeetingLabel') }}：{{
-                meetingDetail.session.title
-              }}
-            </span>
-          </p>
+      <!-------------------------- 顶部状态栏 -------------------------->
+      <section class="meeting-shell-bar">
+        <div class="meeting-shell-bar__status">
+          <strong class="meeting-shell-bar__title">
+            {{ meetingDetail?.session.title || t('meeting.drawerTitle') }}
+          </strong>
+          <span class="meeting-shell-bar__timer">{{
+            meetingElapsedLabel
+          }}</span>
+          <el-tag
+            size="small"
+            :type="networkStatusTone"
+            class="meeting-shell-bar__network"
+          >
+            <el-icon class="is-loading" v-if="isReconnecting">
+              <LoaderCircle />
+            </el-icon>
+            <el-icon v-else-if="isConnected"><Wifi /></el-icon>
+            <el-icon v-else><WifiOff /></el-icon>
+            {{ networkStatusText }}
+          </el-tag>
+          <span v-if="meetingDetail" class="meeting-shell-bar__id">
+            ID {{ meetingDetail.session.id }}
+          </span>
         </div>
 
-        <div class="meeting-hero__actions" v-if="meetingDetail">
+        <div class="meeting-shell-bar__meta" v-if="meetingDetail">
           <el-tag
+            size="small"
             :type="
               meetingDetail.session.status === 'ACTIVE' ? 'success' : 'info'
             "
@@ -988,144 +1292,30 @@ onBeforeUnmount(() => {
                 : t('meeting.statusEnded')
             }}
           </el-tag>
-
-          <!-- RTC 状态 -->
-          <el-tag v-if="isRtcRunning" type="success">
-            <el-icon class="is-loading" v-if="isReconnecting">
-              <LoaderCircle />
-            </el-icon>
-            <el-icon v-else-if="isConnected"><Wifi /></el-icon>
-            <el-icon v-else><WifiOff /></el-icon>
-            {{
-              isReconnecting
-                ? '重连中'
-                : isConnected
-                  ? 'RTC 已连接'
-                  : 'RTC 运行中'
-            }}
-          </el-tag>
-
-          <el-tag v-if="waitingMicPermission" type="warning">
+          <el-tag v-if="waitingMicPermission" size="small" type="warning">
             {{ t('meeting.waitingMicPermission') }}
           </el-tag>
-
           <el-tag
             v-if="
-              meetingDetail.session.status === 'ACTIVE' &&
-              isHost &&
-              !isRtcRunning
+              meetingDetail.session.status === 'ACTIVE' && isRtcOwnedByOtherTab
             "
-            type="warning"
-          >
-            <el-icon class="is-loading">
-              <LoaderCircle />
-            </el-icon>
-            {{ t('meeting.rtcConnecting') }}
-          </el-tag>
-
-          <el-tag
-            v-if="meetingDetail.session.status === 'ACTIVE' && isRtcOwnedByOtherTab"
+            size="small"
             type="info"
           >
             {{ t('meeting.audioInOtherWindow') }}
           </el-tag>
-
-          <el-tag
-            v-if="canCurrentUserJoinRtc"
-            :type="isMicEnabled ? 'success' : 'info'"
-          >
-            {{ isMicEnabled ? t('meeting.micOn') : t('meeting.micOff') }}
-          </el-tag>
-
-          <el-tag
-            v-if="canCurrentUserJoinRtc"
-            :type="isSpeakerMuted ? 'info' : 'success'"
-          >
-            {{ isSpeakerMuted ? t('meeting.muteSpeaker') : t('meeting.unmuteSpeaker') }}
-          </el-tag>
-
-          <template v-if="meetingDetail.session.status === 'ACTIVE'">
-            <el-button
-              v-if="!isHost"
-              type="danger"
-              plain
-              @click="handleStopMeeting"
-            >
-              <el-icon><PhoneOff /></el-icon>
-              {{ t('meeting.leaveMeeting') }}
-            </el-button>
-
-            <el-button
-              v-if="showJoinRtcButton"
-              type="primary"
-              @click="handleTakeOverRtc"
-            >
-              {{
-                isRtcOwnedByOtherTab
-                  ? t('meeting.takeOverAudio')
-                  : t('meeting.joinMeeting')
-              }}
-            </el-button>
-
-            <!-- 麦克风控制 -->
-            <el-button
-              v-if="isConnected"
-              :type="isMicEnabled ? 'primary' : 'info'"
-              @click="toggleMic"
-            >
-              <el-icon>
-                <Mic v-if="isMicEnabled" />
-                <MicOff v-else />
-              </el-icon>
-              {{ isMicEnabled ? t('meeting.micOn') : t('meeting.micOff') }}
-            </el-button>
-
-            <!-- 扬声器控制 -->
-            <el-button
-              v-if="isConnected"
-              :type="isSpeakerMuted ? 'info' : 'primary'"
-              plain
-              @click="toggleSpeakerMute"
-            >
-              <el-icon>
-                <WifiOff v-if="isSpeakerMuted" />
-                <Wifi v-else />
-              </el-icon>
-              {{
-                isSpeakerMuted
-                  ? t('meeting.unmuteSpeaker')
-                  : t('meeting.muteSpeaker')
-              }}
-            </el-button>
-
-            <div v-if="isConnected" class="meeting-hero__volume">
-              <span>{{ t('meeting.playbackVolume') }}</span>
-              <el-slider
-                v-model="speakerVolumePercent"
-                :max="100"
-                :min="0"
-                :show-tooltip="false"
-              />
-            </div>
-
-            <!-- 结束会议 -->
-            <el-button
-              v-if="canStopMeeting"
-              type="danger"
-              @click="handleStopMeeting"
-            >
-              {{ t('meeting.stopMeeting') }}
-            </el-button>
-          </template>
         </div>
       </section>
 
+      <!-------------------------- 会议已结束提示 -------------------------->
       <section v-if="isMeetingEnded" class="meeting-ended-banner">
         <strong>{{ t('meeting.endedBannerTitle') }}</strong>
         <p>{{ t('meeting.endedBannerDescription') }}</p>
       </section>
 
+      <!-------------------------- 主体内容区域 -------------------------->
       <div class="meeting-grid">
+        <!-------------------------- 侧边栏：待处理会议 / 参与者列表 -------------------------->
         <aside class="meeting-side">
           <article
             v-if="pendingMeetings.length && !meetingDetail"
@@ -1177,129 +1367,33 @@ onBeforeUnmount(() => {
                 <el-icon><Users /></el-icon>
                 {{ t('meeting.participantsTitle') }}
               </h2>
-              <span>
-                {{
-                  t('meeting.participantCount', {
-                    count: meetingDetail.participants.length,
-                  })
-                }}
-                <template v-if="rtcParticipants.length">
-                  · RTC: {{ rtcParticipants.length }}
-                </template>
-              </span>
-            </div>
-
-            <div class="meeting-participant-list">
-              <div
-                v-for="participant in meetingDetail.participants"
-                :key="participant.id"
-                class="meeting-participant-item"
-                :class="{
-                  'meeting-participant-item--active':
-                    activeSpeakerUserId !== null &&
-                    meetingStore.toNumericId(participant.userId) ===
-                      activeSpeakerUserId,
-                  'meeting-participant-item--speaking': isParticipantSpeaking(
-                    participant.userId
-                  ),
-                  'meeting-participant-item--joined':
-                    joinedHighlightUserId !== null &&
-                    meetingStore.toNumericId(participant.userId) ===
-                      joinedHighlightUserId,
-                  'meeting-participant-item--absent':
-                    isParticipantAbsent(participant),
-                  'meeting-participant-item--declined':
-                    isParticipantDeclined(participant),
-                  'meeting-participant-item--waiting':
-                    isParticipantWaiting(participant),
-                }"
-              >
-                <div class="meeting-participant-item__main">
-                  <div class="meeting-participant-avatar">
-                    <UserAvatarInfo
-                      :user-id="participant.userId"
-                      :nick-name="participant.nickName || participant.userName"
-                      :name="participant.nickName || participant.userName"
-                      :subtitle="participant.userName"
-                      :size="42"
-                    />
-                    <div
-                      v-if="isParticipantWaiting(participant)"
-                      class="meeting-participant-avatar__loading"
-                    >
-                      <el-icon class="is-loading">
-                        <LoaderCircle />
-                      </el-icon>
-                    </div>
-                    <!-- RTC 状态指示器 -->
-                    <div
-                      v-if="isParticipantInRtc(participant.userId)"
-                      class="meeting-participant-avatar__rtc"
-                      :class="{
-                        'is-speaking': isParticipantSpeaking(
-                          participant.userId
-                        ),
-                        'is-muted': isParticipantMicMuted(participant.userId),
-                      }"
-                    >
-                      <el-icon :size="12">
-                        <Mic
-                          v-if="!isParticipantMicMuted(participant.userId)"
-                        />
-                        <MicOff v-else />
-                      </el-icon>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="meeting-participant-item__meta">
-                  <el-tag
-                    size="small"
-                    :type="participant.isHost === 1 ? 'danger' : 'info'"
-                  >
-                    {{
-                      participant.isHost === 1
-                        ? t('meeting.roleHost')
-                        : t('meeting.roleMember')
-                    }}
-                  </el-tag>
-                  <el-tag
-                    size="small"
-                    :type="
-                      participantInviteStatusType(participant.inviteStatus)
-                    "
-                  >
-                    {{ participantInviteStatusText(participant.inviteStatus) }}
-                  </el-tag>
-                  <el-tag
-                    size="small"
-                    :type="participantMeetingStatusType(participant)"
-                  >
-                    {{ participantMeetingStatusText(participant) }}
-                  </el-tag>
-                  <!-- RTC 状态 -->
-                  <el-tag
-                    v-if="isParticipantInRtc(participant.userId)"
-                    size="small"
-                    type="success"
-                  >
-                    {{
-                      isParticipantSpeaking(participant.userId)
-                        ? '发言中'
-                        : 'RTC'
-                    }}
-                  </el-tag>
-                  <span
-                    :class="[
-                      'meeting-presence',
-                      presenceStore.isUserOnline(participant.userId)
-                        ? 'is-online'
-                        : 'is-offline',
-                    ]"
-                  />
-                </div>
+              <div class="meeting-card__header-actions">
+                <span>
+                  {{
+                    t('meeting.participantCount', {
+                      count: visibleMeetingParticipants.length,
+                    })
+                  }}
+                  <template v-if="participantRtcCount">
+                    · RTC: {{ participantRtcCount }}
+                  </template>
+                </span>
+                <el-button
+                  v-if="canInviteParticipants"
+                  type="primary"
+                  link
+                  size="small"
+                  @click="openInviteParticipantsDialog"
+                >
+                  {{ t('meeting.inviteMoreAction') }}
+                </el-button>
               </div>
             </div>
+
+            <MeetingParticipantGrid
+              :items="participantDisplayItems"
+              :host-label="t('meeting.roleHost')"
+            />
           </article>
 
           <article
@@ -1320,36 +1414,42 @@ onBeforeUnmount(() => {
           </article>
         </aside>
 
+        <!-------------------------- 主内容区：实时转写 / AI 摘要 -------------------------->
         <main class="meeting-main">
           <article class="meeting-card" v-if="meetingDetail">
-            <div class="meeting-card__header">
-              <h2>{{ t('meeting.rawTranscriptTitle') }}</h2>
-              <span>
-                {{ t('meeting.transcriptCount', { count: liveTranscriptBlocks.length }) }}
-              </span>
-            </div>
+            <div
+              ref="transcriptPanelRef"
+              :class="[
+                'meeting-live-feed',
+                transcriptScrollEnabled ? 'meeting-live-feed--scrollable' : '',
+              ]"
+            >
+              <div class="meeting-live-feed__meta">
+                <strong>AI 实时字幕及转写</strong>
+              </div>
 
-            <div class="meeting-live-feed">
               <div
-                v-for="item in liveTranscriptBlocks"
+                v-for="item in renderedTranscriptLines"
                 :key="item.id"
                 :class="[
-                  'meeting-live-block',
-                  `meeting-live-block--${item.kind}`,
+                  'meeting-live-line',
                   item.pending ? 'meeting-live-block--pending' : '',
                 ]"
               >
-                <div class="meeting-live-block__meta">
-                  <strong>{{ item.label }}</strong>
-                  <small v-if="item.pending" class="meeting-transcript-pending-label">
+                <p class="meeting-live-line__text">
+                  <strong class="meeting-live-line__label">
+                    {{ item.displayLabel }}说：
+                  </strong>
+                  {{ item.text }}
+                  <small
+                    v-if="item.pending"
+                    class="meeting-transcript-pending-label meeting-live-line__pending"
+                  >
                     <el-icon class="is-loading" :size="12">
                       <LoaderCircle />
                     </el-icon>
                     {{ t('meeting.liveDigestPolishing') }}
                   </small>
-                </div>
-                <p>
-                  {{ item.text }}
                   <span v-if="item.pending" class="typing-cursor" />
                 </p>
               </div>
@@ -1362,17 +1462,6 @@ onBeforeUnmount(() => {
           </article>
 
           <article class="meeting-card" v-if="meetingDetail">
-            <div class="meeting-card__header">
-              <h2>{{ t('meeting.aiSummaryTitle') }}</h2>
-              <span>
-                {{
-                  liveSummaryStatus === 'ready'
-                    ? t('meeting.aiSummaryReady')
-                    : t('meeting.aiSummaryStreaming')
-                }}
-              </span>
-            </div>
-
             <div
               :class="[
                 'meeting-live-summary',
@@ -1416,7 +1505,249 @@ onBeforeUnmount(() => {
           </article>
         </main>
       </div>
+
+      <section
+        v-if="meetingDetail && meetingDetail.session.status === 'ACTIVE'"
+        class="meeting-control-dock"
+      >
+        <el-button
+          v-if="showJoinRtcButton"
+          type="primary"
+          @click="handleTakeOverRtc"
+        >
+          {{
+            isRtcOwnedByOtherTab
+              ? t('meeting.takeOverAudio')
+              : t('meeting.joinMeeting')
+          }}
+        </el-button>
+
+        <el-tooltip
+          v-if="isConnected"
+          :content="isMicEnabled ? t('meeting.micOn') : t('meeting.micOff')"
+          placement="top"
+        >
+          <el-button
+            :type="isMicEnabled ? 'primary' : 'info'"
+            circle
+            :aria-label="
+              isMicEnabled ? t('meeting.micOn') : t('meeting.micOff')
+            "
+            @click="toggleMic"
+          >
+            <Mic v-if="isMicEnabled" :size="16" />
+            <MicOff v-else :size="16" />
+          </el-button>
+        </el-tooltip>
+
+        <el-tooltip
+          v-if="isConnected"
+          :content="
+            isSpeakerMuted
+              ? t('meeting.unmuteSpeaker')
+              : t('meeting.muteSpeaker')
+          "
+          placement="top"
+        >
+          <el-button
+            :type="isSpeakerMuted ? 'info' : 'primary'"
+            plain
+            circle
+            :aria-label="
+              isSpeakerMuted
+                ? t('meeting.unmuteSpeaker')
+                : t('meeting.muteSpeaker')
+            "
+            @click="toggleSpeakerMute"
+          >
+            <VolumeX v-if="isSpeakerMuted" :size="16" />
+            <Volume2 v-else :size="16" />
+          </el-button>
+        </el-tooltip>
+
+        <el-tooltip content="摄像头" placement="top">
+          <el-button
+            plain
+            circle
+            aria-label="摄像头"
+            @click="handleUnavailableFeature('摄像头')"
+          >
+            <Camera :size="16" />
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="共享屏幕" placement="top">
+          <el-button
+            plain
+            circle
+            aria-label="共享屏幕"
+            @click="handleSharedScreen"
+          >
+            <MonitorUp :size="16" />
+          </el-button>
+        </el-tooltip>
+        <el-tooltip
+          :content="t('meeting.interactionHandAction')"
+          placement="top"
+        >
+          <el-button
+            plain
+            circle
+            :loading="isSendingInteraction"
+            :aria-label="t('meeting.interactionHandAction')"
+            @click="handleRaiseHand"
+          >
+            <Hand :size="16" />
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="录制" placement="top">
+          <el-button
+            plain
+            circle
+            aria-label="录制"
+            @click="handleUnavailableFeature('录制')"
+          >
+            <CircleDot :size="16" />
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="设置" placement="top">
+          <el-button
+            plain
+            circle
+            aria-label="设置"
+            @click="handleUnavailableFeature('设置')"
+          >
+            <Settings2 :size="16" />
+          </el-button>
+        </el-tooltip>
+        <el-popover
+          placement="top"
+          trigger="click"
+          width="220"
+          popper-class="meeting-interaction-popover"
+        >
+          <template #reference>
+            <el-tooltip
+              :content="t('meeting.interactionEmojiAction')"
+              placement="top"
+            >
+              <el-button
+                plain
+                circle
+                :aria-label="t('meeting.interactionEmojiAction')"
+              >
+                <Sparkles :size="16" />
+              </el-button>
+            </el-tooltip>
+          </template>
+          <div class="meeting-emoji-picker">
+            <button
+              v-for="emoji in interactionEmojiOptions"
+              :key="emoji"
+              type="button"
+              class="meeting-emoji-picker__item"
+              @click="handleSendEmoji(emoji)"
+            >
+              {{ emoji }}
+            </button>
+          </div>
+        </el-popover>
+
+        <div class="meeting-control-dock__interaction">
+          <el-input
+            v-model="interactionText"
+            maxlength="40"
+            clearable
+            :placeholder="t('meeting.interactionTextPlaceholder')"
+            @keyup.enter="handleSendTextInteraction"
+          />
+          <el-button
+            type="primary"
+            plain
+            circle
+            :loading="isSendingInteraction"
+            :aria-label="t('meeting.interactionTextAction')"
+            @click="handleSendTextInteraction"
+          >
+            <SendHorizontal :size="16" />
+          </el-button>
+        </div>
+
+        <div v-if="isConnected" class="meeting-control-dock__volume">
+          <el-tooltip :content="t('meeting.playbackVolume')" placement="top">
+            <span class="meeting-control-dock__volume-icon">
+              <Volume2 :size="16" />
+            </span>
+          </el-tooltip>
+          <el-slider
+            v-model="speakerVolumePercent"
+            :max="100"
+            :min="0"
+            :show-tooltip="false"
+          />
+        </div>
+
+        <el-button
+          v-if="canInviteParticipants"
+          type="primary"
+          plain
+          @click="openInviteParticipantsDialog"
+        >
+          {{ t('meeting.inviteMoreAction') }}
+        </el-button>
+
+        <el-button
+          v-if="!isHost"
+          type="danger"
+          plain
+          @click="handleStopMeeting"
+        >
+          {{ t('meeting.leaveMeeting') }}
+        </el-button>
+
+        <el-button
+          v-if="canStopMeeting"
+          type="danger"
+          @click="handleStopMeeting"
+        >
+          {{ t('meeting.stopMeeting') }}
+        </el-button>
+      </section>
     </div>
+    <!-------------------------- 邀请参与者弹窗 -------------------------->
+    <el-dialog
+      v-model="inviteDialogVisible"
+      :title="t('meeting.inviteMoreDialogTitle')"
+      width="520px"
+    >
+      <AsyncSelect
+        v-model="inviteUserIds"
+        :entityConfig="{ entityKey: 'user' }"
+        label-key="nickName"
+        value-key="userId"
+        multiple
+        filterable
+        :placeholder="t('meeting.inviteMorePlaceholder')"
+      />
+      <div
+        v-if="inviteSelectableUsers.length === 0"
+        class="meeting-invite-empty-tip"
+      >
+        {{ t('meeting.inviteMoreEmpty') }}
+      </div>
+      <template #footer>
+        <el-button @click="inviteDialogVisible = false">
+          {{ t('common.cancel') }}
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="isInvitingParticipants"
+          :disabled="inviteUserIds.length === 0"
+          @click="handleInviteParticipants"
+        >
+          {{ t('meeting.inviteMoreSubmit') }}
+        </el-button>
+      </template>
+    </el-dialog>
   </el-drawer>
 </template>
 
@@ -1428,78 +1759,64 @@ onBeforeUnmount(() => {
   padding-right: 4px;
 }
 
-.meeting-hero {
+.meeting-shell-bar {
   display: flex;
   justify-content: space-between;
-  gap: 24px;
-  padding: 28px;
-  border-radius: 28px;
-  background:
-    radial-gradient(
-      circle at top left,
-      rgba(245, 158, 11, 0.18),
-      transparent 28%
-    ),
-    linear-gradient(135deg, #0f172a, #172554 46%, #164e63);
-  color: #f8fafc;
-  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.24);
-}
-
-.meeting-hero__eyebrow {
-  margin: 0 0 10px;
-  color: rgba(255, 255, 255, 0.72);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  font-size: 12px;
-}
-
-.meeting-hero h1 {
-  margin: 0 0 10px;
-  font-size: 30px;
-}
-
-.meeting-hero p {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.meeting-hero__actions {
-  display: flex;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.meeting-hero__volume {
-  min-width: 180px;
+  align-items: center;
+  gap: 16px;
   padding: 10px 14px;
-  border-radius: 16px;
-  background: rgba(15, 23, 42, 0.28);
+  border-radius: 18px;
+  border: 1px solid var(--color-primary-light-7);
+  background: linear-gradient(
+    180deg,
+    var(--color-border-light),
+    var(--color-bg-page)
+  );
+  box-shadow: var(--shadow-md);
+}
 
-  span {
-    display: block;
-    margin-bottom: 8px;
-    color: rgba(255, 255, 255, 0.82);
-    font-size: 12px;
-  }
+.meeting-shell-bar__status,
+.meeting-shell-bar__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.meeting-shell-bar__title {
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.meeting-shell-bar__timer,
+.meeting-shell-bar__id {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.meeting-shell-bar__network {
+  border-radius: 999px;
 }
 
 .meeting-grid {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 26vw);
   gap: 20px;
+  align-items: start;
 }
 
 .meeting-ended-banner {
   padding: 16px 18px;
-  border: 1px solid rgba(249, 115, 22, 0.24);
+  border: 1px solid var(--color-danger-light);
   border-radius: 20px;
   background: linear-gradient(
     180deg,
-    rgba(255, 247, 237, 0.95),
-    rgba(255, 255, 255, 0.98)
+    var(--color-danger-bg),
+    var(--color-bg-page)
   );
-  color: #9a3412;
+  color: var(--color-danger);
 
   strong {
     display: block;
@@ -1521,18 +1838,69 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
+.meeting-main {
+  max-width: min(26vw, 420px);
+  justify-self: end;
+  width: 100%;
+}
+
+.meeting-control-dock {
+  position: sticky;
+  bottom: 12px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 18px;
+  border-radius: 24px;
+  border: 1px solid var(--color-primary-light-7);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-lg);
+}
+
+.meeting-control-dock__volume {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 220px;
+  padding: 0 6px;
+}
+
+.meeting-control-dock__volume-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+}
+
+.meeting-control-dock__interaction {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: min(320px, 100%);
+  flex: 1 1 320px;
+}
+
+.meeting-control-dock__interaction :deep(.el-input) {
+  min-width: 0;
+}
+
+.meeting-control-dock__volume span {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 .meeting-card {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--color-border);
   border-radius: 24px;
   padding: 22px;
   background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.98),
-      rgba(248, 250, 252, 0.96)
-    ),
-    linear-gradient(135deg, rgba(14, 165, 233, 0.06), transparent 30%);
-  box-shadow: 0 18px 50px rgba(148, 163, 184, 0.14);
+    linear-gradient(180deg, var(--color-bg-page), var(--color-border-light)),
+    linear-gradient(135deg, var(--color-primary-bg), transparent 30%);
+  box-shadow: var(--shadow-lg);
 }
 
 .meeting-card--empty {
@@ -1547,13 +1915,31 @@ onBeforeUnmount(() => {
   margin-bottom: 18px;
 }
 
+.meeting-card__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: right;
+}
+
 .meeting-card__header h2 {
   margin: 0;
   font-size: 18px;
-  color: #0f172a;
+  color: var(--color-text-primary);
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.meeting-card__header--stacked {
+  align-items: flex-start;
+}
+
+.meeting-card__caption {
+  margin: 6px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .meeting-pending-list,
@@ -1568,28 +1954,53 @@ onBeforeUnmount(() => {
 .meeting-live-feed {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   min-height: 280px;
   padding: 18px 20px;
   border-radius: 22px;
+  overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.92)),
-    radial-gradient(circle at top, rgba(14, 165, 233, 0.06), transparent 34%);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+    linear-gradient(180deg, var(--color-bg-page), var(--color-border-light)),
+    radial-gradient(circle at top, var(--color-primary-bg), transparent 34%);
+  border: 1px solid var(--color-border);
+}
+
+.meeting-live-feed__meta {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.meeting-live-feed__meta strong,
+.meeting-live-summary__meta strong {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.meeting-live-feed--scrollable {
+  max-height: 540px;
+  overflow: hidden;
+  scrollbar-width: none;
 }
 
 .meeting-live-summary {
   min-height: 220px;
   padding: 20px 22px;
   border-radius: 22px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border: 1px solid var(--color-border);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.92)),
-    radial-gradient(circle at top right, rgba(245, 158, 11, 0.08), transparent 36%);
+    linear-gradient(180deg, var(--color-bg-page), var(--color-border-light)),
+    radial-gradient(
+      circle at top right,
+      var(--color-warning-bg),
+      transparent 36%
+    );
 }
 
 .meeting-live-summary--streaming {
-  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.08);
+  box-shadow: inset 0 0 0 1px var(--color-warning-bg);
 }
 
 .meeting-live-summary__meta {
@@ -1600,10 +2011,9 @@ onBeforeUnmount(() => {
   margin-bottom: 12px;
 }
 
-.meeting-live-summary__meta strong {
-  color: #0f172a;
-  font-size: 14px;
-  letter-spacing: 0.02em;
+.meeting-live-summary__meta small {
+  color: var(--color-text-placeholder);
+  font-size: 12px;
 }
 
 .meeting-live-summary__text {
@@ -1611,13 +2021,15 @@ onBeforeUnmount(() => {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.9;
-  color: #1e293b;
-  font-size: 15px;
+  color: var(--color-text-primary);
+  font-size: 12px;
 }
 
 .meeting-summary-fade-enter-active,
 .meeting-summary-fade-leave-active {
-  transition: opacity 0.22s ease, transform 0.22s ease;
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
 }
 
 .meeting-summary-fade-enter-from,
@@ -1626,59 +2038,34 @@ onBeforeUnmount(() => {
   transform: translateY(4px);
 }
 
-.meeting-live-block {
-  position: relative;
-  padding-left: 18px;
-
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 4px;
-    bottom: 4px;
-    width: 3px;
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.28);
-  }
+.meeting-live-line {
+  width: 100%;
 }
 
-.meeting-live-block--speaker::before {
-  background: rgba(59, 130, 246, 0.42);
-}
-
-.meeting-live-block--pending::before {
-  background: rgba(14, 165, 233, 0.62);
-}
-
-.meeting-live-block--summary::before {
-  background: rgba(245, 158, 11, 0.58);
-}
-
-.meeting-live-block--final::before {
-  background: rgba(34, 197, 94, 0.62);
-}
-
-.meeting-live-block__meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.meeting-live-block__meta strong {
-  color: #0f172a;
-  font-size: 13px;
+.meeting-live-line__label {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  line-height: 1.9;
   letter-spacing: 0.02em;
+  font-weight: 700;
 }
 
-.meeting-live-block p {
+.meeting-live-line__text {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.85;
-  color: #1e293b;
-  font-size: 15px;
+  line-height: 1.9;
+  color: var(--color-text-primary);
+  font-size: 12px;
+}
+
+.meeting-live-line__pending {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.meeting-live-block--pending .meeting-live-line__label {
+  color: var(--color-primary-dark);
 }
 
 .meeting-pending-item {
@@ -1686,9 +2073,9 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 6px;
   padding: 14px 16px;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  border: 1px solid var(--color-warning-light);
   border-radius: 18px;
-  background: rgba(255, 251, 235, 0.88);
+  background: var(--color-warning-bg);
   text-align: left;
   cursor: pointer;
   transition:
@@ -1698,7 +2085,7 @@ onBeforeUnmount(() => {
 
 .meeting-pending-item:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 30px rgba(245, 158, 11, 0.16);
+  box-shadow: 0 12px 30px var(--color-warning-bg);
 }
 
 .meeting-pending-item__actions {
@@ -1712,8 +2099,8 @@ onBeforeUnmount(() => {
 .meeting-summary-item {
   padding: 14px 16px;
   border-radius: 18px;
-  background: #f8fafc;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: var(--color-bg-hover);
+  border: 1px solid var(--color-border);
 }
 
 .meeting-participant-item {
@@ -1729,47 +2116,51 @@ onBeforeUnmount(() => {
 }
 
 .meeting-participant-item--active {
-  border-color: rgba(14, 165, 233, 0.45);
+  border-color: var(--color-primary-light-5);
   background:
-    linear-gradient(135deg, rgba(224, 242, 254, 0.92), rgba(248, 250, 252, 1)),
-    #f8fafc;
-  box-shadow: 0 14px 28px rgba(14, 165, 233, 0.18);
+    linear-gradient(
+      135deg,
+      var(--color-primary-light-9),
+      var(--color-bg-hover)
+    ),
+    var(--color-bg-hover);
+  box-shadow: 0 14px 28px var(--color-primary-bg);
   transform: translateY(-1px);
 }
 
 .meeting-participant-item--speaking {
-  border-color: rgba(34, 197, 94, 0.45);
+  border-color: var(--color-success-light);
   background:
-    linear-gradient(135deg, rgba(220, 252, 231, 0.92), rgba(248, 250, 252, 1)),
-    #f8fafc;
-  box-shadow: 0 14px 28px rgba(34, 197, 94, 0.18);
+    linear-gradient(135deg, var(--color-success-bg), var(--color-bg-hover)),
+    var(--color-bg-hover);
+  box-shadow: 0 14px 28px var(--color-success-bg);
 }
 
 .meeting-participant-item--joined {
-  border-color: rgba(34, 197, 94, 0.4);
-  box-shadow: 0 14px 28px rgba(34, 197, 94, 0.16);
+  border-color: var(--color-success);
+  box-shadow: 0 14px 28px var(--color-success-bg);
 }
 
 .meeting-participant-item--waiting {
   background:
-    linear-gradient(135deg, rgba(255, 247, 237, 0.98), rgba(248, 250, 252, 1)),
-    #f8fafc;
+    linear-gradient(135deg, var(--color-warning-bg), var(--color-bg-hover)),
+    var(--color-bg-hover);
 }
 
 .meeting-participant-item--absent {
-  border-color: rgba(239, 68, 68, 0.28);
+  border-color: var(--color-danger-light);
   background:
-    linear-gradient(135deg, rgba(254, 226, 226, 0.96), rgba(255, 245, 245, 1)),
-    #fff5f5;
-  box-shadow: 0 12px 24px rgba(239, 68, 68, 0.08);
+    linear-gradient(135deg, var(--color-danger-bg), var(--color-bg-page)),
+    var(--color-bg-page);
+  box-shadow: 0 12px 24px var(--color-danger-bg);
 }
 
 .meeting-participant-item--declined {
-  border-color: rgba(244, 63, 94, 0.28);
+  border-color: var(--color-danger-light);
   background:
-    linear-gradient(135deg, rgba(255, 241, 242, 0.96), rgba(248, 250, 252, 1)),
-    #fff7f8;
-  box-shadow: 0 12px 24px rgba(244, 63, 94, 0.08);
+    linear-gradient(135deg, var(--color-danger-bg), var(--color-bg-hover)),
+    var(--color-bg-hover);
+  box-shadow: 0 12px 24px var(--color-danger-bg);
 }
 
 .meeting-participant-item__main {
@@ -1790,7 +2181,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.68);
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .meeting-participant-avatar__rtc {
@@ -1803,29 +2194,29 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #94a3b8;
+  background: var(--color-text-placeholder);
   color: white;
   border: 2px solid white;
 
   &.is-speaking {
-    background: #22c55e;
+    background: var(--color-success);
     animation: pulse 1.5s infinite;
   }
 
   &.is-muted {
-    background: #ef4444;
+    background: var(--color-danger);
   }
 }
 
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+    box-shadow: 0 0 0 0 var(--color-success-bg);
   }
   70% {
-    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+    box-shadow: 0 0 0 8px transparent;
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 
@@ -1833,13 +2224,13 @@ onBeforeUnmount(() => {
 .meeting-transcript-item strong,
 .meeting-summary-item strong {
   display: block;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .meeting-participant-item small,
 .meeting-transcript-item small,
 .meeting-summary-item small {
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .meeting-participant-item__meta,
@@ -1858,12 +2249,12 @@ onBeforeUnmount(() => {
 }
 
 .meeting-presence.is-online {
-  background: #22c55e;
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
+  background: var(--color-success);
+  box-shadow: 0 0 0 4px var(--color-success-bg);
 }
 
 .meeting-presence.is-offline {
-  background: #94a3b8;
+  background: var(--color-text-placeholder);
 }
 
 .meeting-transcript-item p,
@@ -1874,30 +2265,64 @@ onBeforeUnmount(() => {
   word-break: break-word;
   font-family: inherit;
   line-height: 1.7;
-  color: #1e293b;
+  color: var(--color-text-primary);
 }
 
 .meeting-final-summary {
   min-height: 180px;
   padding: 18px;
   border-radius: 20px;
-  background: linear-gradient(180deg, #fff7ed, #fff);
-  border: 1px solid rgba(249, 115, 22, 0.18);
+  background: linear-gradient(
+    180deg,
+    var(--color-primary-light-9),
+    var(--color-bg-page)
+  );
+  border: 1px solid var(--color-primary-light-7);
 }
 
 /* 流式 ASR 进行中的转写 */
 .meeting-transcript-item--pending {
   opacity: 0.9;
-  border-left: 3px solid #3b82f6;
-  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), #f8fafc);
+  border-left: 3px solid var(--color-primary);
+  background: linear-gradient(
+    135deg,
+    var(--color-primary-light-9),
+    var(--color-bg-hover)
+  );
 }
 
 .meeting-transcript-pending-label {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: #3b82f6;
+  color: var(--color-primary);
   font-size: 12px;
+}
+
+.meeting-emoji-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.meeting-emoji-picker__item {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-bg-page);
+  font-size: 24px;
+  line-height: 1;
+  padding: 12px 0;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.meeting-emoji-picker__item:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-primary-light-7);
+  box-shadow: var(--shadow-sm);
 }
 
 /* 打字机光标闪烁 */
@@ -1906,7 +2331,7 @@ onBeforeUnmount(() => {
   width: 2px;
   height: 1em;
   margin-left: 2px;
-  background: #3b82f6;
+  background: var(--color-primary);
   vertical-align: text-bottom;
   animation: cursor-blink 0.8s step-end infinite;
 }
@@ -1923,33 +2348,63 @@ onBeforeUnmount(() => {
 
 .meeting-error {
   margin: 0;
-  color: #b45309;
+  color: var(--color-warning);
 }
 
 .meeting-empty {
   strong {
     display: block;
     margin-bottom: 8px;
-    color: #0f172a;
+    color: var(--color-text-primary);
   }
 
   p {
     margin: 0;
-    color: #64748b;
+    color: var(--color-text-secondary);
   }
 }
 
+.meeting-invite-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  strong {
+    color: var(--color-text-primary);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  small {
+    color: var(--color-text-secondary);
+    font-size: 12px;
+  }
+}
+
+.meeting-invite-empty-tip {
+  margin-top: 12px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
 @media (max-width: 1024px) {
+  .meeting-shell-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .meeting-grid {
     grid-template-columns: 1fr;
   }
 
-  .meeting-hero {
-    flex-direction: column;
+  .meeting-main {
+    max-width: none;
+    justify-self: stretch;
   }
 
-  .meeting-hero__volume {
-    width: 100%;
+  .meeting-control-dock {
+    bottom: 0;
+    border-radius: 20px;
   }
 }
 </style>

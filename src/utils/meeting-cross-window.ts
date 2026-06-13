@@ -65,7 +65,12 @@ function normalizeRtcOwner(
   const meetingId = Number(value?.meetingId);
   const updatedAt = Number(value?.updatedAt);
   const clientId = String(value?.clientId || '').trim();
-  if (meetingId <= 0 || !clientId || Number.isNaN(updatedAt) || updatedAt <= 0) {
+  if (
+    meetingId <= 0 ||
+    !clientId ||
+    Number.isNaN(updatedAt) ||
+    updatedAt <= 0
+  ) {
     return null;
   }
   return {
@@ -91,7 +96,9 @@ export function ensureMeetingClientId(storage: Storage) {
 
 export function readMeetingSharedAudioState(storage: Storage) {
   return normalizeSharedAudioState(
-    safeJsonParse<MeetingSharedAudioState>(storage.getItem(MEETING_SHARED_AUDIO_KEY))
+    safeJsonParse<MeetingSharedAudioState>(
+      storage.getItem(MEETING_SHARED_AUDIO_KEY)
+    )
   );
 }
 
@@ -143,7 +150,9 @@ export function isMeetingRtcOwner(
   now = Date.now()
 ) {
   const owner = readMeetingRtcOwner(storage, now);
-  return !!owner && owner.meetingId === meetingId && owner.clientId === clientId;
+  return (
+    !!owner && owner.meetingId === meetingId && owner.clientId === clientId
+  );
 }
 
 export function releaseMeetingRtcOwner(

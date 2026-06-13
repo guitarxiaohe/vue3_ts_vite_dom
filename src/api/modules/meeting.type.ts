@@ -52,8 +52,21 @@ export interface CmsMeetingTranscript {
   transcriptText: string;
   audioStartedAt: string | null;
   audioEndedAt: string | null;
+  sourceType: string | null;
   createBy: string;
   createTime: string;
+}
+
+export type MeetingInteractionType = 'HAND' | 'EMOJI' | 'TEXT';
+
+export interface CmsMeetingInteraction {
+  meetingId: number;
+  userId: number;
+  displayName: string;
+  interactionType: MeetingInteractionType;
+  content: string;
+  transcriptText: string;
+  createdAt: string;
 }
 
 export interface CmsMeetingSummary {
@@ -91,6 +104,15 @@ export interface CreateMeetingRequest {
   title: string;
   remark: string;
   inviteUserIds: number[];
+}
+
+export interface InviteMeetingParticipantsRequest {
+  inviteUserIds: number[];
+}
+
+export interface SendMeetingInteractionRequest {
+  interactionType: MeetingInteractionType;
+  content: string;
 }
 
 export interface UploadMeetingAudioRequest {

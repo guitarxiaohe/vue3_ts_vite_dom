@@ -3,12 +3,14 @@ import { defineStore } from 'pinia';
 import type { WsMessage } from '@/types/ws';
 import type {
   CmsMeetingDetail,
+  CmsMeetingInteraction,
   CmsMeetingPendingInvite,
   CmsMeetingSummary,
   CmsMeetingTranscript,
   CreateMeetingRequest,
   MeetingSelectableUser,
   PendingTranscript,
+  SendMeetingInteractionRequest,
   UploadMeetingAudioRequest,
 } from '@/api/modules/meeting.type';
 import {
@@ -18,9 +20,11 @@ import {
   getCurrentMeetingApi,
   getMeetingDetailApi,
   getPendingMeetingsApi,
+  inviteMeetingParticipantsApi,
   leaveMeetingApi,
   listMeetingSelectableUsersApi,
   resendFinalSummaryApi,
+  sendMeetingInteractionApi,
   stopMeetingApi,
   uploadMeetingAudioApi,
 } from '@/api/modules/meeting';
@@ -154,9 +158,11 @@ function createTranscriptBlocks(
 /** 获取最新的已持久化摘要（优先 FINAL，其次 STAGE） */
 function getLatestPersistedSummary(detail: CmsMeetingDetail | null) {
   if (!detail) {
-    return null as
-      | { text: string; updatedAt: string | null; source: 'stage' | 'final' }
-      | null;
+    return null as {
+      text: string;
+      updatedAt: string | null;
+      source: 'stage' | 'final';
+    } | null;
   }
 
   const summaries = detail.summaries ?? [];
@@ -194,7 +200,9 @@ function getLatestPersistedSummary(detail: CmsMeetingDetail | null) {
       }
       return toTimestamp(right.createTime) - toTimestamp(left.createTime);
     })[0];
-  const stageSummaryText = normalizeNarrativeText(latestStageSummary?.summaryText);
+  const stageSummaryText = normalizeNarrativeText(
+    latestStageSummary?.summaryText
+  );
   if (!stageSummaryText) {
     return null;
   }
@@ -266,6 +274,11 @@ export const useMeetingStore = defineStore(
     /** 流式 ASR 进行中的转写，按 participantIdentity 索引 */
     const pendingTranscripts = ref<Record<string, PendingTranscript>>({});
     const liveSummaryDraft = ref<MeetingLiveSummaryDraft | null>(null);
+    const interactionBubbles = ref<Record<number, CmsMeetingInteraction>>({});
+    const interactionBubbleTimers = new Map<
+      number,
+      ReturnType<typeof setTimeout>
+    >();
 
     /******************************** 计算属性 ********************************/
 
@@ -299,7 +312,9 @@ export const useMeetingStore = defineStore(
     /** 实时摘要文本（流式草稿 > 已持久化摘要） */
     const liveSummaryText = computed(() => {
       const persisted = getLatestPersistedSummary(meetingDetail.value);
-      const draftText = normalizeNarrativeText(liveSummaryDraft.value?.summaryText);
+      const draftText = normalizeNarrativeText(
+        liveSummaryDraft.value?.summaryText
+      );
       if (
         meetingDetail.value?.session.status === 'ENDED' &&
         persisted?.source === 'final'
@@ -350,11 +365,13 @@ export const useMeetingStore = defineStore(
         currentMeetingId.value = null;
         lastJoinedUserId.value = null;
         liveSummaryDraft.value = null;
+        clearInteractionBubbles();
         return;
       }
       // 切换会议或会议结束时清除摘要草稿
       if (toMeetingId(detail.session.id) !== previousMeetingId) {
         liveSummaryDraft.value = null;
+        clearInteractionBubbles();
       }
       if (detail.session.status === 'ENDED') {
         liveSummaryDraft.value = null;
@@ -411,6 +428,7 @@ export const useMeetingStore = defineStore(
       currentMeetingId.value = null;
       speakerUserId.value = null;
       lastJoinedUserId.value = null;
+      clearInteractionBubbles();
       shouldAutoOpenDrawer.value = false;
       drawerVisible.value = false;
       pendingTranscripts.value = {};
@@ -604,9 +622,26 @@ export const useMeetingStore = defineStore(
       seenPendingInviteIds.value = seenPendingInviteIds.value.filter(
         (item) => item !== meetingId
       );
-      if (toMeetingId(meetingDetail.value?.session.id) === toMeetingId(meetingId)) {
+      if (
+        toMeetingId(meetingDetail.value?.session.id) === toMeetingId(meetingId)
+      ) {
         setMeetingDetail(response.data);
       }
+      return response.data;
+    }
+
+    /** 会议中继续邀请成员 */
+    async function inviteParticipants(inviteUserIds: number[]) {
+      if (!currentMeetingId.value) {
+        return null;
+      }
+      const response = await inviteMeetingParticipantsApi(
+        currentMeetingId.value,
+        {
+          inviteUserIds,
+        }
+      );
+      setMeetingDetail(response.data);
       return response.data;
     }
 
@@ -717,7 +752,8 @@ export const useMeetingStore = defineStore(
     function upsertLiveSummaryDraft(summary: MeetingLiveSummaryDraft) {
       if (
         !meetingDetail.value ||
-        toMeetingId(meetingDetail.value.session.id) !== toMeetingId(summary.meetingId)
+        toMeetingId(meetingDetail.value.session.id) !==
+          toMeetingId(summary.meetingId)
       ) {
         return;
       }
@@ -740,7 +776,13 @@ export const useMeetingStore = defineStore(
         ...pendingTranscripts.value,
         [pending.participantIdentity]: pending,
       };
-      console.log('[upsertPendingTranscript] 更新:', pending.participantIdentity, pending.transcriptText, '当前条目数:', Object.keys(pendingTranscripts.value).length);
+      console.log(
+        '[upsertPendingTranscript] 更新:',
+        pending.participantIdentity,
+        pending.transcriptText,
+        '当前条目数:',
+        Object.keys(pendingTranscripts.value).length
+      );
     }
 
     /** 根据 userId 清除对应的 pending 转写（final 到达时调用） */
@@ -754,6 +796,54 @@ export const useMeetingStore = defineStore(
         }
       }
       pendingTranscripts.value = next;
+    }
+
+    function clearInteractionBubbles() {
+      interactionBubbleTimers.forEach((timer) => clearTimeout(timer));
+      interactionBubbleTimers.clear();
+      interactionBubbles.value = {};
+    }
+
+    function upsertInteraction(interaction: CmsMeetingInteraction) {
+      if (
+        !meetingDetail.value ||
+        toMeetingId(meetingDetail.value.session.id) !==
+          toMeetingId(interaction.meetingId)
+      ) {
+        return;
+      }
+      const userId = toNumericId(interaction.userId);
+      if (!userId) {
+        return;
+      }
+      interactionBubbles.value = {
+        ...interactionBubbles.value,
+        [userId]: interaction,
+      };
+      const currentTimer = interactionBubbleTimers.get(userId);
+      if (currentTimer) {
+        clearTimeout(currentTimer);
+      }
+      interactionBubbleTimers.set(
+        userId,
+        setTimeout(() => {
+          const next = { ...interactionBubbles.value };
+          delete next[userId];
+          interactionBubbles.value = next;
+          interactionBubbleTimers.delete(userId);
+        }, 4200)
+      );
+    }
+
+    async function sendInteraction(payload: SendMeetingInteractionRequest) {
+      if (!currentMeetingId.value) {
+        return null;
+      }
+      const response = await sendMeetingInteractionApi(
+        currentMeetingId.value,
+        payload
+      );
+      return response.data;
     }
 
     /******************************** WebSocket 消息处理 ********************************/
@@ -805,6 +895,10 @@ export const useMeetingStore = defineStore(
       // 流式摘要更新
       if (message.type === 'meeting_live_summary' && message.data) {
         upsertLiveSummaryDraft(message.data as MeetingLiveSummaryDraft);
+        return;
+      }
+      if (message.type === 'meeting_interaction' && message.data) {
+        upsertInteraction(message.data as CmsMeetingInteraction);
         return;
       }
       // 最终摘要生成
@@ -903,6 +997,7 @@ export const useMeetingStore = defineStore(
       lastJoinedUserId,
       pendingMeetings,
       pendingTranscripts,
+      interactionBubbles,
       selectableUsers,
       loading,
       // 计算属性
@@ -932,6 +1027,8 @@ export const useMeetingStore = defineStore(
       enterMeeting,
       acceptMeeting,
       declineMeeting,
+      inviteParticipants,
+      sendInteraction,
       stopMeeting,
       resendFinalSummary,
       leaveMeeting,

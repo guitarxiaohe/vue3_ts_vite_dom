@@ -1,9 +1,24 @@
+import { defineAsyncComponent } from 'vue';
 import { createEntityModule } from '@/features/entities/_shared/create-entity-module';
 
 /******************************** 会议主表实体 ********************************/
 
 const entityModule = createEntityModule({
   entityKey: 'meetingSession',
+  rowActions: {
+    actionColumnWidth: 220,
+    customButtons: [
+      {
+        key: 'dismissMeeting',
+        label: '解散会议',
+        order: 35,
+        visible: (row) => row.status === 'ACTIVE',
+        component: defineAsyncComponent(
+          () => import('./row-actions/dismiss-meeting.vue')
+        ),
+      },
+    ],
+  },
   config: {
     title: '会议管理',
     actions: {

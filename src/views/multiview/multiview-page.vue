@@ -92,7 +92,10 @@ const initialFilters = computed(() => {
 watch(
   entityKey,
   (key) => {
-    entityFormComponent.value = key ? getEntityFormComponent(key) : null;
+    const component = key ? getEntityFormComponent(key) : null;
+    // 防御性检查：确保返回的是有效的 Vue 组件对象
+    entityFormComponent.value =
+      component != null && typeof component === 'object' ? component : null;
   },
   { immediate: true }
 );

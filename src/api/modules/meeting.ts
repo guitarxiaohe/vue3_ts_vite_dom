@@ -1,11 +1,14 @@
 import { httpClient } from '../client';
 import type {
   CmsMeetingDetail,
+  CmsMeetingInteraction,
   CmsMeetingPendingInvite,
   CmsMeetingTranscript,
   CreateMeetingRequest,
+  InviteMeetingParticipantsRequest,
   MeetingApiResponse,
   MeetingSelectableUser,
+  SendMeetingInteractionRequest,
   UploadMeetingAudioRequest,
 } from './meeting.type';
 
@@ -39,6 +42,26 @@ export function declineMeetingApi(meetingId: number) {
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
+export function inviteMeetingParticipantsApi(
+  meetingId: number,
+  data: InviteMeetingParticipantsRequest
+) {
+  return httpClient.post(
+    `/cms/meeting/session/${meetingId}/invite`,
+    data
+  ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
+}
+
+export function sendMeetingInteractionApi(
+  meetingId: number,
+  data: SendMeetingInteractionRequest
+) {
+  return httpClient.post(
+    `/cms/meeting/session/${meetingId}/interaction`,
+    data
+  ) as unknown as Promise<MeetingApiResponse<CmsMeetingInteraction>>;
+}
+
 export function getMeetingDetailApi(meetingId: number) {
   return httpClient.get(
     `/cms/meeting/session/${meetingId}`
@@ -54,6 +77,12 @@ export function leaveMeetingApi(meetingId: number) {
 export function stopMeetingApi(meetingId: number) {
   return httpClient.post(
     `/cms/meeting/session/${meetingId}/stop`
+  ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
+}
+
+export function dismissMeetingApi(meetingId: number) {
+  return httpClient.post(
+    `/cms/meeting/session/${meetingId}/dismiss`
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
