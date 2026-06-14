@@ -32,10 +32,7 @@ import { ConnectionState } from 'livekit-client';
 import MeetingParticipantGrid from '@/components/meeting-participant-grid/index.vue';
 import { useMeetingStore, usePresenceStore, useUserStore } from '@/stores';
 import { useMeetingRtcStore } from '@/stores/modules/meeting-rtc';
-import {
-  MEDIADEVICES_OPTIONS,
-  useLivekitRoom,
-} from '@/composables/use-livekit-room';
+import { useLivekitRoom } from '@/composables/use-livekit-room';
 import { getRtcTokenApi, startRtcApi } from '@/api/modules/meeting-rtc';
 import { startScreenShareApi, stopScreenShareApi } from '@/api/modules/meeting';
 import { MEETING_RTC_OWNER_KEY } from '@/utils/meeting-cross-window';
@@ -63,6 +60,11 @@ const {
   setPlaybackVolume,
   toggleSpeakerMute,
   requestPlaybackPermission,
+  room,
+  localScreenTrack,
+  remoteScreenShare,
+  startScreenShare,
+  stopScreenShare,
 } = useLivekitRoom();
 
 /***************************** 响应式状态 *****************************/
@@ -94,17 +96,15 @@ const lastJoinAttemptMeetingId = ref<number | null>(null);
 const inviteDialogVisible = ref(false);
 // 邀请弹窗中已选中的待邀请用户 ID 列表
 const inviteUserIds = ref<number[]>([]);
-// 共享屏幕舞台模式：large（主区域展开）/ minimized（浮动小窗）
-const shareStageMode = ref<'large' | 'minimized'>('large');
 // 互动文字输入框的当前内容
 const interactionText = ref('');
 // 互动表情面板中可选的表情列表
 const interactionEmojiOptions = ['👍', '👏', '🎉', '🔥', '✅', '❓'];
 
-function toggleShareStageMode() {
-  shareStageMode.value =
-    shareStageMode.value === 'large' ? 'minimized' : 'large';
-}
+// 共享屏幕视频挂载容器
+const screenShareVideoRef = ref<HTMLDivElement | null>(null);
+// 共享结束回收时避免重复调用后端 stop
+const isStoppingScreenShare = ref(false);
 
 /***************************** 定时器 / 权限状态 *****************************/
 let activeSpeakerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -267,6 +267,23 @@ const isCurrentUserSharing = computed(() => {
     screenShareState.value.sharerUserId === currentUserId
   );
 });
+const shouldShowShareStage = computed(
+  () => isSomeoneSharing.value && !isCurrentUserSharing.value
+);
+const currentSharerName = computed(() => {
+  if (isCurrentUserSharing.value) {
+    return (
+      currentUser.value?.nickName ||
+      currentUser.value?.userName ||
+      t('meeting.defaultGuestName')
+    );
+  }
+  return (
+    remoteScreenShare.value?.participantName ||
+    screenShareState.value?.sharerIdentity ||
+    t('meeting.defaultGuestName')
+  );
+});
 const shareScreenDisabled = computed(() => {
   if (!meetingStore.isActiveStatus(meetingDetail.value?.session.status))
     return true;
@@ -279,9 +296,11 @@ const shareScreenLabel = computed(() => {
 });
 
 watch(
-  () => isSomeoneSharing.value,
+  () => shouldShowShareStage.value,
   (sharing) => {
-    if (!sharing) shareStageMode.value = 'large';
+    if (!sharing) {
+      clearScreenShareTrack();
+    }
   }
 );
 
@@ -1010,26 +1029,88 @@ function handleUnavailableFeature(label: string) {
 async function handleSharedScreen() {
   const meetingId = currentMeetingId.value;
   if (!meetingId) return;
+
+  if (!room.value || !isConnected.value) {
+    ElMessage.warning(t('meeting.shareScreenJoinRtcFirst'));
+    return;
+  }
+
   if (shareScreenDisabled.value && !isCurrentUserSharing.value) {
     if (isSomeoneSharing.value) {
-      ElMessage.info('当前已有其他参会者正在共享屏幕');
+      ElMessage.info(t('meeting.shareScreenOccupied'));
     }
     return;
   }
+
   try {
     if (isCurrentUserSharing.value) {
-      await stopScreenShareApi(meetingId);
-      ElMessage.success('已停止共享屏幕');
+      await stopCurrentScreenShare();
+      ElMessage.success(t('meeting.shareScreenStopped'));
       return;
     }
+
     await startScreenShareApi(meetingId);
-    const mediaStream =
-      await navigator.mediaDevices.getDisplayMedia(MEDIADEVICES_OPTIONS);
-    mediaStream.getVideoTracks()[0];
-    ElMessage.success('已开始共享屏幕');
+
+    try {
+      const screenTrack = await startScreenShare();
+      screenTrack.mediaStreamTrack?.addEventListener(
+        'ended',
+        () => {
+          void stopCurrentScreenShare();
+        },
+        { once: true }
+      );
+      ElMessage.success(t('meeting.shareScreenStarted'));
+    } catch (err) {
+      await stopScreenShareApi(meetingId);
+      throw err;
+    }
   } catch (error: any) {
-    ElMessage.error(error?.message || '屏幕共享操作失败');
+    ElMessage.error(error?.message || t('meeting.shareScreenFailed'));
   }
+}
+
+async function stopCurrentScreenShare() {
+  const meetingId = currentMeetingId.value;
+  if (!meetingId || isStoppingScreenShare.value) {
+    return;
+  }
+  isStoppingScreenShare.value = true;
+  try {
+    await stopScreenShare();
+    await stopScreenShareApi(meetingId);
+  } finally {
+    isStoppingScreenShare.value = false;
+  }
+}
+
+// 将当前共享轨道挂载到舞台容器
+function renderScreenShareTrack() {
+  const container = screenShareVideoRef.value;
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  const trackToRender = isCurrentUserSharing.value
+    ? localScreenTrack.value
+    : remoteScreenShare.value?.track;
+
+  if (!trackToRender) return;
+
+  const element = trackToRender.attach() as HTMLVideoElement;
+  element.style.width = '100%';
+  element.style.height = '100%';
+  element.style.objectFit = 'contain';
+  element.autoplay = true;
+  element.playsInline = true;
+  container.appendChild(element);
+}
+
+// 清空共享舞台 DOM
+function clearScreenShareTrack() {
+  const container = screenShareVideoRef.value;
+  if (!container) return;
+  container.innerHTML = '';
 }
 
 async function handleSendInteraction(
@@ -1126,6 +1207,23 @@ watch(
   { immediate: true }
 );
 
+watch(
+  () => [
+    shouldShowShareStage.value,
+    localScreenTrack.value,
+    remoteScreenShare.value?.track,
+  ],
+  async () => {
+    await nextTick();
+    if (!shouldShowShareStage.value) {
+      clearScreenShareTrack();
+      return;
+    }
+    renderScreenShareTrack();
+  },
+  { immediate: true }
+);
+
 // 会议状态变化：结束时清理 RTC 连接
 watch(
   () => meetingDetail.value?.session.status,
@@ -1140,6 +1238,18 @@ watch(
     await leaveRoom();
     rtcStore.reset();
     meetingStore.clearMeetingRuntime();
+  }
+);
+
+watch(
+  () => screenShareState.value?.shareActive,
+  async (active) => {
+    if (active) {
+      return;
+    }
+    if (localScreenTrack.value) {
+      await stopCurrentScreenShare();
+    }
   }
 );
 
@@ -1291,6 +1401,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('storage', handleRtcOwnershipStorageChange);
   window.removeEventListener('pagehide', handlePageHide);
   window.removeEventListener('beforeunload', handleBeforeUnload);
+  clearScreenShareTrack();
   meetingStore.releaseRtcOwnership(currentMeetingId.value);
   void leaveRoom();
 });
@@ -1376,30 +1487,26 @@ onBeforeUnmount(() => {
       </section>
 
       <!-------------------------- 共享屏幕舞台 -------------------------->
-      <section
-        v-if="isSomeoneSharing"
-        :class="[
-          'meeting-share-stage',
-          shareStageMode === 'minimized'
-            ? 'meeting-share-stage--minimized'
-            : '',
-        ]"
-      >
+      <section v-if="shouldShowShareStage" class="meeting-share-stage">
         <div class="meeting-share-stage__header">
           <span>
-            {{ screenShareState?.sharerIdentity || '参会人' }} 正在共享屏幕
+            {{
+              t('meeting.shareScreenStageTitle', {
+                name: currentSharerName,
+              })
+            }}
           </span>
-          <el-button size="small" text @click="toggleShareStageMode">
-            {{ shareStageMode === 'large' ? '最小化' : '展开' }}
-          </el-button>
         </div>
         <div class="meeting-share-stage__content">
-          <p v-if="shareStageMode === 'large'">共享屏幕内容将在此处展示</p>
+          <div ref="screenShareVideoRef" class="meeting-share-stage__video" />
+          <p v-if="!remoteScreenShare">
+            {{ t('meeting.shareScreenPlaceholder') }}
+          </p>
         </div>
       </section>
 
       <!-------------------------- 主体内容区域 -------------------------->
-      <div class="meeting-grid">
+      <div v-if="!shouldShowShareStage" class="meeting-grid">
         <!-------------------------- 侧边栏：待处理会议 / 参与者列表 -------------------------->
         <aside class="meeting-side">
           <article
@@ -1921,19 +2028,20 @@ onBeforeUnmount(() => {
 }
 
 .meeting-share-stage {
-  margin-bottom: 16px;
+  flex: 1;
+  min-height: calc(100vh - 220px);
   border: 1px solid var(--color-primary-light);
-  border-radius: 16px;
+  border-radius: 24px;
   background: var(--color-bg-page);
   overflow: hidden;
 
   &__header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 10px 16px;
+    justify-content: flex-start;
+    padding: 14px 20px;
     background: var(--color-primary-light);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
   }
 
@@ -1941,8 +2049,8 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 280px;
-    padding: 24px;
+    min-height: calc(100vh - 288px);
+    padding: 28px;
     color: var(--color-text-secondary);
     background: #1a1a2e;
 
@@ -1952,16 +2060,22 @@ onBeforeUnmount(() => {
     }
   }
 
-  &--minimized {
-    position: fixed;
-    right: 20px;
-    bottom: 100px;
-    width: 320px;
-    z-index: 100;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  &__video {
+    width: 100%;
+    min-height: calc(100vh - 344px);
+    height: calc(100vh - 344px);
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+    overflow: hidden;
+    border-radius: 18px;
+    background: rgba(15, 23, 42, 0.32);
 
-    .meeting-share-stage__content {
-      min-height: 180px;
+    :deep(video) {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #050816;
     }
   }
 }
@@ -2536,6 +2650,20 @@ onBeforeUnmount(() => {
   .meeting-main {
     max-width: none;
     justify-self: stretch;
+  }
+
+  .meeting-share-stage {
+    min-height: calc(100vh - 200px);
+
+    &__content {
+      min-height: calc(100vh - 252px);
+      padding: 18px;
+    }
+
+    &__video {
+      min-height: calc(100vh - 288px);
+      height: calc(100vh - 288px);
+    }
   }
 
   .meeting-control-dock {

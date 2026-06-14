@@ -8,7 +8,10 @@
       <span class="meeting-invite-popup__title">会议邀请</span>
       <span class="meeting-invite-popup__time">{{ inviteTime }}</span>
     </div>
-
+    <!-- 关闭弹窗 -->
+    <div class="meeting-invite-popup__close" @click="emit('close')">
+      <el-icon><Close /></el-icon>
+    </div>
     <!-------------------------- 内容：主持人头像 + 邀请信息 -------------------------->
     <div class="meeting-invite-popup__body">
       <div class="meeting-invite-popup__avatar">
@@ -39,7 +42,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { VideoCamera } from '@element-plus/icons-vue';
+import { VideoCamera, Close } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import type { CmsMeetingPendingInvite } from '@/api/modules/meeting.type';
 import { useMeetingStore } from '@/stores';
@@ -279,5 +282,16 @@ async function handleDecline() {
 
 :global(.meeting-invite-notification .el-notification__content) {
   margin: 0;
+}
+
+// 关闭按钮位置调整
+.meeting-invite-popup__close {
+  border-radius: 50%;
+  background: transparent;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px;
+  cursor: pointer;
 }
 </style>

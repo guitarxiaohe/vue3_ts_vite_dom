@@ -150,7 +150,7 @@ export function showMeetingInviteNotification(invite: CmsMeetingPendingInvite) {
       onClose: () => notify.close(),
     }),
     customClass: 'meeting-invite-notification',
-    duration: 0,
+    duration: 10000,
     showClose: false,
   });
   return notify;

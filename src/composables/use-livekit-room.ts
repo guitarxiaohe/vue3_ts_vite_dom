@@ -30,7 +30,12 @@ import {
   RemoteParticipant,
   LocalParticipant,
   DisconnectReason,
+  RemoteTrackPublication,
+  RemoteVideoTrack,
+  LocalTrackPublication,
+  LocalVideoTrack,
 } from 'livekit-client';
+
 import type { MeetingRtcTokenResponse } from '@/api/modules/meeting-rtc.type';
 import {
   readMeetingSharedAudioState,
@@ -41,6 +46,13 @@ export const MEDIADEVICES_OPTIONS = {
   audio: true,
   video: true,
 };
+
+export interface RemoteScreenShareInfo {
+  participantIdentity: string;
+  participantName: string;
+  publication: RemoteTrackPublication;
+  track: RemoteVideoTrack;
+}
 
 /**
  * 参与者信息接口
@@ -89,6 +101,12 @@ export function useLivekitRoom() {
   /** 本地参与者实例 */
   const localParticipant = ref<LocalParticipant | null>(null);
 
+  /** 当前本地屏幕共享轨 */
+  const localScreenTrack = shallowRef<LocalVideoTrack | null>(null);
+  /** 当前本地屏幕共享发布 */
+  const localScreenPublication = shallowRef<LocalTrackPublication | null>(null);
+  /** 当前远端屏幕共享信息 */
+  const remoteScreenShare = shallowRef<RemoteScreenShareInfo | null>(null);
   // ========================= 内部状态 =========================
 
   /** 定时更新参与者列表的定时器 */
@@ -175,6 +193,87 @@ export function useLivekitRoom() {
     document.addEventListener('click', handler, true);
   }
 
+  // ========================= 共享屏幕 =========================
+
+  function isScreenSharePublication(publication: TrackPublication) {
+    return publication.source === Track.Source.ScreenShare;
+  }
+
+  function setRemoteScreenShare(
+    participant: RemoteParticipant,
+    publication: RemoteTrackPublication,
+    track: RemoteVideoTrack
+  ) {
+    remoteScreenShare.value = {
+      participantIdentity: participant.identity,
+      participantName: participant.name || participant.identity,
+      publication,
+      track,
+    };
+  }
+
+  function clearRemoteScreenShare(publication?: TrackPublication) {
+    if (!remoteScreenShare.value) return;
+    if (!publication) {
+      remoteScreenShare.value = null;
+      return;
+    }
+    if (remoteScreenShare.value.publication.trackSid === publication.trackSid) {
+      remoteScreenShare.value = null;
+    }
+  }
+
+  async function startScreenShare() {
+    if (!room.value) {
+      throw new Error('尚未加入语音房间');
+    }
+    if (localScreenTrack.value) {
+      return localScreenTrack.value;
+    }
+
+    const tracks = await room.value.localParticipant.createScreenTracks({
+      audio: false,
+      video: true,
+    });
+
+    const screenTrack = tracks.find(
+      (item) => item.kind === Track.Kind.Video
+    ) as LocalVideoTrack | undefined;
+
+    if (!screenTrack) {
+      throw new Error('未获取到屏幕视频轨');
+    }
+
+    const publication = await room.value.localParticipant.publishTrack(
+      screenTrack,
+      {
+        source: Track.Source.ScreenShare,
+      }
+    );
+
+    localScreenTrack.value = screenTrack;
+    localScreenPublication.value = publication;
+
+    const mediaStreamTrack = screenTrack.mediaStreamTrack;
+    mediaStreamTrack?.addEventListener('ended', () => {
+      void stopScreenShare();
+    });
+
+    return screenTrack;
+  }
+
+  async function stopScreenShare() {
+    if (room.value && localScreenPublication.value) {
+      await room.value.localParticipant.unpublishTrack(
+        localScreenTrack.value!,
+        true
+      );
+    }
+
+    localScreenTrack.value?.stop();
+    localScreenTrack.value = null;
+    localScreenPublication.value = null;
+  }
   // ========================= 音频轨道管理 =========================
 
   /**
@@ -341,23 +440,60 @@ export function useLivekitRoom() {
       }
     );
 
-    // 订阅远端轨道（收到新的音频/视频流）
     newRoom.on(
       RoomEvent.TrackSubscribed,
-      (track: Track, publication: TrackPublication) => {
+      (
+        track: Track,
+        publication: TrackPublication,
+        participant: RemoteParticipant
+      ) => {
+        if (
+          track.kind === Track.Kind.Video &&
+          isScreenSharePublication(publication)
+        ) {
+          setRemoteScreenShare(
+            participant,
+            publication as RemoteTrackPublication,
+            track as RemoteVideoTrack
+          );
+          updateParticipantsList();
+          return;
+        }
+
         attachRemoteAudioTrack(track, publication);
         updateParticipantsList();
       }
     );
 
-    // 取消订阅远端轨道
     newRoom.on(
       RoomEvent.TrackUnsubscribed,
-      (_track: Track, publication: TrackPublication) => {
+      (
+        track: Track,
+        publication: TrackPublication,
+        _participant: RemoteParticipant
+      ) => {
+        if (
+          track.kind === Track.Kind.Video &&
+          isScreenSharePublication(publication)
+        ) {
+          clearRemoteScreenShare(publication);
+          updateParticipantsList();
+          return;
+        }
+
         detachRemoteAudioTrack(publication);
         updateParticipantsList();
       }
     );
+
+    newRoom.on(RoomEvent.ParticipantDisconnected, (participant) => {
+      if (
+        remoteScreenShare.value?.participantIdentity === participant.identity
+      ) {
+        remoteScreenShare.value = null;
+      }
+      updateParticipantsList();
+    });
 
     // ==================== 建立连接 ====================
 
@@ -370,6 +506,17 @@ export function useLivekitRoom() {
       applyPlaybackVolume(playbackVolume.value, participant);
       participant.trackPublications.forEach((publication) => {
         if (publication.track) {
+          if (
+            publication.track.kind === Track.Kind.Video &&
+            isScreenSharePublication(publication)
+          ) {
+            setRemoteScreenShare(
+              participant,
+              publication as RemoteTrackPublication,
+              publication.track as RemoteVideoTrack
+            );
+            return;
+          }
           attachRemoteAudioTrack(publication.track, publication);
         }
       });
@@ -406,11 +553,13 @@ export function useLivekitRoom() {
     }
 
     if (room.value) {
+      await stopScreenShare();
       clearAttachedAudioTracks();
       await room.value.disconnect();
       // 重置所有状态
       room.value = null;
       localParticipant.value = null;
+      remoteScreenShare.value = null;
       participants.value = [];
       activeSpeakers.value = [];
       connectionState.value = ConnectionState.Disconnected;
@@ -602,6 +751,10 @@ export function useLivekitRoom() {
     playbackVolume,
     /** 本地参与者实例 */
     localParticipant,
+    /** 当前本地屏幕共享轨 */
+    localScreenTrack,
+    /** 当前远端屏幕共享信息 */
+    remoteScreenShare,
 
     // 方法
     /** 连接房间 */
@@ -620,5 +773,9 @@ export function useLivekitRoom() {
     parseUserIdFromIdentity,
     /** 请求播放权限（应在组件 mounted 时调用） */
     requestPlaybackPermission,
+    /** 开始本地屏幕共享 */
+    startScreenShare,
+    /** 停止本地屏幕共享 */
+    stopScreenShare,
   };
 }

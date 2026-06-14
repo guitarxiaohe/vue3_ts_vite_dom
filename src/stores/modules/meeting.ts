@@ -102,7 +102,11 @@ function isActiveStatus(status: string | null | undefined) {
 }
 
 function isTerminalStatus(status: string | null | undefined) {
-  return status === 'CLOSED_SUCCESS' || status === 'CLOSE_FAILED' || status === 'ENDED';
+  return (
+    status === 'CLOSED_SUCCESS' ||
+    status === 'CLOSE_FAILED' ||
+    status === 'ENDED'
+  );
 }
 
 /******************************** 数据转换 ********************************/
@@ -293,8 +297,8 @@ export const useMeetingStore = defineStore(
     /******************************** 计算属性 ********************************/
 
     /** 是否有进行中的会议（ACTIVE 或 CLOSING 期间仍允许查看） */
-    const hasActiveMeeting = computed(
-      () => isActiveStatus(meetingDetail.value?.session.status)
+    const hasActiveMeeting = computed(() =>
+      isActiveStatus(meetingDetail.value?.session.status)
     );
 
     /** 所有阶段摘要列表 */
@@ -549,7 +553,9 @@ export const useMeetingStore = defineStore(
         const response = await createMeetingApi(payload);
         setMeetingDetail(response.data);
         shouldResumeCapture.value = true;
-        shouldAutoOpenDrawer.value = isActiveStatus(response.data.session.status);
+        shouldAutoOpenDrawer.value = isActiveStatus(
+          response.data.session.status
+        );
         if (isActiveStatus(response.data.session.status)) {
           claimRtcOwnership(response.data.session.id);
         }
