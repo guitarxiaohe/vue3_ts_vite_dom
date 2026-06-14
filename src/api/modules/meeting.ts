@@ -122,6 +122,28 @@ export function stopScreenShareApi(meetingId: number) {
   ) as unknown as Promise<MeetingApiResponse<null>>;
 }
 
+export function notifyMeetingDisconnect(meetingId: number) {
+  const token = localStorage.getItem('token') || '';
+  const locale = localStorage.getItem('app_locale') || 'zh-CN';
+  const baseURL = import.meta.env.VITE_APP_BASE_API || '/dev-api';
+  const requestUrl = new URL(
+    `${baseURL}/cms/meeting/session/${meetingId}/disconnect`,
+    window.location.origin
+  ).toString();
+
+  fetch(requestUrl, {
+    method: 'POST',
+    body: '{}',
+    keepalive: true,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: token ? `Bearer ${token}` : '',
+      'Accept-Language': locale,
+    },
+  }).catch(() => undefined);
+}
+
 export function listMeetingSelectableUsersApi() {
   return httpClient.get('/system/user/userList') as unknown as Promise<
     MeetingApiResponse<MeetingSelectableUser[]>

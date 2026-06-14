@@ -566,6 +566,56 @@ export function useLivekitRoom() {
     }
   }
 
+  /**
+   * 页面关闭前同步释放本地轨道
+   * 避免 Chrome 刷新后短时间内重复占用麦克风设备
+   */
+  function prepareForPageUnload() {
+    if (updateParticipantsTimer) {
+      clearInterval(updateParticipantsTimer);
+      updateParticipantsTimer = null;
+    }
+
+    if (!room.value) {
+      return;
+    }
+
+    try {
+      room.value.localParticipant.trackPublications.forEach((publication) => {
+        const track = publication.track;
+        if (!track) {
+          return;
+        }
+        track.stop();
+      });
+    } catch {
+      // 页面卸载阶段静默忽略
+    }
+
+    try {
+      localScreenTrack.value?.stop();
+    } catch {
+      // 页面卸载阶段静默忽略
+    }
+
+    clearAttachedAudioTracks();
+    remoteScreenShare.value = null;
+    localScreenTrack.value = null;
+    localScreenPublication.value = null;
+    participants.value = [];
+    activeSpeakers.value = [];
+    connectionState.value = ConnectionState.Disconnected;
+
+    try {
+      room.value.disconnect();
+    } catch {
+      // 页面卸载阶段静默忽略
+    }
+
+    room.value = null;
+    localParticipant.value = null;
+  }
+
   // ========================= 音频控制 =========================
 
   /**
@@ -761,6 +811,8 @@ export function useLivekitRoom() {
     joinRoom,
     /** 离开房间 */
     leaveRoom,
+    /** 页面关闭前同步释放本地轨道 */
+    prepareForPageUnload,
     /** 切换麦克风 */
     toggleMic,
     /** 设置播放音量 */

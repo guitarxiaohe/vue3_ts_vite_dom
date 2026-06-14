@@ -570,6 +570,17 @@ export const useMeetingStore = defineStore(
     async function loadCurrentMeeting() {
       const response = await getCurrentMeetingApi();
       setMeetingDetail(response.data);
+      const detail = response.data;
+      if (detail && isActiveStatus(detail.session.status)) {
+        const currentParticipant =
+          detail.participants.find(
+            (item) =>
+              toNumericId(item.userId) === toNumericId(detail.currentUserId)
+          ) || null;
+        if (currentParticipant?.inviteStatus === 'ACCEPTED') {
+          shouldResumeCapture.value = true;
+        }
+      }
       syncRtcOwnershipFromStorage();
       return response.data;
     }

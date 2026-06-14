@@ -34,7 +34,11 @@ import { useMeetingStore, usePresenceStore, useUserStore } from '@/stores';
 import { useMeetingRtcStore } from '@/stores/modules/meeting-rtc';
 import { useLivekitRoom } from '@/composables/use-livekit-room';
 import { getRtcTokenApi, startRtcApi } from '@/api/modules/meeting-rtc';
-import { startScreenShareApi, stopScreenShareApi } from '@/api/modules/meeting';
+import {
+  notifyMeetingDisconnect,
+  startScreenShareApi,
+  stopScreenShareApi,
+} from '@/api/modules/meeting';
 import { MEETING_RTC_OWNER_KEY } from '@/utils/meeting-cross-window';
 import { buildSpeakerTranscriptLines } from '@/utils/meeting-transcript';
 import { AsyncSelect } from '@/components/async-select';
@@ -65,6 +69,7 @@ const {
   remoteScreenShare,
   startScreenShare,
   stopScreenShare,
+  prepareForPageUnload,
 } = useLivekitRoom();
 
 /***************************** 响应式状态 *****************************/
@@ -113,7 +118,7 @@ let rtcOwnershipHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
 let meetingClockTimer: ReturnType<typeof setInterval> | null = null;
 let permissionStatus: PermissionStatus | null = null;
 let permissionRetryRegistered = false;
-let disconnectOnUnloadSent = false;
+let disconnectNotifiedMeetingId: number | null = null;
 
 /***************************** 计算属性 *****************************/
 // 抽屉显隐双向绑定
@@ -576,12 +581,20 @@ async function bootstrapMeetingDrawer() {
 
   const currentMeeting = await meetingStore.loadCurrentMeeting();
   const activeMeetingId = currentMeeting?.session?.id ?? null;
+  const currentParticipant =
+    currentMeeting?.participants.find(
+      (item) =>
+        meetingStore.toNumericId(item.userId) ===
+        meetingStore.toNumericId(currentMeeting.currentUserId)
+    ) || null;
 
   if (
     activeMeetingId &&
-    meetingStore.shouldResumeCapture &&
+    currentMeeting?.session.status === 'ACTIVE' &&
+    currentParticipant?.inviteStatus === 'ACCEPTED' &&
     !meetingStore.isRtcOwnedByOtherTab(activeMeetingId)
   ) {
+    meetingStore.setShouldResumeCapture(true);
     meetingStore.claimRtcOwnership(activeMeetingId);
   }
 
@@ -761,43 +774,6 @@ async function handleStopMeeting() {
   }
 }
 
-// 页面关闭/卸载时断开会议连接（keepalive fetch）
-function disconnectMeetingOnPageUnload() {
-  if (disconnectOnUnloadSent) {
-    return;
-  }
-  const currentMeeting = meetingDetail.value;
-  if (!currentMeeting || currentMeeting.session.status !== 'ACTIVE') {
-    return;
-  }
-  const token = localStorage.getItem('token');
-  if (!token) {
-    return;
-  }
-  disconnectOnUnloadSent = true;
-  const baseApi = String(import.meta.env.VITE_APP_BASE_API || '/dev-api');
-  const url = `${baseApi}/cms/meeting/session/${currentMeeting.session.id}/disconnect`;
-  const locale = localStorage.getItem('app_locale') || 'zh-CN';
-
-  try {
-    fetch(url, {
-      method: 'POST',
-      keepalive: true,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Accept-Language': locale,
-      },
-    });
-  } catch (_error) {
-    // 页面关闭阶段不做额外兜底
-  }
-
-  meetingStore.releaseRtcOwnership(currentMeeting.session.id);
-  rtcStore.reset();
-  meetingStore.clearMeetingRuntime();
-  void leaveRoom();
-}
-
 // 拒绝待处理的会议邀请
 async function declinePendingMeeting(meetingId: number) {
   try {
@@ -867,8 +843,9 @@ function isMicrophonePermissionError(error: unknown) {
   const nextError = error as { name?: string; message?: string };
   return (
     nextError?.name === 'NotAllowedError' ||
+    nextError?.name === 'NotReadableError' ||
     nextError?.name === 'PermissionDeniedError' ||
-    /permission|denied|notallowed|麦克风|microphone/i.test(
+    /permission|denied|notallowed|notreadable|track start|device in use|麦克风|microphone|设备占用/i.test(
       nextError?.message || ''
     )
   );
@@ -971,14 +948,25 @@ function handleVisibilityRetry() {
 
 /***************************** 页面生命周期事件处理 *****************************/
 
-// 页面隐藏时断开连接
+// 页面隐藏时释放本地 RTC，并通知后端进入断线宽限期
 function handlePageHide() {
-  disconnectMeetingOnPageUnload();
+  const currentMeeting = meetingDetail.value;
+  if (!currentMeeting || currentMeeting.session.status !== 'ACTIVE') {
+    return;
+  }
+  if (disconnectNotifiedMeetingId !== currentMeeting.session.id) {
+    notifyMeetingDisconnect(currentMeeting.session.id);
+    disconnectNotifiedMeetingId = currentMeeting.session.id;
+  }
+  meetingStore.releaseRtcOwnership(currentMeeting.session.id);
+  rtcStore.reset();
+  prepareForPageUnload();
+  void leaveRoom();
 }
 
-// 页面卸载前断开连接
+// 页面卸载前复用同一套断线宽限逻辑
 function handleBeforeUnload() {
-  disconnectMeetingOnPageUnload();
+  handlePageHide();
 }
 
 // 从 localStorage 同步 RTC 归属状态
@@ -1202,6 +1190,7 @@ watch(
 watch(
   () => meetingDetail.value?.session.id,
   () => {
+    disconnectNotifiedMeetingId = null;
     hydratedLastTranscriptId.value = latestTranscript.value?.id ?? null;
   },
   { immediate: true }
@@ -1228,6 +1217,9 @@ watch(
 watch(
   () => meetingDetail.value?.session.status,
   async (status, previousStatus) => {
+    if (status === 'ACTIVE') {
+      disconnectNotifiedMeetingId = null;
+    }
     if (status !== 'ACTIVE') {
       clearPermissionRetry();
     }
@@ -1285,6 +1277,7 @@ watch(
       ?.map((item) => `${item.userId}:${item.inviteStatus}`)
       .join('|'),
     currentUser.value?.userId,
+    isCurrentTabRtcOwner.value,
   ],
   async () => {
     if (!shouldAutoJoinCurrentMeeting() || isConnected.value) {
@@ -2105,7 +2098,6 @@ onBeforeUnmount(() => {
   padding: 14px 18px;
   border-radius: 24px;
   border: 1px solid var(--color-primary-light-7);
-  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(14px);
   box-shadow: var(--shadow-lg);
 }
@@ -2670,5 +2662,21 @@ onBeforeUnmount(() => {
     bottom: 0;
     border-radius: 20px;
   }
+}
+
+.meeting-share-stage__video {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  /* 适配 Safari 浏览器的 WebRTC 视频渲染问题 */
+  @supports (-webkit-appearance: none) and (object-fit: contain) {
+    :deep(video) {
+      object-fit: cover;
+    }
+  }
+}
+
+:deep(.el-drawer__header) {
+  margin-bottom: 0px !important;
 }
 </style>
