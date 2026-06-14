@@ -110,6 +110,18 @@ export function uploadMeetingAudioApi(
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingTranscript | null>>;
 }
 
+export function startScreenShareApi(meetingId: number) {
+  return httpClient.post(
+    `/cms/meeting/session/${meetingId}/share/start`
+  ) as unknown as Promise<MeetingApiResponse<null>>;
+}
+
+export function stopScreenShareApi(meetingId: number) {
+  return httpClient.post(
+    `/cms/meeting/session/${meetingId}/share/stop`
+  ) as unknown as Promise<MeetingApiResponse<null>>;
+}
+
 export function listMeetingSelectableUsersApi() {
   return httpClient.get('/system/user/userList') as unknown as Promise<
     MeetingApiResponse<MeetingSelectableUser[]>

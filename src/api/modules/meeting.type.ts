@@ -19,6 +19,14 @@ export interface CmsMeetingSession {
   lastStageSummaryAt: string | null;
   finalSummary: string | null;
   lastError: string | null;
+  closingStartedAt: string | null;
+  closedAt: string | null;
+  closeRequestedBy: string | null;
+  closeResult: string | null;
+  closeTraceId: string | null;
+  currentShareUserId: number | null;
+  currentShareIdentity: string | null;
+  currentShareStartedAt: string | null;
   createBy: string;
   createTime: string;
   updateBy: string;
@@ -139,4 +147,13 @@ export interface PendingTranscript {
   audioStartedAt: string | null;
   /** 音频结束时间 */
   audioEndedAt: string | null;
+}
+
+/** 屏幕共享状态 */
+export interface MeetingScreenShareState {
+  meetingId: number;
+  shareActive: boolean;
+  sharerUserId: number | null;
+  sharerIdentity: string | null;
+  shareStartedAt: string | null;
 }

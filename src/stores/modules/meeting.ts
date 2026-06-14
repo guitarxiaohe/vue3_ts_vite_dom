@@ -8,6 +8,7 @@ import type {
   CmsMeetingSummary,
   CmsMeetingTranscript,
   CreateMeetingRequest,
+  MeetingScreenShareState,
   MeetingSelectableUser,
   PendingTranscript,
   SendMeetingInteractionRequest,
@@ -94,6 +95,14 @@ function createSpeakerNarrativeLabel(
 ) {
   const safeDisplayName = normalizeNarrativeText(displayName) || '参会人';
   return `${safeDisplayName}${isPending ? '补充' : '提到'}`;
+}
+
+function isActiveStatus(status: string | null | undefined) {
+  return status === 'ACTIVE';
+}
+
+function isTerminalStatus(status: string | null | undefined) {
+  return status === 'CLOSED_SUCCESS' || status === 'CLOSE_FAILED' || status === 'ENDED';
 }
 
 /******************************** 数据转换 ********************************/
@@ -275,6 +284,7 @@ export const useMeetingStore = defineStore(
     const pendingTranscripts = ref<Record<string, PendingTranscript>>({});
     const liveSummaryDraft = ref<MeetingLiveSummaryDraft | null>(null);
     const interactionBubbles = ref<Record<number, CmsMeetingInteraction>>({});
+    const screenShareState = ref<MeetingScreenShareState | null>(null);
     const interactionBubbleTimers = new Map<
       number,
       ReturnType<typeof setTimeout>
@@ -282,9 +292,9 @@ export const useMeetingStore = defineStore(
 
     /******************************** 计算属性 ********************************/
 
-    /** 是否有进行中的会议 */
+    /** 是否有进行中的会议（ACTIVE 或 CLOSING 期间仍允许查看） */
     const hasActiveMeeting = computed(
-      () => meetingDetail.value?.session.status === 'ACTIVE'
+      () => isActiveStatus(meetingDetail.value?.session.status)
     );
 
     /** 所有阶段摘要列表 */
@@ -316,7 +326,7 @@ export const useMeetingStore = defineStore(
         liveSummaryDraft.value?.summaryText
       );
       if (
-        meetingDetail.value?.session.status === 'ENDED' &&
+        isTerminalStatus(meetingDetail.value?.session.status) &&
         persisted?.source === 'final'
       ) {
         return persisted.text;
@@ -328,7 +338,7 @@ export const useMeetingStore = defineStore(
     const liveSummaryUpdatedAt = computed(() => {
       const persisted = getLatestPersistedSummary(meetingDetail.value);
       if (
-        meetingDetail.value?.session.status === 'ENDED' &&
+        isTerminalStatus(meetingDetail.value?.session.status) &&
         persisted?.source === 'final'
       ) {
         return persisted.updatedAt || null;
@@ -341,7 +351,7 @@ export const useMeetingStore = defineStore(
       if (!liveSummaryText.value) {
         return 'empty';
       }
-      return meetingDetail.value?.session.status === 'ENDED'
+      return isTerminalStatus(meetingDetail.value?.session.status)
         ? 'ready'
         : 'streaming';
     });
@@ -373,11 +383,10 @@ export const useMeetingStore = defineStore(
         liveSummaryDraft.value = null;
         clearInteractionBubbles();
       }
-      if (detail.session.status === 'ENDED') {
+      if (isTerminalStatus(detail.session.status)) {
         liveSummaryDraft.value = null;
+        screenShareState.value = null;
       }
-
-      // 检测新加入的参会者（用于 UI 高亮动画）
       if (previousParticipants.length > 0) {
         const previousInviteStatusMap = new Map<number, string>();
         previousParticipants.forEach((item) => {
@@ -404,8 +413,9 @@ export const useMeetingStore = defineStore(
       }
 
       currentMeetingId.value = toMeetingId(detail.session.id);
-      if (detail.session.status !== 'ACTIVE') {
+      if (!isActiveStatus(detail.session.status)) {
         shouldResumeCapture.value = false;
+        shouldAutoOpenDrawer.value = false;
       }
       // 默认选中当前用户作为发言人
       if (speakerUserId.value === null) {
@@ -433,6 +443,7 @@ export const useMeetingStore = defineStore(
       drawerVisible.value = false;
       pendingTranscripts.value = {};
       liveSummaryDraft.value = null;
+      screenShareState.value = null;
       releaseRtcOwnership();
     }
 
@@ -538,8 +549,8 @@ export const useMeetingStore = defineStore(
         const response = await createMeetingApi(payload);
         setMeetingDetail(response.data);
         shouldResumeCapture.value = true;
-        shouldAutoOpenDrawer.value = response.data.session.status === 'ACTIVE';
-        if (response.data.session.status === 'ACTIVE') {
+        shouldAutoOpenDrawer.value = isActiveStatus(response.data.session.status);
+        if (isActiveStatus(response.data.session.status)) {
           claimRtcOwnership(response.data.session.id);
         }
         await loadPendingMeetings();
@@ -575,20 +586,20 @@ export const useMeetingStore = defineStore(
       if (
         currentParticipant &&
         currentParticipant.inviteStatus !== 'ACCEPTED' &&
-        detail.session.status === 'ACTIVE'
+        isActiveStatus(detail.session.status)
       ) {
         const accepted = await acceptMeeting(meetingId);
         shouldResumeCapture.value = true;
-        shouldAutoOpenDrawer.value = accepted.session.status === 'ACTIVE';
-        if (accepted.session.status === 'ACTIVE') {
+        shouldAutoOpenDrawer.value = isActiveStatus(accepted.session.status);
+        if (isActiveStatus(accepted.session.status)) {
           claimRtcOwnership(accepted.session.id);
         }
         await loadPendingMeetings();
         return accepted;
       }
-      shouldResumeCapture.value = detail.session.status === 'ACTIVE';
-      shouldAutoOpenDrawer.value = detail.session.status === 'ACTIVE';
-      if (detail.session.status === 'ACTIVE') {
+      shouldResumeCapture.value = isActiveStatus(detail.session.status);
+      shouldAutoOpenDrawer.value = isActiveStatus(detail.session.status);
+      if (isActiveStatus(detail.session.status)) {
         claimRtcOwnership(detail.session.id);
       }
       return detail;
@@ -598,9 +609,9 @@ export const useMeetingStore = defineStore(
     async function acceptMeeting(meetingId: number) {
       const response = await acceptMeetingApi(meetingId);
       setMeetingDetail(response.data);
-      shouldResumeCapture.value = response.data.session.status === 'ACTIVE';
-      shouldAutoOpenDrawer.value = response.data.session.status === 'ACTIVE';
-      if (response.data.session.status === 'ACTIVE') {
+      shouldResumeCapture.value = isActiveStatus(response.data.session.status);
+      shouldAutoOpenDrawer.value = isActiveStatus(response.data.session.status);
+      if (isActiveStatus(response.data.session.status)) {
         claimRtcOwnership(response.data.session.id);
       }
       // 从待处理列表中移除
@@ -854,6 +865,22 @@ export const useMeetingStore = defineStore(
       if (!message.type) {
         return;
       }
+      // 会议状态变更（新事件名）
+      if (message.type === 'meeting_state_changed' && message.data) {
+        const detail = normalizeMeetingDetail(
+          message.data as CmsMeetingDetail,
+          meetingDetail.value
+        );
+        if (
+          detail &&
+          (currentMeetingId.value === null ||
+            toMeetingId(currentMeetingId.value) ===
+              toMeetingId(detail.session.id))
+        ) {
+          setMeetingDetail(detail);
+        }
+        return;
+      }
       // 会议状态变更
       if (message.type === 'meeting_state' && message.data) {
         const detail = normalizeMeetingDetail(
@@ -899,6 +926,11 @@ export const useMeetingStore = defineStore(
       }
       if (message.type === 'meeting_interaction' && message.data) {
         upsertInteraction(message.data as CmsMeetingInteraction);
+        return;
+      }
+      // 屏幕共享状态变更
+      if (message.type === 'meeting_screen_share_state' && message.data) {
+        screenShareState.value = message.data as MeetingScreenShareState;
         return;
       }
       // 最终摘要生成
@@ -998,6 +1030,7 @@ export const useMeetingStore = defineStore(
       pendingMeetings,
       pendingTranscripts,
       interactionBubbles,
+      screenShareState,
       selectableUsers,
       loading,
       // 计算属性
@@ -1044,6 +1077,8 @@ export const useMeetingStore = defineStore(
       isCurrentTabRtcOwner,
       isRtcOwnedByOtherTab,
       currentSpeakerName,
+      isActiveStatus,
+      isTerminalStatus,
       toMeetingId,
       toNumericId,
     };

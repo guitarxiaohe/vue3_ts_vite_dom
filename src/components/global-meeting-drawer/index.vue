@@ -37,6 +37,7 @@ import {
   useLivekitRoom,
 } from '@/composables/use-livekit-room';
 import { getRtcTokenApi, startRtcApi } from '@/api/modules/meeting-rtc';
+import { startScreenShareApi, stopScreenShareApi } from '@/api/modules/meeting';
 import { MEETING_RTC_OWNER_KEY } from '@/utils/meeting-cross-window';
 import { buildSpeakerTranscriptLines } from '@/utils/meeting-transcript';
 import { AsyncSelect } from '@/components/async-select';
@@ -93,10 +94,17 @@ const lastJoinAttemptMeetingId = ref<number | null>(null);
 const inviteDialogVisible = ref(false);
 // 邀请弹窗中已选中的待邀请用户 ID 列表
 const inviteUserIds = ref<number[]>([]);
+// 共享屏幕舞台模式：large（主区域展开）/ minimized（浮动小窗）
+const shareStageMode = ref<'large' | 'minimized'>('large');
 // 互动文字输入框的当前内容
 const interactionText = ref('');
 // 互动表情面板中可选的表情列表
 const interactionEmojiOptions = ['👍', '👏', '🎉', '🔥', '✅', '❓'];
+
+function toggleShareStageMode() {
+  shareStageMode.value =
+    shareStageMode.value === 'large' ? 'minimized' : 'large';
+}
 
 /***************************** 定时器 / 权限状态 *****************************/
 let activeSpeakerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -235,8 +243,8 @@ const latestTranscript = computed(() => {
 });
 const currentUser = computed(() => userStore.userInfo);
 // 会议 / RTC 状态
-const isMeetingEnded = computed(
-  () => meetingDetail.value?.session.status === 'ENDED'
+const isMeetingEnded = computed(() =>
+  meetingStore.isTerminalStatus(meetingDetail.value?.session.status)
 );
 const isRtcRunning = computed(
   () => meetingDetail.value?.session.rtcStatus === 'RUNNING'
@@ -247,6 +255,36 @@ const isConnected = computed(
 const isReconnecting = computed(
   () => connectionState.value === ConnectionState.Reconnecting
 );
+const screenShareState = computed(() => meetingStore.screenShareState);
+const isSomeoneSharing = computed(
+  () => screenShareState.value?.shareActive === true
+);
+const isCurrentUserSharing = computed(() => {
+  if (!screenShareState.value?.shareActive) return false;
+  const currentUserId = meetingDetail.value?.currentUserId;
+  return (
+    currentUserId != null &&
+    screenShareState.value.sharerUserId === currentUserId
+  );
+});
+const shareScreenDisabled = computed(() => {
+  if (!meetingStore.isActiveStatus(meetingDetail.value?.session.status))
+    return true;
+  if (isSomeoneSharing.value && !isCurrentUserSharing.value) return true;
+  return false;
+});
+const shareScreenLabel = computed(() => {
+  if (isCurrentUserSharing.value) return '停止共享';
+  return '共享屏幕';
+});
+
+watch(
+  () => isSomeoneSharing.value,
+  (sharing) => {
+    if (!sharing) shareStageMode.value = 'large';
+  }
+);
+
 const currentMeetingId = computed(
   () => meetingDetail.value?.session.id ?? null
 );
@@ -969,11 +1007,29 @@ function handleUnavailableFeature(label: string) {
   ElMessage.info(`${label}能力正在接入中`);
 }
 
-// 共享屏幕功能通
 async function handleSharedScreen() {
-  const mediaStream =
-    await navigator.mediaDevices.getDisplayMedia(MEDIADEVICES_OPTIONS);
-  mediaStream.getVideoTracks()[0];
+  const meetingId = currentMeetingId.value;
+  if (!meetingId) return;
+  if (shareScreenDisabled.value && !isCurrentUserSharing.value) {
+    if (isSomeoneSharing.value) {
+      ElMessage.info('当前已有其他参会者正在共享屏幕');
+    }
+    return;
+  }
+  try {
+    if (isCurrentUserSharing.value) {
+      await stopScreenShareApi(meetingId);
+      ElMessage.success('已停止共享屏幕');
+      return;
+    }
+    await startScreenShareApi(meetingId);
+    const mediaStream =
+      await navigator.mediaDevices.getDisplayMedia(MEDIADEVICES_OPTIONS);
+    mediaStream.getVideoTracks()[0];
+    ElMessage.success('已开始共享屏幕');
+  } catch (error: any) {
+    ElMessage.error(error?.message || '屏幕共享操作失败');
+  }
 }
 
 async function handleSendInteraction(
@@ -1077,7 +1133,7 @@ watch(
     if (status !== 'ACTIVE') {
       clearPermissionRetry();
     }
-    if (previousStatus !== 'ACTIVE' || status !== 'ENDED') {
+    if (previousStatus !== 'ACTIVE' || !meetingStore.isTerminalStatus(status)) {
       return;
     }
     meetingStore.releaseRtcOwnership(currentMeetingId.value);
@@ -1283,13 +1339,19 @@ onBeforeUnmount(() => {
           <el-tag
             size="small"
             :type="
-              meetingDetail.session.status === 'ACTIVE' ? 'success' : 'info'
+              meetingStore.isActiveStatus(meetingDetail.session.status)
+                ? 'success'
+                : meetingStore.isTerminalStatus(meetingDetail.session.status)
+                  ? 'info'
+                  : 'warning'
             "
           >
             {{
-              meetingDetail.session.status === 'ACTIVE'
+              meetingStore.isActiveStatus(meetingDetail.session.status)
                 ? t('meeting.statusActive')
-                : t('meeting.statusEnded')
+                : meetingDetail.session.status === 'CLOSING'
+                  ? '关闭中'
+                  : t('meeting.statusEnded')
             }}
           </el-tag>
           <el-tag v-if="waitingMicPermission" size="small" type="warning">
@@ -1311,6 +1373,29 @@ onBeforeUnmount(() => {
       <section v-if="isMeetingEnded" class="meeting-ended-banner">
         <strong>{{ t('meeting.endedBannerTitle') }}</strong>
         <p>{{ t('meeting.endedBannerDescription') }}</p>
+      </section>
+
+      <!-------------------------- 共享屏幕舞台 -------------------------->
+      <section
+        v-if="isSomeoneSharing"
+        :class="[
+          'meeting-share-stage',
+          shareStageMode === 'minimized'
+            ? 'meeting-share-stage--minimized'
+            : '',
+        ]"
+      >
+        <div class="meeting-share-stage__header">
+          <span>
+            {{ screenShareState?.sharerIdentity || '参会人' }} 正在共享屏幕
+          </span>
+          <el-button size="small" text @click="toggleShareStageMode">
+            {{ shareStageMode === 'large' ? '最小化' : '展开' }}
+          </el-button>
+        </div>
+        <div class="meeting-share-stage__content">
+          <p v-if="shareStageMode === 'large'">共享屏幕内容将在此处展示</p>
+        </div>
       </section>
 
       <!-------------------------- 主体内容区域 -------------------------->
@@ -1507,7 +1592,10 @@ onBeforeUnmount(() => {
       </div>
 
       <section
-        v-if="meetingDetail && meetingDetail.session.status === 'ACTIVE'"
+        v-if="
+          meetingDetail &&
+          meetingStore.isActiveStatus(meetingDetail.session.status)
+        "
         class="meeting-control-dock"
       >
         <el-button
@@ -1575,11 +1663,13 @@ onBeforeUnmount(() => {
             <Camera :size="16" />
           </el-button>
         </el-tooltip>
-        <el-tooltip content="共享屏幕" placement="top">
+        <el-tooltip :content="shareScreenLabel" placement="top">
           <el-button
+            :type="isCurrentUserSharing ? 'primary' : 'default'"
             plain
             circle
-            aria-label="共享屏幕"
+            :disabled="shareScreenDisabled"
+            :aria-label="shareScreenLabel"
             @click="handleSharedScreen"
           >
             <MonitorUp :size="16" />
@@ -1827,6 +1917,52 @@ onBeforeUnmount(() => {
   p {
     margin: 0;
     line-height: 1.6;
+  }
+}
+
+.meeting-share-stage {
+  margin-bottom: 16px;
+  border: 1px solid var(--color-primary-light);
+  border-radius: 16px;
+  background: var(--color-bg-page);
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--color-primary-light);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  &__content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 280px;
+    padding: 24px;
+    color: var(--color-text-secondary);
+    background: #1a1a2e;
+
+    p {
+      margin: 0;
+      font-size: 14px;
+    }
+  }
+
+  &--minimized {
+    position: fixed;
+    right: 20px;
+    bottom: 100px;
+    width: 320px;
+    z-index: 100;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+
+    .meeting-share-stage__content {
+      min-height: 180px;
+    }
   }
 }
 

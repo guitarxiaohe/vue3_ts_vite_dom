@@ -12,7 +12,7 @@ const entityModule = createEntityModule({
         key: 'dismissMeeting',
         label: '解散会议',
         order: 35,
-        visible: (row) => row.status === 'ACTIVE',
+        visible: (row) => row.status === 'ACTIVE' || row.status === 'CLOSING',
         component: defineAsyncComponent(
           () => import('./row-actions/dismiss-meeting.vue')
         ),
@@ -42,7 +42,9 @@ const entityModule = createEntityModule({
           order: 2,
           options: [
             { label: '进行中', value: 'ACTIVE' },
-            { label: '已结束', value: 'ENDED' },
+            { label: '关闭中', value: 'CLOSING' },
+            { label: '已关闭', value: 'CLOSED_SUCCESS' },
+            { label: '关闭失败', value: 'CLOSE_FAILED' },
           ],
         },
         rtcStatus: {
