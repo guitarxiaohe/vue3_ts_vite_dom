@@ -10,7 +10,7 @@ const meetingStore = useMeetingStore();
 
 async function openMeetingDrawer() {
   const meetingId = meetingStore.toMeetingId(route.query.meetingId);
-  if (meetingId > 0) {
+  if (meetingId) {
     await meetingStore.enterMeeting(meetingId);
     meetingStore.openDrawer();
     return;

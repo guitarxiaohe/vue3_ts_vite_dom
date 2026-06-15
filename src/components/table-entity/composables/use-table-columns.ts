@@ -482,7 +482,6 @@ export function mapFieldConfigRowsToColumns(
     const rawTitle = resolveFieldValue(col, 'fieldName') ?? '--';
     const labelKey = resolveFieldValue(col, 'labelKey') as string | undefined;
     const configuredWidth = Number(resolveFieldValue(col, 'width'));
-    console.log('configuredWidth ==>', configuredWidth);
     // i18n key 优先，field_name 兜底；t() 找不到翻译时返回 key 本身，需排除
     let title = rawTitle;
     if (t && labelKey) {

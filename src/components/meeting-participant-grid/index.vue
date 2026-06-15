@@ -4,9 +4,17 @@ import { LoaderCircle, MicOff } from 'lucide-vue-next';
 import UserAvatarInfo from '@/components/user-avatar-info/index.vue';
 
 interface MeetingParticipantGridItem {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   name: string;
+  /** 头像 */
+  avatar: string;
+  /** 性别 */
+  sex: string;
+  /** 部门名称 */
+  deptName: string;
+  /** 部门ID */
+  deptId: string;
   subtitle: string;
   isHost: boolean;
   statusText: string;
@@ -79,6 +87,9 @@ const avatarSize = computed(() => {
           :user-id="item.userId"
           :nick-name="item.name"
           :name="item.name"
+          :src="item.avatar"
+          :sex="item.sex"
+          :dept-name="item.deptName"
           :subtitle="''"
           :size="avatarSize"
           :enable-drawer="true"

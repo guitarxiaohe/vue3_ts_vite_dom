@@ -25,19 +25,19 @@ describe('meeting cross-window helpers', () => {
   });
 
   test('rtc owner should expire and allow another tab to take over', () => {
-    const owner = claimMeetingRtcOwner(10, 'tab-a', localStorage, 1000);
+    const owner = claimMeetingRtcOwner('10', 'tab-a', localStorage, 1000);
 
-    expect(owner.meetingId).toBe(10);
-    expect(isMeetingRtcOwner(10, 'tab-a', localStorage, 1000)).toBe(true);
-    expect(isMeetingRtcOwner(10, 'tab-b', localStorage, 1000)).toBe(false);
+    expect(owner.meetingId).toBe('10');
+    expect(isMeetingRtcOwner('10', 'tab-a', localStorage, 1000)).toBe(true);
+    expect(isMeetingRtcOwner('10', 'tab-b', localStorage, 1000)).toBe(false);
     expect(readMeetingRtcOwner(localStorage, 20000)).toBeNull();
   });
 
   test('releaseMeetingRtcOwner should only clear the matching tab owner', () => {
-    claimMeetingRtcOwner(10, 'tab-a', localStorage, 1000);
+    claimMeetingRtcOwner('10', 'tab-a', localStorage, 1000);
 
     releaseMeetingRtcOwner('tab-b', localStorage);
-    expect(isMeetingRtcOwner(10, 'tab-a', localStorage, 1000)).toBe(true);
+    expect(isMeetingRtcOwner('10', 'tab-a', localStorage, 1000)).toBe(true);
 
     releaseMeetingRtcOwner('tab-a', localStorage);
     expect(readMeetingRtcOwner(localStorage, 1000)).toBeNull();

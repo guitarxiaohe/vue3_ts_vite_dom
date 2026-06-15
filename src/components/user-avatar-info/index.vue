@@ -152,6 +152,7 @@ const { data: remoteDetail, isFetching } = useQuery({
   queryKey: computed(() => ['sysUser', props.userId] as const),
   queryFn: async (): Promise<SysUserDetailApiResponse> => {
     const res = await getSysUserById(props.userId!);
+
     if (!isApiSuccess(res.code)) {
       throw new Error(getApiErrorText(res));
     }
@@ -160,7 +161,6 @@ const { data: remoteDetail, isFetching } = useQuery({
   enabled: computed(() => remoteEnabled.value && drawerVisible.value),
   staleTime: 5 * 60 * 1000,
 });
-
 /** data 内用户主数据 */
 const remoteUser = computed(() => remoteDetail.value?.data);
 
@@ -171,7 +171,6 @@ const showRemoteLoading = computed(
 // ==================== 显示区（仅 props，不依赖接口） ====================
 const displayName = computed(() => props.nickName || props.name || '');
 const displaySubtitle = computed(() => props.subtitle || props.deptName || '');
-const displaySrc = computed(() => props.src ?? props.avatar ?? '');
 const displayAge = computed(() => props.age);
 const displayWorkYears = computed(() => props.workYears);
 const displayJobLevel = computed(() => props.jobLevel);
@@ -180,8 +179,6 @@ const displayJobLevel = computed(() => props.jobLevel);
 const drawerName = computed(
   () => remoteUser.value?.nickName ?? remoteUser.value?.userName ?? ''
 );
-const drawerEmail = computed(() => remoteUser.value?.email ?? '');
-const drawerPhone = computed(() => remoteUser.value?.phonenumber ?? '');
 const drawerUserId = computed(() => remoteUser.value?.userId ?? props.userId);
 
 // 默认插槽存在时，抽屉内展示插槽内容，否则展示内置字段
@@ -238,7 +235,7 @@ const showPresenceBadge = computed(
   () => props.userId != null && String(props.userId) !== ''
 );
 
-const isUserOnline = computed(() => presenceStore.isUserOnline(props.userId));
+const isUserOnline = computed(() => presenceStore.isUserOnline(props.userId != null ? String(props.userId) : null));
 
 const genderIconSize = computed(() =>
   Math.max(10, Math.min(16, Math.round(props.size * 0.36)))
@@ -247,7 +244,7 @@ const genderIconSize = computed(() =>
 const mergedAvatarProps = computed(() => ({
   ...props.avatar,
   size: props.size,
-  src: resolveImageUrl(displaySrc.value),
+  src: resolveImageUrl(props.src || '--'),
   shape: 'circle',
 }));
 
@@ -303,13 +300,13 @@ const drawerDetailItems = computed(() => [
     key: 'phone',
     label: t('components.userAvatarInfo.fieldPhone'),
     icon: drawerIconMap.phone,
-    value: displayField(drawerPhone.value),
+    value: displayField(remoteUser.value?.phonenumber ?? ''),
   },
   {
     key: 'email',
     label: t('components.userAvatarInfo.fieldEmail'),
     icon: drawerIconMap.email,
-    value: displayField(drawerEmail.value),
+    value: displayField(remoteUser.value?.email ?? ''),
   },
   {
     key: 'department',

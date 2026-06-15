@@ -12,38 +12,44 @@ import type {
   UploadMeetingAudioRequest,
 } from './meeting.type';
 
+/** 创建会议 */
 export function createMeetingApi(data: CreateMeetingRequest) {
   return httpClient.post('/cms/meeting/session', data) as unknown as Promise<
     MeetingApiResponse<CmsMeetingDetail>
   >;
 }
 
+/** 获取当前进行中的会议（无会议时返回 null） */
 export function getCurrentMeetingApi() {
   return httpClient.get('/cms/meeting/session/current') as unknown as Promise<
     MeetingApiResponse<CmsMeetingDetail | null>
   >;
 }
 
+/** 获取待处理的会议邀请列表 */
 export function getPendingMeetingsApi() {
   return httpClient.get('/cms/meeting/session/pending') as unknown as Promise<
     MeetingApiResponse<CmsMeetingPendingInvite[]>
   >;
 }
 
-export function acceptMeetingApi(meetingId: number) {
+/** 接受会议邀请 */
+export function acceptMeetingApi(meetingId: string) {
   return httpClient.post(
     `/cms/meeting/session/${meetingId}/accept`
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
-export function declineMeetingApi(meetingId: number) {
+/** 拒绝会议邀请 */
+export function declineMeetingApi(meetingId: string) {
   return httpClient.post(
     `/cms/meeting/session/${meetingId}/decline`
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
+/** 会议中邀请新成员 */
 export function inviteMeetingParticipantsApi(
-  meetingId: number,
+  meetingId: string,
   data: InviteMeetingParticipantsRequest
 ) {
   return httpClient.post(
@@ -52,8 +58,9 @@ export function inviteMeetingParticipantsApi(
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
+/** 发送会议互动（举手、表情等） */
 export function sendMeetingInteractionApi(
-  meetingId: number,
+  meetingId: string,
   data: SendMeetingInteractionRequest
 ) {
   return httpClient.post(
@@ -62,38 +69,44 @@ export function sendMeetingInteractionApi(
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingInteraction>>;
 }
 
-export function getMeetingDetailApi(meetingId: number) {
+/** 按 ID 获取会议详情 */
+export function getMeetingDetailApi(meetingId: string) {
   return httpClient.get(
     `/cms/meeting/session/${meetingId}`
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
-export function leaveMeetingApi(meetingId: number) {
+/** 离开会议（普通成员操作） */
+export function leaveMeetingApi(meetingId: string) {
   return httpClient.post(
     `/cms/meeting/session/${meetingId}/leave`
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
-export function stopMeetingApi(meetingId: number) {
+/** 停止会议（主持人操作） */
+export function stopMeetingApi(meetingId: string) {
   return httpClient.post(
     `/cms/meeting/session/${meetingId}/stop`
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
-export function dismissMeetingApi(meetingId: number) {
+/** 解散会议 */
+export function dismissMeetingApi(meetingId: string) {
   return httpClient.post(
     `/cms/meeting/session/${meetingId}/dismiss`
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
-export function resendFinalSummaryApi(meetingId: number) {
+/** 重新发送最终摘要 */
+export function resendFinalSummaryApi(meetingId: string) {
   return httpClient.post(
     `/cms/meeting/session/${meetingId}/resend-final-summary`
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingDetail>>;
 }
 
+/** 上传音频片段进行 ASR 转写，返回新增的 transcript */
 export function uploadMeetingAudioApi(
-  meetingId: number,
+  meetingId: string,
   data: UploadMeetingAudioRequest
 ) {
   const formData = new FormData();
@@ -110,19 +123,25 @@ export function uploadMeetingAudioApi(
   ) as unknown as Promise<MeetingApiResponse<CmsMeetingTranscript | null>>;
 }
 
-export function startScreenShareApi(meetingId: number) {
+/** 开始屏幕共享 */
+export function startScreenShareApi(meetingId: string) {
   return httpClient.post(
     `/cms/meeting/session/${meetingId}/share/start`
   ) as unknown as Promise<MeetingApiResponse<null>>;
 }
 
-export function stopScreenShareApi(meetingId: number) {
+/** 停止屏幕共享 */
+export function stopScreenShareApi(meetingId: string) {
   return httpClient.post(
     `/cms/meeting/session/${meetingId}/share/stop`
   ) as unknown as Promise<MeetingApiResponse<null>>;
 }
 
-export function notifyMeetingDisconnect(meetingId: number) {
+/**
+ * 通知服务端当前客户端断连（用于页面关闭/刷新时的清理）
+ * 使用 fetch + keepalive 确保在页面卸载时可靠发送
+ */
+export function notifyMeetingDisconnect(meetingId: string) {
   const token = localStorage.getItem('token') || '';
   const locale = localStorage.getItem('app_locale') || 'zh-CN';
   const baseURL = import.meta.env.VITE_APP_BASE_API || '/dev-api';
@@ -144,6 +163,7 @@ export function notifyMeetingDisconnect(meetingId: number) {
   }).catch(() => undefined);
 }
 
+/** 获取可邀请加入会议的用户列表 */
 export function listMeetingSelectableUsersApi() {
   return httpClient.get('/system/user/userList') as unknown as Promise<
     MeetingApiResponse<MeetingSelectableUser[]>

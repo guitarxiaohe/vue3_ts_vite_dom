@@ -25,15 +25,15 @@ vi.mock('@/api/modules/meeting', () => meetingApiMocks);
 /******************************** 会议状态测试 ********************************/
 
 function createMeetingDetail(options: {
-  meetingId?: number;
-  currentUserId?: number;
-  hostUserId?: number;
+  meetingId?: string;
+  currentUserId?: string;
+  hostUserId?: string;
   currentInviteStatus?: string;
   sessionStatus?: string;
 }): CmsMeetingDetail {
-  const meetingId = options.meetingId ?? 10;
-  const currentUserId = options.currentUserId ?? 2;
-  const hostUserId = options.hostUserId ?? 1;
+  const meetingId = options.meetingId ?? '10';
+  const currentUserId = options.currentUserId ?? '2';
+  const hostUserId = options.hostUserId ?? '1';
   const currentInviteStatus = options.currentInviteStatus ?? 'ACCEPTED';
   const sessionStatus = options.sessionStatus ?? 'ACTIVE';
 
@@ -42,7 +42,7 @@ function createMeetingDetail(options: {
       id: meetingId,
       rtcStatus: 'RUNNING',
       status: sessionStatus,
-      hostUserId,
+      hostUserId: String(hostUserId),
       hostUserName: 'host',
       hostNickName: '主持人',
       title: '周会',
@@ -67,11 +67,15 @@ function createMeetingDetail(options: {
     },
     participants: [
       {
-        id: 1,
+        id: '1',
         meetingId,
-        userId: hostUserId,
+        userId: String(hostUserId),
         userName: 'host',
         nickName: '主持人',
+        avatar: '',
+        sex: '',
+        deptName: '',
+        deptId: '',
         isHost: 1,
         inviteStatus: 'ACCEPTED',
         inviteSentAt: '2026-06-11 15:00:00',
@@ -83,11 +87,15 @@ function createMeetingDetail(options: {
         updateTime: '2026-06-11 15:00:00',
       },
       {
-        id: 2,
+        id: '2',
         meetingId,
-        userId: currentUserId,
+        userId: String(currentUserId),
         userName: 'member',
         nickName: '成员',
+        avatar: '',
+        sex: '',
+        deptName: '',
+        deptId: '',
         isHost: hostUserId === currentUserId ? 1 : 0,
         inviteStatus: currentInviteStatus,
         inviteSentAt: '2026-06-11 15:00:00',
@@ -102,7 +110,7 @@ function createMeetingDetail(options: {
     ],
     transcripts: [],
     summaries: [],
-    currentUserId,
+    currentUserId: String(currentUserId),
   };
 }
 
@@ -121,9 +129,9 @@ describe('meeting store', () => {
     meetingApiMocks.acceptMeetingApi.mockResolvedValue({ data: accepted });
     meetingApiMocks.getPendingMeetingsApi.mockResolvedValue({ data: [] });
 
-    const result = await store.enterMeeting(10);
+    const result = await store.enterMeeting('10');
 
-    expect(meetingApiMocks.acceptMeetingApi).toHaveBeenCalledWith(10);
+    expect(meetingApiMocks.acceptMeetingApi).toHaveBeenCalledWith('10');
     expect(result).toEqual(accepted);
     expect(store.meetingDetail?.participants[1]?.inviteStatus).toBe('ACCEPTED');
   });
@@ -131,12 +139,12 @@ describe('meeting store', () => {
   test('leaveMeeting should end the meeting for host and only leave for member', async () => {
     const hostStore = useMeetingStore();
     hostStore.setMeetingDetail(
-      createMeetingDetail({ currentUserId: 1, hostUserId: 1 })
+      createMeetingDetail({ currentUserId: '1', hostUserId: '1' })
     );
     meetingApiMocks.stopMeetingApi.mockResolvedValue({
       data: createMeetingDetail({
-        currentUserId: 1,
-        hostUserId: 1,
+        currentUserId: '1',
+        hostUserId: '1',
         sessionStatus: 'ENDED',
       }),
     });
@@ -146,30 +154,30 @@ describe('meeting store', () => {
     setActivePinia(createPinia());
     const memberStore = useMeetingStore();
     memberStore.setMeetingDetail(
-      createMeetingDetail({ currentUserId: 2, hostUserId: 1 })
+      createMeetingDetail({ currentUserId: '2', hostUserId: '1' })
     );
     meetingApiMocks.leaveMeetingApi.mockResolvedValue({
       data: createMeetingDetail({
-        currentUserId: 2,
-        hostUserId: 1,
+        currentUserId: '2',
+        hostUserId: '1',
         currentInviteStatus: 'LEFT',
       }),
     });
 
     await memberStore.leaveMeeting();
 
-    expect(meetingApiMocks.stopMeetingApi).toHaveBeenCalledWith(10);
-    expect(meetingApiMocks.leaveMeetingApi).toHaveBeenCalledWith(10);
+    expect(meetingApiMocks.stopMeetingApi).toHaveBeenCalledWith('10');
+    expect(meetingApiMocks.leaveMeetingApi).toHaveBeenCalledWith('10');
   });
 
   test('declineMeeting should remove a pending invite from the waiting list', async () => {
     const store = useMeetingStore();
     store.pendingMeetings = [
       {
-        meetingId: 10,
+        meetingId: '10',
         title: '周会',
         status: 'ACTIVE',
-        hostUserId: 1,
+        hostUserId: '1',
         hostUserName: 'host',
         hostNickName: '主持人',
         startedAt: '2026-06-11 15:00:00',
@@ -177,10 +185,10 @@ describe('meeting store', () => {
         inviteStatus: 'PENDING',
       },
       {
-        meetingId: 11,
+        meetingId: '11',
         title: '复盘会',
         status: 'ACTIVE',
-        hostUserId: 1,
+        hostUserId: '1',
         hostUserName: 'host',
         hostNickName: '主持人',
         startedAt: '2026-06-11 16:00:00',
@@ -191,36 +199,40 @@ describe('meeting store', () => {
 
     meetingApiMocks.declineMeetingApi.mockResolvedValue({
       data: createMeetingDetail({
-        meetingId: 10,
-        currentUserId: 2,
-        hostUserId: 1,
+        meetingId: '10',
+        currentUserId: '2',
+        hostUserId: '1',
         currentInviteStatus: 'DECLINED',
       }),
     });
 
-    await store.declineMeeting(10);
+    await store.declineMeeting('10');
 
-    expect(meetingApiMocks.declineMeetingApi).toHaveBeenCalledWith(10);
-    expect(store.pendingMeetings.map((item) => item.meetingId)).toEqual([11]);
+    expect(meetingApiMocks.declineMeetingApi).toHaveBeenCalledWith('10');
+    expect(store.pendingMeetings.map((item) => item.meetingId)).toEqual(['11']);
   });
 
   test('inviteParticipants should refresh current meeting detail with newly invited members', async () => {
     const store = useMeetingStore();
     store.setMeetingDetail(
-      createMeetingDetail({ currentUserId: 1, hostUserId: 1 })
+      createMeetingDetail({ currentUserId: '1', hostUserId: '1' })
     );
     const invitedDetail = createMeetingDetail({
-      currentUserId: 1,
-      hostUserId: 1,
+      currentUserId: '1',
+      hostUserId: '1',
     });
     invitedDetail.participants = [
       ...invitedDetail.participants,
       {
-        id: 3,
-        meetingId: 10,
-        userId: 3,
+        id: '3',
+        meetingId: '10',
+        userId: '3',
         userName: 'new-user',
         nickName: '新成员',
+        avatar: '',
+        sex: '',
+        deptName: '',
+        deptId: '',
         isHost: 0,
         inviteStatus: 'PENDING',
         inviteSentAt: '2026-06-11 15:05:00',
@@ -237,11 +249,11 @@ describe('meeting store', () => {
       data: invitedDetail,
     });
 
-    const result = await store.inviteParticipants([3]);
+    const result = await store.inviteParticipants(['3']);
 
     expect(meetingApiMocks.inviteMeetingParticipantsApi).toHaveBeenCalledWith(
-      10,
-      { inviteUserIds: [3] }
+      '10',
+      { inviteUserIds: ['3'] }
     );
     expect(result?.participants).toHaveLength(3);
     expect(store.meetingDetail?.participants[2]?.inviteStatus).toBe('PENDING');
@@ -250,7 +262,7 @@ describe('meeting store', () => {
   test('hideDrawerToBackground should keep the meeting but stop auto-opening it', () => {
     const store = useMeetingStore();
     store.setMeetingDetail(
-      createMeetingDetail({ currentUserId: 2, hostUserId: 1 })
+      createMeetingDetail({ currentUserId: '2', hostUserId: '1' })
     );
     store.openDrawer();
 
@@ -258,19 +270,19 @@ describe('meeting store', () => {
 
     expect(store.drawerVisible).toBe(false);
     expect(store.shouldAutoOpenDrawer).toBe(false);
-    expect(store.currentMeetingId).toBe(10);
+    expect(store.currentMeetingId).toBe('10');
     expect(store.meetingDetail?.session.status).toBe('ACTIVE');
   });
 
   test('consumeWsMessage should keep transcript and summary arrays when meeting_state is partial', () => {
     const store = useMeetingStore();
-    const detail = createMeetingDetail({ currentUserId: 2, hostUserId: 1 });
+    const detail = createMeetingDetail({ currentUserId: '2', hostUserId: '1' });
     detail.transcripts = [
       {
-        id: 100,
-        meetingId: 10,
-        participantId: 2,
-        userId: 2,
+        id: '100',
+        meetingId: '10',
+        participantId: '2',
+        userId: '2',
         displayName: '成员',
         transcriptText: '最新转写',
         audioStartedAt: '2026-06-11 15:01:00',
@@ -282,8 +294,8 @@ describe('meeting store', () => {
     ];
     detail.summaries = [
       {
-        id: 200,
-        meetingId: 10,
+        id: '200',
+        meetingId: '10',
         summaryType: 'STAGE',
         summaryIndex: 1,
         summaryText: '阶段总结',
@@ -314,13 +326,13 @@ describe('meeting store', () => {
 
   test('liveTranscriptBlocks and liveSummary should split raw transcript feed from AI summary feed', () => {
     const store = useMeetingStore();
-    const detail = createMeetingDetail({ currentUserId: 2, hostUserId: 1 });
+    const detail = createMeetingDetail({ currentUserId: '2', hostUserId: '1' });
     detail.transcripts = [
       {
-        id: 100,
-        meetingId: 10,
-        participantId: 1,
-        userId: 1,
+        id: '100',
+        meetingId: '10',
+        participantId: '1',
+        userId: '1',
         displayName: '主持人',
         transcriptText: '我们先确认上线时间。',
         audioStartedAt: '2026-06-11 15:01:00',
@@ -332,8 +344,8 @@ describe('meeting store', () => {
     ];
     detail.summaries = [
       {
-        id: 200,
-        meetingId: 10,
+        id: '200',
+        meetingId: '10',
         summaryType: 'STAGE',
         summaryIndex: 1,
         summaryText: 'AI 归纳：当前先聚焦上线时间与负责人。',
@@ -342,8 +354,8 @@ describe('meeting store', () => {
         createTime: '2026-06-11 15:02:00',
       },
       {
-        id: 201,
-        meetingId: 10,
+        id: '201',
+        meetingId: '10',
         summaryType: 'STAGE',
         summaryIndex: 1,
         summaryText: 'AI 归纳：当前先聚焦上线时间与负责人。',
@@ -358,7 +370,7 @@ describe('meeting store', () => {
       type: 'meeting_transcript_partial',
       data: {
         participantIdentity: 'user-127',
-        userId: 127,
+        userId: '127',
         displayName: '贺琦',
         transcriptText: '我这边今天可以补完测试。',
         audioStartedAt: '2026-06-11 15:02:30',
@@ -385,13 +397,13 @@ describe('meeting store', () => {
 
   test('meeting_live_summary should refresh the lower AI summary without changing the raw transcript feed', () => {
     const store = useMeetingStore();
-    const detail = createMeetingDetail({ currentUserId: 2, hostUserId: 1 });
+    const detail = createMeetingDetail({ currentUserId: '2', hostUserId: '1' });
     detail.transcripts = [
       {
-        id: 100,
-        meetingId: 10,
-        participantId: 1,
-        userId: 1,
+        id: '100',
+        meetingId: '10',
+        participantId: '1',
+        userId: '1',
         displayName: '主持人',
         transcriptText: '我们先确认上线时间。',
         audioStartedAt: '2026-06-11 15:01:00',
@@ -406,7 +418,7 @@ describe('meeting store', () => {
     store.consumeWsMessage({
       type: 'meeting_live_summary',
       data: {
-        meetingId: 10,
+        meetingId: '10',
         summaryText:
           'AI 实时总结：会议先确认本周上线时间，并继续补充测试安排。',
         sourceTranscriptCount: 1,

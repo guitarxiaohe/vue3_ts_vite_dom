@@ -11,7 +11,7 @@ export interface MeetingRtcTokenResponse {
   /** 参与者身份标识 */
   participantIdentity: string;
   /** 用户 ID */
-  userId: number;
+  userId: string;
   /** 显示名称 */
   displayName: string;
   /** 是否主持人 */
@@ -41,7 +41,7 @@ export interface AudioChunkUploadRequest {
   /** 参与者身份标识 */
   participantIdentity: string;
   /** 发言人用户 ID */
-  speakerUserId?: number;
+  speakerUserId?: string;
   /** 发言人显示名称 */
   speakerDisplayName: string;
   /** RTC 轨道 ID */

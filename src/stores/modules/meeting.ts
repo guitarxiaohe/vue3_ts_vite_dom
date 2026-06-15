@@ -42,17 +42,23 @@ type MeetingTranscriptBlockKind = 'speaker' | 'pending';
 
 /** 转写块（用于 UI 渲染，合并 final + pending） */
 export interface MeetingTranscriptBlock {
+  /** 唯一标识，final 转写为 `transcript-{id}`，pending 为 `pending-{participantIdentity}` */
   id: string;
+  /** 类型：'speaker' 已确认转写 | 'pending' 流式进行中 */
   kind: MeetingTranscriptBlockKind;
+  /** 说话人标签，如 "张三提到" / "张三补充" */
   label: string;
+  /** 转写文本内容 */
   text: string;
+  /** 音频开始时间戳（毫秒），用于排序 */
   timestamp: number;
+  /** 是否为流式进行中的转写（partial result） */
   pending?: boolean;
 }
 
 /** 流式 AI 摘要草稿 */
 interface MeetingLiveSummaryDraft {
-  meetingId: number;
+  meetingId: string;
   summaryText: string;
   sourceTranscriptCount?: number;
   updatedAt?: string | null;
@@ -62,16 +68,16 @@ type MeetingLiveSummaryStatus = 'empty' | 'streaming' | 'ready';
 
 /******************************** 工具函数 ********************************/
 
-/** 安全转换为会议 ID，无效值返回 0 */
-function toMeetingId(value: unknown) {
-  const meetingId = Number(value);
-  return Number.isNaN(meetingId) ? 0 : meetingId;
+/** 安全转换为会议 ID 字符串，null/undefined 返回空字符串 */
+function toMeetingId(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return String(value);
 }
 
-/** 安全转换为数字 ID，无效值返回 0 */
-function toNumericId(value: unknown) {
-  const numericId = Number(value);
-  return Number.isNaN(numericId) ? 0 : numericId;
+/** 安全转换为用户 ID 字符串，null/undefined 返回空字符串 */
+function toNumericId(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return String(value);
 }
 
 /** 解析时间字符串为毫秒时间戳，无效返回 0 */
@@ -266,20 +272,20 @@ export const useMeetingStore = defineStore(
   () => {
     /******************************** 持久化状态 ********************************/
 
-    const currentMeetingId = ref<number | null>(null);
+    const currentMeetingId = ref<string | null>(null);
     const shouldResumeCapture = ref(false);
-    const speakerUserId = ref<number | null>(null);
-    const seenPendingInviteIds = ref<number[]>([]);
+    const speakerUserId = ref<string | null>(null);
+    const seenPendingInviteIds = ref<string[]>([]);
     const shouldAutoOpenDrawer = ref(false);
     const meetingClientId = ref(ensureMeetingClientId(sessionStorage));
     const rtcOwnerClientId = ref<string | null>(null);
-    const rtcOwnerMeetingId = ref<number | null>(null);
+    const rtcOwnerMeetingId = ref<string | null>(null);
 
     /******************************** 运行时状态 ********************************/
 
     const meetingDetail = ref<CmsMeetingDetail | null>(null);
     const drawerVisible = ref(false);
-    const lastJoinedUserId = ref<number | null>(null);
+    const lastJoinedUserId = ref<string | null>(null);
     const pendingMeetings = ref<CmsMeetingPendingInvite[]>([]);
     const selectableUsers = ref<MeetingSelectableUser[]>([]);
     const loading = ref(false);
@@ -287,10 +293,10 @@ export const useMeetingStore = defineStore(
     /** 流式 ASR 进行中的转写，按 participantIdentity 索引 */
     const pendingTranscripts = ref<Record<string, PendingTranscript>>({});
     const liveSummaryDraft = ref<MeetingLiveSummaryDraft | null>(null);
-    const interactionBubbles = ref<Record<number, CmsMeetingInteraction>>({});
+    const interactionBubbles = ref<Record<string, CmsMeetingInteraction>>({});
     const screenShareState = ref<MeetingScreenShareState | null>(null);
     const interactionBubbleTimers = new Map<
-      number,
+      string,
       ReturnType<typeof setTimeout>
     >();
 
@@ -392,7 +398,7 @@ export const useMeetingStore = defineStore(
         screenShareState.value = null;
       }
       if (previousParticipants.length > 0) {
-        const previousInviteStatusMap = new Map<number, string>();
+        const previousInviteStatusMap = new Map<string, string>();
         previousParticipants.forEach((item) => {
           previousInviteStatusMap.set(
             toNumericId(item.userId),
@@ -586,14 +592,14 @@ export const useMeetingStore = defineStore(
     }
 
     /** 按 ID 加载会议详情 */
-    async function loadMeetingDetail(meetingId: number) {
+    async function loadMeetingDetail(meetingId: string) {
       const response = await getMeetingDetailApi(meetingId);
       setMeetingDetail(response.data);
       return response.data;
     }
 
     /** 进入会议：加载详情，未接受时自动接受 */
-    async function enterMeeting(meetingId: number) {
+    async function enterMeeting(meetingId: string) {
       const detail = await loadMeetingDetail(meetingId);
       const currentParticipant =
         detail.participants.find(
@@ -623,7 +629,7 @@ export const useMeetingStore = defineStore(
     }
 
     /** 接受会议邀请 */
-    async function acceptMeeting(meetingId: number) {
+    async function acceptMeeting(meetingId: string) {
       const response = await acceptMeetingApi(meetingId);
       setMeetingDetail(response.data);
       shouldResumeCapture.value = isActiveStatus(response.data.session.status);
@@ -642,7 +648,7 @@ export const useMeetingStore = defineStore(
     }
 
     /** 拒绝会议邀请，从待处理列表中移除 */
-    async function declineMeeting(meetingId: number) {
+    async function declineMeeting(meetingId: string) {
       const response = await declineMeetingApi(meetingId);
       pendingMeetings.value = pendingMeetings.value.filter(
         (item) => item.meetingId !== meetingId
@@ -659,7 +665,7 @@ export const useMeetingStore = defineStore(
     }
 
     /** 会议中继续邀请成员 */
-    async function inviteParticipants(inviteUserIds: number[]) {
+    async function inviteParticipants(inviteUserIds: string[]) {
       if (!currentMeetingId.value) {
         return null;
       }
@@ -804,17 +810,10 @@ export const useMeetingStore = defineStore(
         ...pendingTranscripts.value,
         [pending.participantIdentity]: pending,
       };
-      console.log(
-        '[upsertPendingTranscript] 更新:',
-        pending.participantIdentity,
-        pending.transcriptText,
-        '当前条目数:',
-        Object.keys(pendingTranscripts.value).length
-      );
     }
 
     /** 根据 userId 清除对应的 pending 转写（final 到达时调用） */
-    function clearPendingTranscriptByUserId(userId: number) {
+    function clearPendingTranscriptByUserId(userId: string) {
       if (!userId) return;
       const current = pendingTranscripts.value;
       const next: Record<string, PendingTranscript> = {};
@@ -878,10 +877,11 @@ export const useMeetingStore = defineStore(
 
     /** 消费 WebSocket 会议事件，按 type 分发到对应处理方法 */
     function consumeWsMessage(message: WsMessage) {
-      console.log('message ==>', message);
+      console.log('[consumeWsMessage]', message);
       if (!message.type) {
         return;
       }
+
       // 会议状态变更（新事件名）
       if (message.type === 'meeting_state_changed' && message.data) {
         const detail = normalizeMeetingDetail(
@@ -960,16 +960,18 @@ export const useMeetingStore = defineStore(
       }
       // 会议关闭
       if (message.type === 'meeting_closed' && message.data) {
-        setMeetingDetail(message.data as CmsMeetingDetail);
-        shouldResumeCapture.value = false;
-        shouldAutoOpenDrawer.value = false;
-        liveSummaryDraft.value = null;
+        if ((message.data as { meetingId?: string })?.meetingId == currentMeetingId.value) {
+          // setMeetingDetail(message.data as CmsMeetingDetail);
+          shouldResumeCapture.value = false;
+          shouldAutoOpenDrawer.value = false;
+          liveSummaryDraft.value = null;
+        }
       }
     }
 
     /******************************** Setters ********************************/
 
-    function setSpeakerUserId(value: number | null) {
+    function setSpeakerUserId(value: string | null) {
       speakerUserId.value = value;
     }
 
@@ -984,7 +986,7 @@ export const useMeetingStore = defineStore(
       return owner;
     }
 
-    function claimRtcOwnership(meetingId: number) {
+    function claimRtcOwnership(meetingId: string) {
       const owner = claimMeetingRtcOwner(
         meetingId,
         meetingClientId.value,
@@ -995,7 +997,7 @@ export const useMeetingStore = defineStore(
       return owner;
     }
 
-    function releaseRtcOwnership(meetingId?: number | null) {
+    function releaseRtcOwnership(meetingId?: string | null) {
       releaseMeetingRtcOwner(
         meetingClientId.value,
         localStorage,
@@ -1004,7 +1006,7 @@ export const useMeetingStore = defineStore(
       syncRtcOwnershipFromStorage();
     }
 
-    function isCurrentTabRtcOwner(meetingId: number | null | undefined) {
+    function isCurrentTabRtcOwner(meetingId: string | null | undefined) {
       const owner = syncRtcOwnershipFromStorage();
       return (
         !!owner &&
@@ -1013,7 +1015,7 @@ export const useMeetingStore = defineStore(
       );
     }
 
-    function isRtcOwnedByOtherTab(meetingId: number | null | undefined) {
+    function isRtcOwnedByOtherTab(meetingId: string | null | undefined) {
       const owner = syncRtcOwnershipFromStorage();
       return (
         !!owner &&

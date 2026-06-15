@@ -653,21 +653,6 @@ export const getListByEntityKeyApi = (
 export const getSysUserById = (
   userId: string | number
 ): Promise<SysUserDetailApiResponse> => {
-  if (isMockEnabled()) {
-    const uid = Number(userId);
-    const user =
-      mockUserRows.find((u) => Number(u.userId) === uid) ?? mockUserRows[0];
-    return Promise.resolve({
-      code: 200,
-      message: 'mock',
-      msg: 'mock',
-      data: user,
-      roleIds: (user.roles ?? []).map((r) => String(r.roleId ?? '')),
-      roles: user.roles,
-      posts: [],
-      timestamp: nowTs(),
-    } as SysUserDetailApiResponse);
-  }
   return httpClient.get(
     `/system/user/${userId}`
   ) as Promise<SysUserDetailApiResponse>;

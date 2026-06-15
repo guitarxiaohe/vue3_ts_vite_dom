@@ -5,7 +5,7 @@ export interface MeetingSharedAudioState {
 }
 
 export interface MeetingRtcOwner {
-  meetingId: number;
+  meetingId: string;
   clientId: string;
   updatedAt: number;
 }
@@ -62,11 +62,11 @@ function normalizeSharedAudioState(
 function normalizeRtcOwner(
   value: Partial<MeetingRtcOwner> | null | undefined
 ): MeetingRtcOwner | null {
-  const meetingId = Number(value?.meetingId);
+  const meetingId = String(value?.meetingId || '').trim();
   const updatedAt = Number(value?.updatedAt);
   const clientId = String(value?.clientId || '').trim();
   if (
-    meetingId <= 0 ||
+    !meetingId ||
     !clientId ||
     Number.isNaN(updatedAt) ||
     updatedAt <= 0
@@ -129,7 +129,7 @@ export function readMeetingRtcOwner(storage: Storage, now = Date.now()) {
 }
 
 export function claimMeetingRtcOwner(
-  meetingId: number,
+  meetingId: string,
   clientId: string,
   storage: Storage,
   now = Date.now()
@@ -144,7 +144,7 @@ export function claimMeetingRtcOwner(
 }
 
 export function isMeetingRtcOwner(
-  meetingId: number,
+  meetingId: string,
   clientId: string,
   storage: Storage,
   now = Date.now()
@@ -158,7 +158,7 @@ export function isMeetingRtcOwner(
 export function releaseMeetingRtcOwner(
   clientId: string,
   storage: Storage,
-  meetingId?: number | null
+  meetingId?: string | null
 ) {
   const owner = normalizeRtcOwner(
     safeJsonParse<MeetingRtcOwner>(storage.getItem(MEETING_RTC_OWNER_KEY))

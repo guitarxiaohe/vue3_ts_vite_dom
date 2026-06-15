@@ -66,7 +66,7 @@ function shouldReplaceLocalHostname(
 
 interface ApplyIncomingWsPayloadOptions {
   payload: string;
-  setOnlineUserIds: (userIds: number[]) => void;
+  setOnlineUserIds: (userIds: string[]) => void;
   pushNotification: (message: WsMessage) => void;
   consumeMeetingEvent: (message: WsMessage) => void;
 }
@@ -90,8 +90,8 @@ function applyIncomingWsPayload(
   if (message.type === 'presence_snapshot') {
     const normalizedUserIds = Array.isArray(message.userIds)
       ? message.userIds
-          .map((userId) => Number(userId))
-          .filter((userId) => !Number.isNaN(userId))
+          .map((userId) => String(userId))
+          .filter(Boolean)
       : [];
     options.setOnlineUserIds(normalizedUserIds);
     return { kind: 'presence', message };
@@ -114,15 +114,15 @@ function toPendingInvite(message: WsMessage): CmsMeetingPendingInvite | null {
     message.data && typeof message.data === 'object'
       ? (message.data as Record<string, unknown>)
       : null;
-  const meetingId = Number(data?.meetingId || message.params?.meetingId || 0);
-  if (meetingId <= 0) {
+  const meetingId = String(data?.meetingId || message.params?.meetingId || '');
+  if (!meetingId) {
     return null;
   }
   return {
     meetingId,
     title: String(data?.title || message.title || '会议邀请'),
     status: String(data?.status || 'ACTIVE'),
-    hostUserId: Number(data?.hostUserId || 0),
+    hostUserId: String(data?.hostUserId || ''),
     hostUserName: String(data?.hostUserName || ''),
     hostNickName: String(data?.hostNickName || ''),
     startedAt: String(data?.startedAt || ''),
@@ -213,7 +213,7 @@ export function useWebSocket() {
         return;
       }
       const msg: WsMessage = result.message;
-      console.log('Received notification message:', msg);
+      // console.log('Received notification message:', msg);
       if (isMeetingInviteMessage(msg)) {
         const invite = toPendingInvite(msg);
         if (invite) {

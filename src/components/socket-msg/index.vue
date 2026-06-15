@@ -21,9 +21,9 @@ const props = defineProps<{
 const router = useRouter();
 const meetingStore = useMeetingStore();
 
-function resolveMeetingId(message: WsMessage) {
-  const paramMeetingId = Number(message.params?.meetingId || 0);
-  if (paramMeetingId > 0) {
+function resolveMeetingId(message: WsMessage): string {
+  const paramMeetingId = String(message.params?.meetingId || '');
+  if (paramMeetingId) {
     return paramMeetingId;
   }
   if (
@@ -31,18 +31,18 @@ function resolveMeetingId(message: WsMessage) {
     typeof message.data === 'object' &&
     'meetingId' in message.data
   ) {
-    return Number((message.data as { meetingId?: number }).meetingId || 0);
+    return String((message.data as { meetingId?: unknown }).meetingId || '');
   }
-  return 0;
+  return '';
 }
 
 const handleClick = async () => {
   const meetingId = resolveMeetingId(props.msgInfo);
   if (
     String(props.msgInfo.type || '').startsWith('meeting_') ||
-    meetingId > 0
+    meetingId
   ) {
-    if (meetingId > 0) {
+    if (meetingId) {
       await meetingStore.enterMeeting(meetingId);
     }
     meetingStore.openDrawer();

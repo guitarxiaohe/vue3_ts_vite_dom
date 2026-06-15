@@ -29,7 +29,7 @@ async function handleDismissMeeting() {
 
   loading.value = true;
   try {
-    await dismissMeetingApi(Number(props.row.id));
+    await dismissMeetingApi(String(props.row.id ?? ''));
     ElMessage.success('会议已解散');
     props.actions.refresh();
   } finally {

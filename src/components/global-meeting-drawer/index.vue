@@ -8,8 +8,7 @@ import {
   ref,
   watch,
 } from 'vue';
-import { useRoute } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import {
   Camera,
   CircleDot,
@@ -28,27 +27,17 @@ import {
   WifiOff,
 } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
-import { ConnectionState } from 'livekit-client';
 import MeetingParticipantGrid from '@/components/meeting-participant-grid/index.vue';
-import { useMeetingStore, usePresenceStore, useUserStore } from '@/stores';
-import { useMeetingRtcStore } from '@/stores/modules/meeting-rtc';
+import { useMeetingStore } from '@/stores';
 import { useLivekitRoom } from '@/composables/use-livekit-room';
-import { getRtcTokenApi, startRtcApi } from '@/api/modules/meeting-rtc';
-import {
-  notifyMeetingDisconnect,
-  startScreenShareApi,
-  stopScreenShareApi,
-} from '@/api/modules/meeting';
-import { MEETING_RTC_OWNER_KEY } from '@/utils/meeting-cross-window';
 import { buildSpeakerTranscriptLines } from '@/utils/meeting-transcript';
 import { AsyncSelect } from '@/components/async-select';
+import { useMeetingParticipants } from './use-meeting-participants';
+import { useMeetingScreenShare } from './use-meeting-screen-share';
+import { useMeetingRtcSession } from './use-meeting-rtc-session';
 /***************************** Store / Composable 初始化 *****************************/
-const route = useRoute();
 const { t } = useI18n();
 const meetingStore = useMeetingStore();
-const userStore = useUserStore();
-const presenceStore = usePresenceStore();
-const rtcStore = useMeetingRtcStore();
 
 /***************************** LiveKit RTC 解构 *****************************/
 const {
@@ -74,51 +63,32 @@ const {
 
 /***************************** 响应式状态 *****************************/
 // 当前正在发言的用户 ID，用于触发发言人头像高亮脉冲效果
-const activeSpeakerUserId = ref<number | null>(null);
+const activeSpeakerUserId = ref<string | null>(null);
 // 新加入会议的用户 ID，用于触发参与者加入时的高亮动画
-const joinedHighlightUserId = ref<number | null>(null);
+const joinedHighlightUserId = ref<string | null>(null);
 // 上一次水合（初始化）时记录的最新转写 ID，用于判断转写内容是否为增量更新、避免重复触发高亮
-const hydratedLastTranscriptId = ref<number | null>(null);
+const hydratedLastTranscriptId = ref<string | null>(null);
 // 实时转写面板的 DOM 元素引用，用于在新转写内容出现时自动滚动到底部
 const transcriptPanelRef = ref<HTMLElement | null>(null);
 // 当前时间戳（每秒刷新），驱动会议已进行时长的计算显示
 const meetingClockNow = ref(Date.now());
-// 是否正在加入语音会议（RTC 连接进行中），防止重复点击加入按钮
-const isJoining = ref(false);
-// 主持人是否正在启动 RTC 服务，防止重复调用 startRtcApi
-const isStartingRtc = ref(false);
-// 是否正在结束/离开会议，防止重复提交停止会议请求
-const isStoppingMeeting = ref(false);
 // 是否正在提交邀请参与者请求，控制邀请按钮的 loading 状态
 const isInvitingParticipants = ref(false);
 // 是否正在发送互动消息（举手/表情/文字），控制发送按钮的 loading 状态
 const isSendingInteraction = ref(false);
-// 是否正在等待用户授予麦克风权限，显示"等待麦克风权限"提示标签
-const waitingMicPermission = ref(false);
-// 上一次尝试加入语音的会议 ID，用于避免同一会议重复弹出"等待麦克风权限"提示
-const lastJoinAttemptMeetingId = ref<number | null>(null);
 // 邀请参与者弹窗是否可见
 const inviteDialogVisible = ref(false);
 // 邀请弹窗中已选中的待邀请用户 ID 列表
-const inviteUserIds = ref<number[]>([]);
+const inviteUserIds = ref<string[]>([]);
 // 互动文字输入框的当前内容
 const interactionText = ref('');
 // 互动表情面板中可选的表情列表
 const interactionEmojiOptions = ['👍', '👏', '🎉', '🔥', '✅', '❓'];
 
-// 共享屏幕视频挂载容器
-const screenShareVideoRef = ref<HTMLDivElement | null>(null);
-// 共享结束回收时避免重复调用后端 stop
-const isStoppingScreenShare = ref(false);
-
 /***************************** 定时器 / 权限状态 *****************************/
 let activeSpeakerTimer: ReturnType<typeof setTimeout> | null = null;
 let joinedHighlightTimer: ReturnType<typeof setTimeout> | null = null;
-let rtcOwnershipHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
 let meetingClockTimer: ReturnType<typeof setInterval> | null = null;
-let permissionStatus: PermissionStatus | null = null;
-let permissionRetryRegistered = false;
-let disconnectNotifiedMeetingId: number | null = null;
 
 /***************************** 计算属性 *****************************/
 // 抽屉显隐双向绑定
@@ -149,51 +119,6 @@ const renderedTranscriptLines = computed(() =>
 );
 const transcriptScrollEnabled = computed(
   () => liveTranscriptBlocks.value.length > 20
-);
-const visibleMeetingParticipants = computed(() =>
-  (meetingDetail.value?.participants ?? []).filter(
-    (participant) => participant.inviteStatus !== 'DECLINED'
-  )
-);
-const participantRtcCount = computed(
-  () =>
-    visibleMeetingParticipants.value.filter((participant) =>
-      isParticipantInRtc(participant.userId)
-    ).length
-);
-const participantDisplayItems = computed(() =>
-  visibleMeetingParticipants.value.map((participant) => ({
-    id: participant.id,
-    userId: participant.userId,
-    name: participant.nickName || participant.userName,
-    subtitle: participant.userName,
-    isHost: participant.isHost === 1,
-    statusText: participantMeetingStatusText(participant),
-    statusType: participantMeetingStatusType(participant),
-    isActive:
-      activeSpeakerUserId.value !== null &&
-      meetingStore.toNumericId(participant.userId) ===
-        activeSpeakerUserId.value,
-    isSpeaking: isParticipantSpeaking(participant.userId),
-    isJoined:
-      joinedHighlightUserId.value !== null &&
-      meetingStore.toNumericId(participant.userId) ===
-        joinedHighlightUserId.value,
-    isWaiting: isParticipantWaiting(participant),
-    isAbsent: isParticipantAbsent(participant),
-    isInRtc: isParticipantInRtc(participant.userId),
-    isMicMuted:
-      isParticipantInRtc(participant.userId) &&
-      isParticipantMicMuted(participant.userId),
-    interactionText:
-      meetingStore.interactionBubbles[
-        meetingStore.toNumericId(participant.userId)
-      ]?.content || '',
-    interactionType:
-      meetingStore.interactionBubbles[
-        meetingStore.toNumericId(participant.userId)
-      ]?.interactionType || '',
-  }))
 );
 const meetingElapsedLabel = computed(() => {
   const startedAt = meetingDetail.value?.session.startedAt;
@@ -246,152 +171,68 @@ const latestTranscript = computed(() => {
   const transcripts = meetingDetail.value?.transcripts ?? [];
   return transcripts[transcripts.length - 1] ?? null;
 });
-const currentUser = computed(() => userStore.userInfo);
 // 会议 / RTC 状态
 const isMeetingEnded = computed(() =>
   meetingStore.isTerminalStatus(meetingDetail.value?.session.status)
 );
-const isRtcRunning = computed(
-  () => meetingDetail.value?.session.rtcStatus === 'RUNNING'
-);
-const isConnected = computed(
-  () => connectionState.value === ConnectionState.Connected
-);
-const isReconnecting = computed(
-  () => connectionState.value === ConnectionState.Reconnecting
-);
-const screenShareState = computed(() => meetingStore.screenShareState);
-const isSomeoneSharing = computed(
-  () => screenShareState.value?.shareActive === true
-);
-const isCurrentUserSharing = computed(() => {
-  if (!screenShareState.value?.shareActive) return false;
-  const currentUserId = meetingDetail.value?.currentUserId;
-  return (
-    currentUserId != null &&
-    screenShareState.value.sharerUserId === currentUserId
-  );
-});
-const shouldShowShareStage = computed(
-  () => isSomeoneSharing.value && !isCurrentUserSharing.value
-);
-const currentSharerName = computed(() => {
-  if (isCurrentUserSharing.value) {
-    return (
-      currentUser.value?.nickName ||
-      currentUser.value?.userName ||
-      t('meeting.defaultGuestName')
-    );
-  }
-  return (
-    remoteScreenShare.value?.participantName ||
-    screenShareState.value?.sharerIdentity ||
-    t('meeting.defaultGuestName')
-  );
-});
-const shareScreenDisabled = computed(() => {
-  if (!meetingStore.isActiveStatus(meetingDetail.value?.session.status))
-    return true;
-  if (isSomeoneSharing.value && !isCurrentUserSharing.value) return true;
-  return false;
-});
-const shareScreenLabel = computed(() => {
-  if (isCurrentUserSharing.value) return '停止共享';
-  return '共享屏幕';
+const {
+  isHost,
+  visibleMeetingParticipants,
+  participantRtcCount,
+  participantDisplayItems,
+  canInviteParticipants,
+  inviteSelectableUsers,
+  canStopMeeting,
+} = useMeetingParticipants({
+  activeSpeakerUserId,
+  joinedHighlightUserId,
+  rtcParticipants,
 });
 
-watch(
-  () => shouldShowShareStage.value,
-  (sharing) => {
-    if (!sharing) {
-      clearScreenShareTrack();
-    }
-  }
-);
-
-const currentMeetingId = computed(
-  () => meetingDetail.value?.session.id ?? null
-);
-// 扬声器音量百分比（双向绑定）
-const speakerVolumePercent = computed({
-  get: () => Math.round(playbackVolume.value * 100),
-  set: (value: number) => {
-    setPlaybackVolume(value / 100);
-  },
-});
-// 当前用户是否可加入 RTC（已接受邀请 且 会议进行中）
-const canCurrentUserJoinRtc = computed(() => {
-  if (!meetingDetail.value || !currentUser.value) {
-    return false;
-  }
-  if (meetingDetail.value.session.status !== 'ACTIVE') {
-    return false;
-  }
-  if (meetingDetail.value.session.rtcStatus !== 'RUNNING') {
-    return false;
-  }
-  const currentUserId = meetingStore.toNumericId(currentUser.value.userId);
-  return meetingDetail.value.participants.some(
-    (item) =>
-      meetingStore.toNumericId(item.userId) === currentUserId &&
-      item.inviteStatus === 'ACCEPTED'
-  );
-});
-// 跨 Tab RTC 归属判断
-const isCurrentTabRtcOwner = computed(() =>
-  meetingStore.isCurrentTabRtcOwner(currentMeetingId.value)
-);
-const isRtcOwnedByOtherTab = computed(() =>
-  meetingStore.isRtcOwnedByOtherTab(currentMeetingId.value)
-);
-// 是否显示"加入语音"按钮
-const showJoinRtcButton = computed(
-  () => canCurrentUserJoinRtc.value && !isConnected.value
-);
-
-// 主持人权限 / 邀请相关
-const canStopMeeting = computed(
-  () =>
-    meetingDetail.value?.session.status === 'ACTIVE' &&
-    (meetingStore.toNumericId(meetingDetail.value?.session.hostUserId) ===
-      meetingStore.toNumericId(currentUser.value?.userId) ||
-      meetingDetail.value?.participants.some(
-        (item) =>
-          meetingStore.toNumericId(item.userId) ===
-            meetingStore.toNumericId(currentUser.value?.userId) &&
-          item.isHost === 1
-      ))
-);
-const canInviteParticipants = computed(
-  () => isHost.value && meetingDetail.value?.session.status === 'ACTIVE'
-);
-const inviteSelectableUsers = computed(() => {
-  if (!meetingDetail.value) {
-    return [];
-  }
-
-  const blockedUserIds = new Set(
-    meetingDetail.value.participants
-      .filter(
-        (item) =>
-          item.inviteStatus === 'ACCEPTED' || item.inviteStatus === 'PENDING'
-      )
-      .map((item) => meetingStore.toNumericId(item.userId))
-  );
-  blockedUserIds.add(meetingStore.toNumericId(currentUser.value?.userId));
-
-  return meetingStore.selectableUsers.filter(
-    (item) => !blockedUserIds.has(meetingStore.toNumericId(item.userId))
-  );
+const {
+  isConnected,
+  isReconnecting,
+  isRtcRunning,
+  isRtcOwnedByOtherTab,
+  showJoinRtcButton,
+  speakerVolumePercent,
+  waitingMicPermission,
+  openPendingMeeting,
+  handleTakeOverRtc,
+  handleStopMeeting,
+  declinePendingMeeting,
+  handleDrawerAttemptClose,
+} = useMeetingRtcSession({
+  connectionState,
+  rtcParticipants,
+  activeSpeakers,
+  isMicEnabled,
+  playbackVolume,
+  joinRoom,
+  leaveRoom,
+  setPlaybackVolume,
+  requestPlaybackPermission,
+  prepareForPageUnload,
 });
 
-const isHost = computed(() => {
-  if (!meetingDetail.value || !currentUser.value) return false;
-  return (
-    meetingStore.toNumericId(meetingDetail.value.session.hostUserId) ===
-    meetingStore.toNumericId(currentUser.value.userId)
-  );
+const {
+  screenShareVideoRef,
+  isCurrentUserSharing,
+  shouldShowShareStage,
+  currentSharerName,
+  shareScreenDisabled,
+  shareScreenLabel,
+  handleSharedScreen,
+  clearScreenShareTrack,
+} = useMeetingScreenShare({
+  room,
+  connectionState,
+  localScreenTrack,
+  remoteScreenShare,
+  startScreenShare,
+  stopScreenShare,
 });
+void screenShareVideoRef;
 
 /***************************** 高亮脉冲效果 *****************************/
 
@@ -400,7 +241,7 @@ const isHost = computed(() => {
  * @param userId - 需要高亮的用户 ID，传 null 可提前清除高亮
  * @param duration - 高亮持续时间（毫秒），默认 3200ms
  */
-function pulseSpeaker(userId: number | null, duration = 3200) {
+function pulseSpeaker(userId: string | null, duration = 3200) {
   if (activeSpeakerTimer) {
     clearTimeout(activeSpeakerTimer);
     activeSpeakerTimer = null;
@@ -419,7 +260,7 @@ function pulseSpeaker(userId: number | null, duration = 3200) {
  * @param userId - 需要高亮的用户 ID，传 null 可提前清除高亮
  * @param duration - 高亮持续时间（毫秒），默认 3600ms
  */
-function pulseJoinedParticipant(userId: number | null, duration = 3600) {
+function pulseJoinedParticipant(userId: string | null, duration = 3600) {
   if (joinedHighlightTimer) {
     clearTimeout(joinedHighlightTimer);
     joinedHighlightTimer = null;
@@ -431,249 +272,6 @@ function pulseJoinedParticipant(userId: number | null, duration = 3600) {
   joinedHighlightTimer = setTimeout(() => {
     joinedHighlightUserId.value = null;
   }, duration);
-}
-
-/***************************** 参与者状态判断 *****************************/
-
-/**
- * 判断参与者是否已连接（邀请已接受 且 在线状态为在线）
- * @param participant - 参与者对象，包含 inviteStatus 和 userId
- * @returns 是否已连接
- */
-function isParticipantConnected(participant: {
-  inviteStatus: string;
-  userId: number;
-}) {
-  return (
-    participant.inviteStatus === 'ACCEPTED' &&
-    presenceStore.isUserOnline(participant.userId)
-  );
-}
-
-/**
- * 获取参与者会议状态的标签类型
- * 未接受邀请显示 warning，已连接显示 success，否则显示 info
- * @param participant - 参与者对象
- * @returns Element Plus 标签类型
- */
-function participantMeetingStatusType(participant: {
-  inviteStatus: string;
-  userId: number;
-}) {
-  if (participant.inviteStatus === 'DECLINED') {
-    return 'danger';
-  }
-  if (participant.inviteStatus !== 'ACCEPTED') {
-    return 'warning';
-  }
-  return isParticipantConnected(participant) ? 'success' : 'info';
-}
-
-/**
- * 获取参与者会议状态的显示文本
- * @param participant - 参与者对象
- * @returns 状态描述文本
- */
-function participantMeetingStatusText(participant: {
-  inviteStatus: string;
-  userId: number;
-}) {
-  if (participant.inviteStatus === 'DECLINED') {
-    return t('meeting.participantDeclined');
-  }
-  if (participant.inviteStatus !== 'ACCEPTED') {
-    return t('meeting.participantPending');
-  }
-  return isParticipantConnected(participant)
-    ? t('meeting.participantConnected')
-    : t('meeting.participantConnecting');
-}
-
-/**
- * 判断参与者是否处于等待状态
- * 会议已结束时无人等待；未连接的参与者视为等待中
- * @param participant - 参与者对象
- * @returns 是否处于等待状态
- */
-function isParticipantWaiting(participant: {
-  inviteStatus: string;
-  userId: number;
-}) {
-  if (isMeetingEnded.value) {
-    return false;
-  }
-  if (participant.inviteStatus === 'DECLINED') {
-    return false;
-  }
-  return !isParticipantConnected(participant);
-}
-
-/**
- * 判断参与者是否缺席（会议已结束 且 邀请未接受）
- * @param participant - 参与者对象
- * @returns 是否缺席
- */
-function isParticipantAbsent(participant: { inviteStatus: string }) {
-  return (
-    isMeetingEnded.value &&
-    participant.inviteStatus !== 'ACCEPTED' &&
-    participant.inviteStatus !== 'DECLINED'
-  );
-}
-
-/***************************** RTC 参与者状态查询 *****************************/
-
-/**
- * 获取参与者的 RTC 实时状态信息
- * 通过 user-{userId} 格式的 identity 在 LiveKit 参与者列表中查找
- * @param userId - 用户 ID
- * @returns 匹配的 LiveKit Participant 对象，未找到时返回 undefined
- */
-function getParticipantRtcInfo(userId: number) {
-  const identity = `user-${userId}`;
-  return rtcParticipants.value.find((p) => p.identity === identity);
-}
-
-/**
- * 判断参与者是否在 RTC 房间中
- * @param userId - 用户 ID
- * @returns 是否在 RTC 房间中
- */
-function isParticipantInRtc(userId: number) {
-  return !!getParticipantRtcInfo(userId);
-}
-
-/**
- * 判断参与者是否正在发言
- * @param userId - 用户 ID
- * @returns 是否正在发言
- */
-function isParticipantSpeaking(userId: number) {
-  const info = getParticipantRtcInfo(userId);
-  return info?.isSpeaking || false;
-}
-
-/**
- * 判断参与者的麦克风是否已静音
- * @param userId - 用户 ID
- * @returns 麦克风是否已静音，未找到参与者时默认返回 true
- */
-function isParticipantMicMuted(userId: number) {
-  const info = getParticipantRtcInfo(userId);
-  return info?.isMuted ?? true;
-}
-
-/***************************** 会议生命周期 *****************************/
-
-/**
- * 初始化会议抽屉
- * 按优先级依次尝试：URL 参数指定的会议 > 当前进行中的会议 > 自动打开的会议
- * 加载待处理会议列表，并根据条件自动打开抽屉
- */
-async function bootstrapMeetingDrawer() {
-  await meetingStore.loadPendingMeetings();
-
-  const queryMeetingId = meetingStore.toMeetingId(route.query.meetingId);
-  if (queryMeetingId > 0) {
-    await openPendingMeeting(queryMeetingId);
-    return;
-  }
-
-  const currentMeeting = await meetingStore.loadCurrentMeeting();
-  const activeMeetingId = currentMeeting?.session?.id ?? null;
-  const currentParticipant =
-    currentMeeting?.participants.find(
-      (item) =>
-        meetingStore.toNumericId(item.userId) ===
-        meetingStore.toNumericId(currentMeeting.currentUserId)
-    ) || null;
-
-  if (
-    activeMeetingId &&
-    currentMeeting?.session.status === 'ACTIVE' &&
-    currentParticipant?.inviteStatus === 'ACCEPTED' &&
-    !meetingStore.isRtcOwnedByOtherTab(activeMeetingId)
-  ) {
-    meetingStore.setShouldResumeCapture(true);
-    meetingStore.claimRtcOwnership(activeMeetingId);
-  }
-
-  if (currentMeeting?.session.status === 'ACTIVE') {
-    if (meetingStore.shouldAutoOpenDrawer) {
-      meetingStore.openDrawer();
-    }
-    return;
-  }
-
-  meetingStore.setShouldAutoOpenDrawer(false);
-}
-
-/**
- * 打开指定的待处理会议
- * @param meetingId - 要打开的会议 ID
- */
-async function openPendingMeeting(meetingId: number) {
-  await meetingStore.enterMeeting(meetingId);
-  meetingStore.openDrawer();
-}
-
-/***************************** 语音 RTC 连接 *****************************/
-
-/**
- * 加入语音会议
- * 获取 RTC Token 后加入 LiveKit 房间；遇到麦克风权限错误时注册重试机制
- * @param silent - 是否静默模式，为 true 时不弹出错误提示（用于自动重试场景）
- */
-async function handleJoinVoice(silent = false) {
-  if (!shouldAutoJoinCurrentMeeting() || isJoining.value) {
-    return;
-  }
-
-  const currentMeetingId = meetingDetail.value?.session.id ?? null;
-  isJoining.value = true;
-  waitingMicPermission.value = false;
-  try {
-    const { data } = await getRtcTokenApi(currentMeetingId as number);
-    if (!data) {
-      if (!silent) {
-        ElMessage.error(t('meeting.autoJoinFailed'));
-      }
-      return;
-    }
-    rtcStore.setTokenInfo(data);
-    await joinRoom(data);
-    lastJoinAttemptMeetingId.value = currentMeetingId;
-    waitingMicPermission.value = false;
-  } catch (error: any) {
-    if (isMicrophonePermissionError(error)) {
-      waitingMicPermission.value = true;
-      registerPermissionRetry();
-      if (lastJoinAttemptMeetingId.value !== currentMeetingId) {
-        ElMessage.warning(t('meeting.waitingMicPermission'));
-      }
-      lastJoinAttemptMeetingId.value = currentMeetingId;
-      return;
-    }
-    if (isMicrophoneUnsupportedError(error)) {
-      ElMessage.error(t('meeting.browserUnsupported'));
-      return;
-    }
-    if (!silent) {
-      ElMessage.error(error?.message || t('meeting.autoJoinFailed'));
-    }
-  } finally {
-    isJoining.value = false;
-  }
-}
-
-// 接管其他 Tab 的 RTC 连接并加入语音
-async function handleTakeOverRtc() {
-  const meetingId = currentMeetingId.value;
-  if (!meetingId || isJoining.value) {
-    return;
-  }
-  meetingStore.claimRtcOwnership(meetingId);
-  await handleJoinVoice();
 }
 
 /***************************** 邀请参与者 *****************************/
@@ -711,394 +309,8 @@ async function handleInviteParticipants() {
   }
 }
 
-/***************************** RTC 服务启停 *****************************/
-
-/**
- * 主持人自动拉起 RTC 服务
- * 当当前用户是主持人、会议为 ACTIVE 状态、RTC 尚未运行时，自动调用 API 启动 RTC
- */
-async function ensureHostRtcStarted() {
-  if (
-    !meetingDetail.value ||
-    !isHost.value ||
-    isStartingRtc.value ||
-    isStoppingMeeting.value
-  ) {
-    return;
-  }
-  if (meetingDetail.value.session.status !== 'ACTIVE') {
-    return;
-  }
-  if (meetingDetail.value.session.rtcStatus === 'RUNNING') {
-    return;
-  }
-
-  isStartingRtc.value = true;
-  try {
-    await startRtcApi(meetingDetail.value.session.id);
-    await meetingStore.loadMeetingDetail(meetingDetail.value.session.id);
-  } catch (error: any) {
-    ElMessage.error(error?.message || t('meeting.rtcStartFailed'));
-  } finally {
-    isStartingRtc.value = false;
-  }
-}
-
-/**
- * 结束或离开会议
- * 主持人调用时结束整个会议，普通成员调用时仅离开当前会议并断开 RTC 连接
- */
-async function handleStopMeeting() {
-  const currentMeeting = meetingDetail.value;
-  if (!currentMeeting || isStoppingMeeting.value) {
-    return;
-  }
-  isStoppingMeeting.value = true;
-  const exitingAsHost =
-    meetingStore.toNumericId(currentMeeting.session.hostUserId) ===
-    meetingStore.toNumericId(currentMeeting.currentUserId);
-
-  try {
-    await meetingStore.leaveMeeting();
-    meetingStore.releaseRtcOwnership(currentMeeting.session.id);
-    await leaveRoom();
-    rtcStore.reset();
-    meetingStore.clearMeetingRuntime();
-    if (!exitingAsHost) {
-      ElMessage.success(t('meeting.leaveSuccess'));
-      return;
-    }
-    ElMessage.success(t('meeting.endSuccess'));
-  } finally {
-    isStoppingMeeting.value = false;
-  }
-}
-
-// 拒绝待处理的会议邀请
-async function declinePendingMeeting(meetingId: number) {
-  try {
-    await meetingStore.declineMeeting(meetingId);
-    ElMessage.success(t('meeting.declineSuccess'));
-  } catch (error: any) {
-    ElMessage.error(error?.message || t('meeting.declineFailed'));
-  }
-}
-
-/***************************** 抽屉关闭处理 *****************************/
-
-/**
- * 处理抽屉关闭尝试
- * 会议进行中时弹出确认框，让用户选择结束会议或转为后台运行
- * @param done - 关闭完成回调，由 el-drawer 的 before-close 提供
- */
-function handleDrawerAttemptClose(done?: () => void) {
-  if (!meetingDetail.value || meetingDetail.value.session.status !== 'ACTIVE') {
-    done?.();
-    return;
-  }
-
-  ElMessageBox.confirm(
-    t('meeting.backgroundConfirmMessage'),
-    t('meeting.backgroundConfirmTitle'),
-    {
-      confirmButtonText: t('meeting.backgroundConfirmExit'),
-      cancelButtonText: t('meeting.backgroundConfirmBackground'),
-      distinguishCancelAndClose: true,
-      closeOnClickModal: false,
-      showClose: false,
-      type: 'warning',
-    }
-  )
-    .then(async () => {
-      await handleStopMeeting();
-      done?.();
-    })
-    .catch((action: any) => {
-      if (action === 'cancel') {
-        meetingStore.hideDrawerToBackground();
-        done?.();
-        ElMessage.info(t('meeting.backgroundRunning'));
-      }
-    });
-}
-
-/**
- * 判断当前用户是否应自动加入语音会议
- * 条件：会议存在、用户已登录、会议状态为 ACTIVE、RTC 已运行、当前用户是已接受邀请的参与者
- * @returns 是否应自动加入
- */
-function shouldAutoJoinCurrentMeeting() {
-  return canCurrentUserJoinRtc.value && isCurrentTabRtcOwner.value;
-}
-
-/***************************** 麦克风权限重试 *****************************/
-
-/**
- * 判断错误是否为麦克风权限相关错误
- * 通过 error.name 或 error.message 匹配权限拒绝的特征
- * @param error - 捕获的异常对象
- * @returns 是否为麦克风权限错误
- */
-function isMicrophonePermissionError(error: unknown) {
-  const nextError = error as { name?: string; message?: string };
-  return (
-    nextError?.name === 'NotAllowedError' ||
-    nextError?.name === 'NotReadableError' ||
-    nextError?.name === 'PermissionDeniedError' ||
-    /permission|denied|notallowed|notreadable|track start|device in use|麦克风|microphone|设备占用/i.test(
-      nextError?.message || ''
-    )
-  );
-}
-
-/**
- * 判断错误是否为浏览器不支持麦克风相关错误
- * 通过 error.name 或 error.message 匹配设备不可用的特征
- * @param error - 捕获的异常对象
- * @returns 是否为麦克风不支持错误
- */
-function isMicrophoneUnsupportedError(error: unknown) {
-  const nextError = error as { name?: string; message?: string };
-  return (
-    nextError?.name === 'NotFoundError' ||
-    nextError?.name === 'NotSupportedError' ||
-    /not supported|no audio input|device/i.test(nextError?.message || '')
-  );
-}
-
-/**
- * 麦克风权限授予后重试加入语音会议
- * 仅在等待权限且页面可见时触发，避免后台静默重连
- */
-async function retryJoinAfterPermission() {
-  if (!waitingMicPermission.value || document.visibilityState !== 'visible') {
-    return;
-  }
-  await handleJoinVoice(true);
-}
-
-/**
- * 绑定麦克风权限状态监听器
- * 使用 Permissions API 监听 microphone 权限变化，权限变为 granted 时自动重试加入
- * 不支持 Permissions API 时静默跳过
- */
-async function bindPermissionStatusListener() {
-  if (
-    typeof navigator === 'undefined' ||
-    !('permissions' in navigator) ||
-    permissionStatus
-  ) {
-    return;
-  }
-  try {
-    permissionStatus = await navigator.permissions.query({
-      name: 'microphone' as PermissionName,
-    });
-    permissionStatus.onchange = () => {
-      if (permissionStatus?.state === 'granted') {
-        void retryJoinAfterPermission();
-      }
-    };
-  } catch (_error) {
-    permissionStatus = null;
-  }
-}
-
-/**
- * 注册权限重试机制
- * 绑定 Permissions API 监听，并注册窗口 focus 和页面 visibilitychange 事件
- * 确保用户从系统权限弹窗切回后能自动重试加入
- */
-function registerPermissionRetry() {
-  void bindPermissionStatusListener();
-  if (permissionRetryRegistered) {
-    return;
-  }
-  permissionRetryRegistered = true;
-  window.addEventListener('focus', handleWindowFocusRetry);
-  document.addEventListener('visibilitychange', handleVisibilityRetry);
-}
-
-/**
- * 清除权限等待状态
- * 重置麦克风权限等待标记和上次加入尝试的会议 ID
- */
-function clearPermissionRetry() {
-  waitingMicPermission.value = false;
-  lastJoinAttemptMeetingId.value = null;
-}
-
-/**
- * 窗口获得焦点时的权限重试回调
- * 用户可能在系统权限弹窗中操作后切回窗口
- */
-function handleWindowFocusRetry() {
-  void retryJoinAfterPermission();
-}
-
-/**
- * 页面可见性变化时的权限重试回调
- * 当页面从隐藏变为可见时尝试重新加入语音会议
- */
-function handleVisibilityRetry() {
-  if (document.visibilityState === 'visible') {
-    void retryJoinAfterPermission();
-  }
-}
-
-/***************************** 页面生命周期事件处理 *****************************/
-
-// 页面隐藏时释放本地 RTC，并通知后端进入断线宽限期
-function handlePageHide() {
-  const currentMeeting = meetingDetail.value;
-  if (!currentMeeting || currentMeeting.session.status !== 'ACTIVE') {
-    return;
-  }
-  if (disconnectNotifiedMeetingId !== currentMeeting.session.id) {
-    notifyMeetingDisconnect(currentMeeting.session.id);
-    disconnectNotifiedMeetingId = currentMeeting.session.id;
-  }
-  meetingStore.releaseRtcOwnership(currentMeeting.session.id);
-  rtcStore.reset();
-  prepareForPageUnload();
-  void leaveRoom();
-}
-
-// 页面卸载前复用同一套断线宽限逻辑
-function handleBeforeUnload() {
-  handlePageHide();
-}
-
-// 从 localStorage 同步 RTC 归属状态
-function syncRtcOwnership() {
-  meetingStore.syncRtcOwnershipFromStorage();
-}
-
-/***************************** RTC 跨 Tab 归属心跳 *****************************/
-
-// 监听 localStorage 变化，同步 RTC 归属
-function handleRtcOwnershipStorageChange(event: StorageEvent) {
-  if (event.storageArea !== localStorage) {
-    return;
-  }
-  if (event.key && event.key !== MEETING_RTC_OWNER_KEY) {
-    return;
-  }
-  syncRtcOwnership();
-}
-
-// 停止 RTC 归属心跳定时器
-function stopRtcOwnershipHeartbeat() {
-  if (!rtcOwnershipHeartbeatTimer) {
-    return;
-  }
-  clearInterval(rtcOwnershipHeartbeatTimer);
-  rtcOwnershipHeartbeatTimer = null;
-}
-
-// 启动 RTC 归属心跳（每 5s 续期）
-function startRtcOwnershipHeartbeat() {
-  stopRtcOwnershipHeartbeat();
-  if (!isCurrentTabRtcOwner.value || !currentMeetingId.value) {
-    return;
-  }
-  rtcOwnershipHeartbeatTimer = setInterval(() => {
-    if (!currentMeetingId.value) {
-      return;
-    }
-    meetingStore.claimRtcOwnership(currentMeetingId.value);
-  }, 5000);
-}
-
 function handleUnavailableFeature(label: string) {
   ElMessage.info(`${label}能力正在接入中`);
-}
-
-async function handleSharedScreen() {
-  const meetingId = currentMeetingId.value;
-  if (!meetingId) return;
-
-  if (!room.value || !isConnected.value) {
-    ElMessage.warning(t('meeting.shareScreenJoinRtcFirst'));
-    return;
-  }
-
-  if (shareScreenDisabled.value && !isCurrentUserSharing.value) {
-    if (isSomeoneSharing.value) {
-      ElMessage.info(t('meeting.shareScreenOccupied'));
-    }
-    return;
-  }
-
-  try {
-    if (isCurrentUserSharing.value) {
-      await stopCurrentScreenShare();
-      ElMessage.success(t('meeting.shareScreenStopped'));
-      return;
-    }
-
-    await startScreenShareApi(meetingId);
-
-    try {
-      const screenTrack = await startScreenShare();
-      screenTrack.mediaStreamTrack?.addEventListener(
-        'ended',
-        () => {
-          void stopCurrentScreenShare();
-        },
-        { once: true }
-      );
-      ElMessage.success(t('meeting.shareScreenStarted'));
-    } catch (err) {
-      await stopScreenShareApi(meetingId);
-      throw err;
-    }
-  } catch (error: any) {
-    ElMessage.error(error?.message || t('meeting.shareScreenFailed'));
-  }
-}
-
-async function stopCurrentScreenShare() {
-  const meetingId = currentMeetingId.value;
-  if (!meetingId || isStoppingScreenShare.value) {
-    return;
-  }
-  isStoppingScreenShare.value = true;
-  try {
-    await stopScreenShare();
-    await stopScreenShareApi(meetingId);
-  } finally {
-    isStoppingScreenShare.value = false;
-  }
-}
-
-// 将当前共享轨道挂载到舞台容器
-function renderScreenShareTrack() {
-  const container = screenShareVideoRef.value;
-  if (!container) return;
-
-  container.innerHTML = '';
-
-  const trackToRender = isCurrentUserSharing.value
-    ? localScreenTrack.value
-    : remoteScreenShare.value?.track;
-
-  if (!trackToRender) return;
-
-  const element = trackToRender.attach() as HTMLVideoElement;
-  element.style.width = '100%';
-  element.style.height = '100%';
-  element.style.objectFit = 'contain';
-  element.autoplay = true;
-  element.playsInline = true;
-  container.appendChild(element);
-}
-
-// 清空共享舞台 DOM
-function clearScreenShareTrack() {
-  const container = screenShareVideoRef.value;
-  if (!container) return;
-  container.innerHTML = '';
 }
 
 async function handleSendInteraction(
@@ -1130,14 +342,17 @@ async function handleSendInteraction(
   }
 }
 
+// 发送举手
 function handleRaiseHand() {
   void handleSendInteraction('HAND', t('meeting.interactionHandBubble'));
 }
 
+// 发送表情
 function handleSendEmoji(emoji: string) {
   void handleSendInteraction('EMOJI', emoji);
 }
 
+// 发送文字
 function handleSendTextInteraction() {
   const content = interactionText.value.trim();
   if (!content) {
@@ -1171,7 +386,7 @@ watch(
       return;
     }
     hydratedLastTranscriptId.value = latestId;
-    pulseSpeaker(meetingStore.toNumericId(latestTranscript.value?.userId));
+    pulseSpeaker(String(latestTranscript.value?.userId ?? ''));
   }
 );
 
@@ -1190,135 +405,9 @@ watch(
 watch(
   () => meetingDetail.value?.session.id,
   () => {
-    disconnectNotifiedMeetingId = null;
     hydratedLastTranscriptId.value = latestTranscript.value?.id ?? null;
   },
   { immediate: true }
-);
-
-watch(
-  () => [
-    shouldShowShareStage.value,
-    localScreenTrack.value,
-    remoteScreenShare.value?.track,
-  ],
-  async () => {
-    await nextTick();
-    if (!shouldShowShareStage.value) {
-      clearScreenShareTrack();
-      return;
-    }
-    renderScreenShareTrack();
-  },
-  { immediate: true }
-);
-
-// 会议状态变化：结束时清理 RTC 连接
-watch(
-  () => meetingDetail.value?.session.status,
-  async (status, previousStatus) => {
-    if (status === 'ACTIVE') {
-      disconnectNotifiedMeetingId = null;
-    }
-    if (status !== 'ACTIVE') {
-      clearPermissionRetry();
-    }
-    if (previousStatus !== 'ACTIVE' || !meetingStore.isTerminalStatus(status)) {
-      return;
-    }
-    meetingStore.releaseRtcOwnership(currentMeetingId.value);
-    await leaveRoom();
-    rtcStore.reset();
-    meetingStore.clearMeetingRuntime();
-  }
-);
-
-watch(
-  () => screenShareState.value?.shareActive,
-  async (active) => {
-    if (active) {
-      return;
-    }
-    if (localScreenTrack.value) {
-      await stopCurrentScreenShare();
-    }
-  }
-);
-
-watch(
-  () => [
-    meetingDetail.value?.session.id,
-    meetingDetail.value?.session.status,
-    meetingDetail.value?.session.rtcStatus,
-    currentUser.value?.userId,
-  ],
-  async () => {
-    if (!meetingDetail.value || !isHost.value || isStoppingMeeting.value) {
-      return;
-    }
-    if (meetingDetail.value.session.status !== 'ACTIVE') {
-      return;
-    }
-    if (meetingDetail.value.session.rtcStatus === 'RUNNING') {
-      return;
-    }
-    await ensureHostRtcStarted();
-  },
-  { immediate: true }
-);
-
-// 参与者或 RTC 状态变化时自动加入语音
-watch(
-  () => [
-    meetingDetail.value?.session.id,
-    meetingDetail.value?.session.status,
-    meetingDetail.value?.session.rtcStatus,
-    meetingDetail.value?.participants
-      ?.map((item) => `${item.userId}:${item.inviteStatus}`)
-      .join('|'),
-    currentUser.value?.userId,
-    isCurrentTabRtcOwner.value,
-  ],
-  async () => {
-    if (!shouldAutoJoinCurrentMeeting() || isConnected.value) {
-      return;
-    }
-    await handleJoinVoice(true);
-  },
-  { immediate: true }
-);
-
-// RTC 归属变化时管理心跳和连接
-watch(
-  () => [currentMeetingId.value, isCurrentTabRtcOwner.value, isConnected.value],
-  async () => {
-    if (!isConnected.value) {
-      stopRtcOwnershipHeartbeat();
-      return;
-    }
-    if (!isCurrentTabRtcOwner.value) {
-      stopRtcOwnershipHeartbeat();
-      await leaveRoom();
-      rtcStore.reset();
-      return;
-    }
-    startRtcOwnershipHeartbeat();
-  },
-  { immediate: true }
-);
-
-// URL 参数变化时打开对应会议
-watch(
-  () => route.query.meetingId,
-  async (value, oldValue) => {
-    if (value === oldValue) {
-      return;
-    }
-    const meetingId = meetingStore.toMeetingId(value);
-    if (meetingId > 0) {
-      await openPendingMeeting(meetingId);
-    }
-  }
 );
 
 // 新参与者加入时显示提示并高亮
@@ -1329,7 +418,7 @@ watch(
       return;
     }
     const participant = meetingDetail.value.participants.find(
-      (item) => meetingStore.toNumericId(item.userId) === userId
+      (item) => String(item.userId) === userId
     );
     pulseJoinedParticipant(userId);
     ElMessage.success(
@@ -1341,35 +430,12 @@ watch(
   }
 );
 
-/***************************** 同步 RTC 状态到 Store *****************************/
-watch(connectionState, (state) => {
-  rtcStore.setConnectionState(state);
-});
-
-watch(rtcParticipants, (list) => {
-  rtcStore.setParticipants(list);
-});
-
-watch(activeSpeakers, (speakers) => {
-  rtcStore.setActiveSpeakers(speakers);
-});
-
-watch(isMicEnabled, (enabled) => {
-  rtcStore.setMicEnabled(enabled);
-});
-
 /***************************** 生命周期钩子 *****************************/
 
-onMounted(async () => {
-  requestPlaybackPermission();
-  syncRtcOwnership();
+onMounted(() => {
   meetingClockTimer = setInterval(() => {
     meetingClockNow.value = Date.now();
   }, 1000);
-  window.addEventListener('storage', handleRtcOwnershipStorageChange);
-  window.addEventListener('pagehide', handlePageHide);
-  window.addEventListener('beforeunload', handleBeforeUnload);
-  await bootstrapMeetingDrawer();
 });
 
 onBeforeUnmount(() => {
@@ -1383,20 +449,7 @@ onBeforeUnmount(() => {
     clearInterval(meetingClockTimer);
     meetingClockTimer = null;
   }
-  if (permissionRetryRegistered) {
-    window.removeEventListener('focus', handleWindowFocusRetry);
-    document.removeEventListener('visibilitychange', handleVisibilityRetry);
-  }
-  if (permissionStatus) {
-    permissionStatus.onchange = null;
-  }
-  stopRtcOwnershipHeartbeat();
-  window.removeEventListener('storage', handleRtcOwnershipStorageChange);
-  window.removeEventListener('pagehide', handlePageHide);
-  window.removeEventListener('beforeunload', handleBeforeUnload);
   clearScreenShareTrack();
-  meetingStore.releaseRtcOwnership(currentMeetingId.value);
-  void leaveRoom();
 });
 </script>
 

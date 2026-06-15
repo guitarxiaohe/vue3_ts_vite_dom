@@ -7,11 +7,11 @@ export interface MeetingApiResponse<T> {
 }
 
 export interface CmsMeetingSession {
-  id: number;
+  id: string;
   title: string;
   status: string;
   rtcStatus: string;
-  hostUserId: number;
+  hostUserId: string;
   hostUserName: string;
   hostNickName: string;
   startedAt: string;
@@ -24,7 +24,7 @@ export interface CmsMeetingSession {
   closeRequestedBy: string | null;
   closeResult: string | null;
   closeTraceId: string | null;
-  currentShareUserId: number | null;
+  currentShareUserId: string | null;
   currentShareIdentity: string | null;
   currentShareStartedAt: string | null;
   createBy: string;
@@ -35,11 +35,19 @@ export interface CmsMeetingSession {
 }
 
 export interface CmsMeetingParticipant {
-  id: number;
-  meetingId: number;
-  userId: number;
+  id: string;
+  meetingId: string;
+  userId: string;
   userName: string;
   nickName: string;
+  /** 头像 */
+  avatar: string;
+  /** 性别 */
+  sex: string;
+  /** 部门名称 */
+  deptName: string;
+  /** 部门ID */
+  deptId: string;
   isHost: number;
   inviteStatus: string;
   inviteSentAt: string;
@@ -52,10 +60,10 @@ export interface CmsMeetingParticipant {
 }
 
 export interface CmsMeetingTranscript {
-  id: number;
-  meetingId: number;
-  participantId: number | null;
-  userId: number | null;
+  id: string;
+  meetingId: string;
+  participantId: string | null;
+  userId: string | null;
   displayName: string;
   transcriptText: string;
   audioStartedAt: string | null;
@@ -68,8 +76,8 @@ export interface CmsMeetingTranscript {
 export type MeetingInteractionType = 'HAND' | 'EMOJI' | 'TEXT';
 
 export interface CmsMeetingInteraction {
-  meetingId: number;
-  userId: number;
+  meetingId: string;
+  userId: string;
   displayName: string;
   interactionType: MeetingInteractionType;
   content: string;
@@ -78,8 +86,8 @@ export interface CmsMeetingInteraction {
 }
 
 export interface CmsMeetingSummary {
-  id: number;
-  meetingId: number;
+  id: string;
+  meetingId: string;
   summaryType: string;
   summaryIndex: number;
   summaryText: string;
@@ -93,14 +101,14 @@ export interface CmsMeetingDetail {
   participants: CmsMeetingParticipant[];
   transcripts: CmsMeetingTranscript[];
   summaries: CmsMeetingSummary[];
-  currentUserId: number | null;
+  currentUserId: string | null;
 }
 
 export interface CmsMeetingPendingInvite {
-  meetingId: number;
+  meetingId: string;
   title: string;
   status: string;
-  hostUserId: number;
+  hostUserId: string;
   hostUserName: string;
   hostNickName: string;
   startedAt: string;
@@ -111,11 +119,11 @@ export interface CmsMeetingPendingInvite {
 export interface CreateMeetingRequest {
   title: string;
   remark: string;
-  inviteUserIds: number[];
+  inviteUserIds: string[];
 }
 
 export interface InviteMeetingParticipantsRequest {
-  inviteUserIds: number[];
+  inviteUserIds: string[];
 }
 
 export interface SendMeetingInteractionRequest {
@@ -125,7 +133,7 @@ export interface SendMeetingInteractionRequest {
 
 export interface UploadMeetingAudioRequest {
   file: Blob;
-  speakerUserId: number | null;
+  speakerUserId: string | null;
   speakerDisplayName: string;
   audioStartedAtMs: number;
   audioEndedAtMs: number;
@@ -138,7 +146,7 @@ export interface PendingTranscript {
   /** 参与者身份标识（如 user-123） */
   participantIdentity: string;
   /** 用户 ID */
-  userId: number | null;
+  userId: string | null;
   /** 发言人显示名 */
   displayName: string;
   /** 累积转写文本（每次 partial 更新为最新全文） */
@@ -151,9 +159,9 @@ export interface PendingTranscript {
 
 /** 屏幕共享状态 */
 export interface MeetingScreenShareState {
-  meetingId: number;
+  meetingId: string;
   shareActive: boolean;
-  sharerUserId: number | null;
+  sharerUserId: string | null;
   sharerIdentity: string | null;
   shareStartedAt: string | null;
 }

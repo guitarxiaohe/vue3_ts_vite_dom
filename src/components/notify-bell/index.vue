@@ -12,9 +12,9 @@ const notificationStore = useNotificationStore();
 const unreadCount = computed(() => notificationStore.unreadCount);
 const messages = computed(() => notificationStore.messages);
 
-function resolveMeetingId(message: WsMessage) {
-  const paramMeetingId = Number(message.params?.meetingId || 0);
-  if (paramMeetingId > 0) {
+function resolveMeetingId(message: WsMessage): string {
+  const paramMeetingId = String(message.params?.meetingId || '');
+  if (paramMeetingId) {
     return paramMeetingId;
   }
   if (
@@ -22,15 +22,15 @@ function resolveMeetingId(message: WsMessage) {
     typeof message.data === 'object' &&
     'meetingId' in message.data
   ) {
-    return Number((message.data as { meetingId?: number }).meetingId || 0);
+    return String((message.data as { meetingId?: unknown }).meetingId || '');
   }
-  return 0;
+  return '';
 }
 
 async function handleClick(msg: WsMessage) {
   const meetingId = resolveMeetingId(msg);
-  if (String(msg.type || '').startsWith('meeting_') || meetingId > 0) {
-    if (meetingId > 0) {
+  if (String(msg.type || '').startsWith('meeting_') || meetingId) {
+    if (meetingId) {
       await meetingStore.enterMeeting(meetingId);
     }
     meetingStore.openDrawer();

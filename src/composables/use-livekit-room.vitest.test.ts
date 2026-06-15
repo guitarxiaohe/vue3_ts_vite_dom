@@ -99,7 +99,7 @@ function createTokenInfo(): MeetingRtcTokenResponse {
     roomName: 'meeting-10',
     participantToken: 'token',
     participantIdentity: 'user-1',
-    userId: 1,
+    userId: '1',
     displayName: '本地用户',
     host: true,
   };

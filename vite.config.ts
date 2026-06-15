@@ -26,6 +26,14 @@ export default defineConfig(({ mode }) => {
           // 统一移除本地代理前缀
           rewrite: (p) => p.replace(new RegExp(`^${proxyPrefix}`), ''),
         },
+        ['/profile']: {
+          target: env.VITE_BASE_URL,
+          changeOrigin: true,
+          ws: true,
+          // 统一移除本地代理前缀
+          rewrite: (p) =>
+            p.replace(new RegExp(`^http://localhost:8002/profile`), ''),
+        },
       },
     },
   };

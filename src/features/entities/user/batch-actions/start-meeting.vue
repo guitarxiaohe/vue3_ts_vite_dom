@@ -21,8 +21,8 @@ const inviteRows = computed(() =>
 
 const inviteUserIds = computed(() =>
   inviteRows.value
-    .map((item) => Number(item.userId))
-    .filter((item) => Number.isFinite(item) && item > 0)
+    .map((item) => String(item.userId ?? ''))
+    .filter(Boolean)
 );
 
 const disabled = computed(

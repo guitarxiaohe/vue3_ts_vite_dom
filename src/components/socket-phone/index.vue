@@ -142,7 +142,7 @@ const inviteTime = computed(() => {
 /** 接受邀请：加入会议并打开抽屉 */
 async function handleAccept() {
   const meetingId = props.invite.meetingId;
-  if (meetingId <= 0 || actionLoading.value) {
+  if (!meetingId || actionLoading.value) {
     return;
   }
   actionLoading.value = true;
@@ -160,7 +160,7 @@ async function handleAccept() {
 /** 拒绝邀请：调用拒绝接口并关闭弹窗 */
 async function handleDecline() {
   const meetingId = props.invite.meetingId;
-  if (meetingId <= 0 || actionLoading.value) {
+  if (!meetingId || actionLoading.value) {
     return;
   }
   actionLoading.value = true;
