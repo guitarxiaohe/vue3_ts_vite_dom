@@ -952,16 +952,33 @@ export const useMeetingStore = defineStore(
       }
       // 最终摘要生成
       if (message.type === 'meeting_final_summary' && message.data) {
-        setMeetingDetail(message.data as CmsMeetingDetail);
-        shouldResumeCapture.value = false;
-        shouldAutoOpenDrawer.value = false;
-        liveSummaryDraft.value = null;
+        const detail = normalizeMeetingDetail(
+          message.data as CmsMeetingDetail,
+          meetingDetail.value
+        );
+        if (
+          detail &&
+          currentMeetingId.value !== null &&
+          toMeetingId(currentMeetingId.value) === toMeetingId(detail.session.id)
+        ) {
+          setMeetingDetail(detail);
+          shouldResumeCapture.value = false;
+          shouldAutoOpenDrawer.value = false;
+          liveSummaryDraft.value = null;
+        }
         return;
       }
       // 会议关闭
       if (message.type === 'meeting_closed' && message.data) {
-        if ((message.data as { meetingId?: string })?.meetingId == currentMeetingId.value) {
-          // setMeetingDetail(message.data as CmsMeetingDetail);
+        const detail = normalizeMeetingDetail(
+          message.data as CmsMeetingDetail,
+          meetingDetail.value
+        );
+        if (
+          detail &&
+          currentMeetingId.value !== null &&
+          toMeetingId(currentMeetingId.value) === toMeetingId(detail.session.id)
+        ) {
           shouldResumeCapture.value = false;
           shouldAutoOpenDrawer.value = false;
           liveSummaryDraft.value = null;

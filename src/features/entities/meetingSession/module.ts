@@ -19,6 +19,17 @@ const entityModule = createEntityModule({
       },
     ],
   },
+  batchActions: [
+    {
+      key: 'generateMeetingLink',
+      label: '生成会议链接',
+      order: 35,
+      // visible: (row) => row.status === 'ACTIVE' || row.status === 'CLOSING',
+      component: defineAsyncComponent(
+        () => import('./row-actions/generate-meeting.vue')
+      ),
+    },
+  ],
   config: {
     title: '会议管理',
     actions: {

@@ -20,9 +20,7 @@ const inviteRows = computed(() =>
 );
 
 const inviteUserIds = computed(() =>
-  inviteRows.value
-    .map((item) => String(item.userId ?? ''))
-    .filter(Boolean)
+  inviteRows.value.map((item) => String(item.userId ?? '')).filter(Boolean)
 );
 
 const disabled = computed(
@@ -88,7 +86,6 @@ async function handleStartMeeting() {
 <template>
   <el-button
     type="primary"
-    :disabled="disabled"
     :loading="meetingStore.loading"
     @click="handleStartMeeting"
   >

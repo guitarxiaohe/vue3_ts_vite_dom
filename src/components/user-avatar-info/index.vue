@@ -235,7 +235,9 @@ const showPresenceBadge = computed(
   () => props.userId != null && String(props.userId) !== ''
 );
 
-const isUserOnline = computed(() => presenceStore.isUserOnline(props.userId != null ? String(props.userId) : null));
+const isUserOnline = computed(() =>
+  presenceStore.isUserOnline(props.userId != null ? String(props.userId) : null)
+);
 
 const genderIconSize = computed(() =>
   Math.max(10, Math.min(16, Math.round(props.size * 0.36)))

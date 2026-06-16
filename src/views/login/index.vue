@@ -829,24 +829,31 @@ const handleRegister = async () => {
     (!formData.value.code.trim() || !formData.value.uuid)
   ) {
     error.value = t('login.captchaPlaceholder');
-    return;
+    return false;
   }
+  const username = formData.value.username.trim();
+  const password = formData.value.password;
   const result = await userStore.registerAction({
-    username: formData.value.username.trim(),
-    password: formData.value.password,
+    username,
+    password,
     code: formData.value.code.trim(),
     uuid: formData.value.uuid,
   });
   if (!result.ok) {
     error.value = result.msg;
     await loadCaptcha();
-    return;
+    return false;
   }
-  error.value = '';
-  formData.value.password = '';
-  formData.value.code = '';
-  formData.value.uuid = '';
-  authMode.value = 'login';
+  const success = await userStore.loginAction({
+    username,
+    password,
+  });
+  if (!success) {
+    error.value = t('login.loginFailed');
+    await loadCaptcha();
+    return false;
+  }
+  return true;
 };
 
 // 表单提交
@@ -855,7 +862,10 @@ const handleSubmit = async () => {
   isLoading.value = true;
   try {
     if (isRegisterMode.value) {
-      await handleRegister();
+      const success = await handleRegister();
+      if (success) {
+        router.push('/components');
+      }
       return;
     }
     userStore.logout();

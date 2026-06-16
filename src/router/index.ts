@@ -15,6 +15,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false, titleKey: 'user.login' },
   },
   {
+    path: '/external-meeting',
+    name: 'external',
+    component: () => import('@/views/external-meeting/index.vue'),
+    meta: { requiresAuth: false },
+  },
+  {
     path: '/index',
     name: 'Index',
     component: () => import('@/views/index.vue'),
@@ -35,12 +41,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/components.vue'),
         meta: { requiresAuth: true, titleKey: 'menu.components' },
       },
-      {
-        path: '/meeting-assistant',
-        name: 'MeetingAssistant',
-        component: () => import('@/views/meeting-assistant/index.vue'),
-        meta: { requiresAuth: true },
-      },
+
       {
         path: '/three',
         name: 'ThreeScene',
@@ -133,7 +134,7 @@ router.afterEach((to) => {
   document.title = pageTitle ? `${APP_TITLE} - ${pageTitle}` : APP_TITLE;
 });
 
-const whiteList = ['/login', '/NotFound'];
+const whiteList = ['/login', '/NotFound', '/external-meeting'];
 
 router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore();

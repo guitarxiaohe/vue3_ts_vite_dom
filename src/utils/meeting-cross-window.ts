@@ -65,12 +65,7 @@ function normalizeRtcOwner(
   const meetingId = String(value?.meetingId || '').trim();
   const updatedAt = Number(value?.updatedAt);
   const clientId = String(value?.clientId || '').trim();
-  if (
-    !meetingId ||
-    !clientId ||
-    Number.isNaN(updatedAt) ||
-    updatedAt <= 0
-  ) {
+  if (!meetingId || !clientId || Number.isNaN(updatedAt) || updatedAt <= 0) {
     return null;
   }
   return {

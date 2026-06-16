@@ -89,9 +89,7 @@ function applyIncomingWsPayload(
 
   if (message.type === 'presence_snapshot') {
     const normalizedUserIds = Array.isArray(message.userIds)
-      ? message.userIds
-          .map((userId) => String(userId))
-          .filter(Boolean)
+      ? message.userIds.map((userId) => String(userId)).filter(Boolean)
       : [];
     options.setOnlineUserIds(normalizedUserIds);
     return { kind: 'presence', message };

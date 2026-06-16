@@ -38,10 +38,7 @@ function resolveMeetingId(message: WsMessage): string {
 
 const handleClick = async () => {
   const meetingId = resolveMeetingId(props.msgInfo);
-  if (
-    String(props.msgInfo.type || '').startsWith('meeting_') ||
-    meetingId
-  ) {
+  if (String(props.msgInfo.type || '').startsWith('meeting_') || meetingId) {
     if (meetingId) {
       await meetingStore.enterMeeting(meetingId);
     }
