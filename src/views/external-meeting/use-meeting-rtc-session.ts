@@ -156,11 +156,6 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
 
   // 判断当前页是否应自动加入 RTC
   function shouldAutoJoinCurrentMeeting() {
-    console.log(
-      '判断当前页是否应自动加入RTC  canCurrentUserJoinRtc. isCurrentTabRtcOwner==>',
-      canCurrentUserJoinRtc.value,
-      isCurrentTabRtcOwner.value
-    );
     return canCurrentUserJoinRtc.value && !isCurrentTabRtcOwner.value;
   }
 
@@ -599,7 +594,6 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
       ) {
         return;
       }
-      console.log('watch----- ==>');
       await handleJoinVoice(true);
     },
     { immediate: true }

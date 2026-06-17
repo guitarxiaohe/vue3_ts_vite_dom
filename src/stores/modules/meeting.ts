@@ -1052,7 +1052,6 @@ export const useMeetingStore = defineStore(
      */
     function isCurrentTabRtcOwner(meetingId: string | null | undefined) {
       const owner = syncRtcOwnershipFromStorage();
-      console.log('owner ==>', owner);
       return (
         !!owner &&
         toMeetingId(meetingId) === owner.meetingId &&
@@ -1069,7 +1068,6 @@ export const useMeetingStore = defineStore(
      */
     function isRtcOwnedByOtherTab(meetingId: string | null | undefined) {
       const owner = syncRtcOwnershipFromStorage();
-      console.log('owner ==>', owner);
       if (owner) {
         console.log('owner.meetingId ==>', owner.meetingId);
         console.log('meetingId ==>', meetingId);

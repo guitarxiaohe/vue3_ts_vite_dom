@@ -1,19 +1,20 @@
 import {
   computed,
   nextTick,
+  onMounted,
   onBeforeUnmount,
   ref,
   watch,
   type Ref,
   type ShallowRef,
 } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { ConnectionState, LocalVideoTrack, Room } from 'livekit-client';
 import { useI18n } from 'vue-i18n';
 import { startScreenShareApi, stopScreenShareApi } from '@/api/modules/meeting';
 import { useMeetingStore, useUserStore } from '@/stores';
 import type { RemoteScreenShareInfo } from '@/composables/use-livekit-room';
-
+import { useFullscreen } from '@vueuse/core';
 /******************************** 类型定义 ********************************/
 
 interface UseMeetingScreenShareOptions {
@@ -66,6 +67,16 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
   const screenShareVideoRef = ref<HTMLDivElement | null>(null);
   /** 是否正在执行停止共享操作（防止重复调用） */
   const isStoppingScreenShare = ref(false);
+  /** 当前页面是否可见，用于避免在后台标签页弹全屏确认 */
+  const isPageVisible = ref(
+    typeof document === 'undefined' || document.visibilityState === 'visible'
+  );
+  /** 本轮共享是否已经弹过全屏确认 */
+  const promptedShareSessionKey = ref<string | null>(null);
+  /** 是否正在等待本轮共享的全屏确认结果 */
+  const fullscreenPromptingSessionKey = ref<string | null>(null);
+  /** 是否由本次确认逻辑触发进入全屏 */
+  const enteredFullscreenByPrompt = ref(false);
 
   /******************************** 计算属性 ********************************/
 
@@ -145,6 +156,30 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
     if (isCurrentUserSharing.value) return '停止共享';
     return '共享屏幕';
   });
+  /** 当前远端共享会话标识，用于确保每轮共享只弹一次全屏确认 */
+  const currentRemoteShareSessionKey = computed(() => {
+    if (!shouldShowShareStage.value || !screenShareState.value?.shareActive) {
+      return null;
+    }
+    return [
+      currentMeetingId.value || '',
+      screenShareState.value.sharerIdentity || '',
+      screenShareState.value.shareStartedAt || '',
+    ].join(':');
+  });
+
+  /******************************** 全屏 ********************************/
+
+  /**
+   * 当有人共享屏幕时，自动将共享舞台容器进入全屏。
+   * useFullscreen 必须在 setup 阶段调用，target 传入 screenShareVideoRef，
+   * 通过 watch shouldShowShareStage 在共享开始时自动触发进入。
+   */
+  const {
+    isFullscreen,
+    enter: enterFullscreen,
+    exit: exitFullscreen,
+  } = useFullscreen(screenShareVideoRef);
 
   /******************************** 视频轨渲染 ********************************/
 
@@ -160,7 +195,7 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
   function renderScreenShareTrack() {
     const container = screenShareVideoRef.value;
     if (!container) {
-      return;
+      return null;
     }
 
     container.innerHTML = '';
@@ -170,7 +205,7 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
       : remoteScreenShare.value?.track;
 
     if (!trackToRender) {
-      return;
+      return null;
     }
 
     const element = trackToRender.attach() as HTMLVideoElement;
@@ -180,6 +215,7 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
     element.autoplay = true;
     element.playsInline = true;
     container.appendChild(element);
+    return element;
   }
 
   /** 清空共享舞台 DOM 容器中的所有子元素 */
@@ -189,6 +225,109 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
       return;
     }
     container.innerHTML = '';
+  }
+
+  function syncPageVisibility() {
+    isPageVisible.value =
+      typeof document === 'undefined' || document.visibilityState === 'visible';
+  }
+
+  async function waitForVideoReady(element: HTMLVideoElement) {
+    if (element.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      await waitForNextVideoFrame(element);
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+      const cleanup = () => {
+        element.removeEventListener('loadedmetadata', handleReady);
+        element.removeEventListener('canplay', handleReady);
+        element.removeEventListener('playing', handleReady);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
+
+      const finish = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        resolve();
+      };
+
+      const handleReady = () => {
+        void waitForNextVideoFrame(element).finally(finish);
+      };
+
+      element.addEventListener('loadedmetadata', handleReady, { once: true });
+      element.addEventListener('canplay', handleReady, { once: true });
+      element.addEventListener('playing', handleReady, { once: true });
+      timeoutId = setTimeout(finish, 1800);
+    });
+  }
+
+  async function waitForNextVideoFrame(element: HTMLVideoElement) {
+    await new Promise<void>((resolve) => {
+      if (
+        'requestVideoFrameCallback' in element &&
+        typeof element.requestVideoFrameCallback === 'function'
+      ) {
+        element.requestVideoFrameCallback(() => resolve());
+        return;
+      }
+      requestAnimationFrame(() => resolve());
+    });
+  }
+
+  async function promptFullscreenAfterVideoReady(
+    element: HTMLVideoElement,
+    shareSessionKey: string
+  ) {
+    if (
+      promptedShareSessionKey.value === shareSessionKey ||
+      fullscreenPromptingSessionKey.value === shareSessionKey
+    ) {
+      return;
+    }
+
+    fullscreenPromptingSessionKey.value = shareSessionKey;
+    try {
+      await waitForVideoReady(element);
+
+      if (
+        currentRemoteShareSessionKey.value !== shareSessionKey ||
+        !shouldShowShareStage.value ||
+        isCurrentUserSharing.value ||
+        !isPageVisible.value ||
+        isFullscreen.value
+      ) {
+        return;
+      }
+
+      await ElMessageBox.confirm('检测到屏幕共享，是否全屏查看？', '共享屏幕', {
+        confirmButtonText: '全屏查看',
+        cancelButtonText: '暂不',
+        closeOnClickModal: false,
+        closeOnPressEscape: true,
+        type: 'info',
+      });
+      await enterFullscreen();
+      enteredFullscreenByPrompt.value = true;
+      promptedShareSessionKey.value = shareSessionKey;
+    } catch (_error) {
+      if (currentRemoteShareSessionKey.value === shareSessionKey) {
+        promptedShareSessionKey.value = shareSessionKey;
+      }
+    } finally {
+      if (fullscreenPromptingSessionKey.value === shareSessionKey) {
+        fullscreenPromptingSessionKey.value = null;
+      }
+    }
   }
 
   /******************************** 共享控制 ********************************/
@@ -301,20 +440,33 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
   /**
    * 当共享舞台状态或视频轨发生变化时重新渲染
    * 使用 nextTick 确保 DOM 已更新后再挂载视频轨
+   * 有人在共享时自动进入全屏，共享结束时退出全屏
    */
   watch(
     () => [
       shouldShowShareStage.value,
       localScreenTrack.value,
       remoteScreenShare.value?.track,
+      currentRemoteShareSessionKey.value,
+      isPageVisible.value,
     ],
     async () => {
       await nextTick();
       if (!shouldShowShareStage.value) {
         clearScreenShareTrack();
+        if (enteredFullscreenByPrompt.value && isFullscreen.value) {
+          await exitFullscreen();
+        }
+        enteredFullscreenByPrompt.value = false;
+        fullscreenPromptingSessionKey.value = null;
         return;
       }
-      renderScreenShareTrack();
+      const element = renderScreenShareTrack();
+      const shareSessionKey = currentRemoteShareSessionKey.value;
+      if (!element || !shareSessionKey) {
+        return;
+      }
+      await promptFullscreenAfterVideoReady(element, shareSessionKey);
     },
     { immediate: true }
   );
@@ -337,7 +489,12 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
   );
 
   /** 组件卸载时清理共享舞台 DOM */
+  onMounted(() => {
+    document.addEventListener('visibilitychange', syncPageVisibility);
+  });
+
   onBeforeUnmount(() => {
+    document.removeEventListener('visibilitychange', syncPageVisibility);
     clearScreenShareTrack();
   });
 
