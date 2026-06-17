@@ -302,7 +302,7 @@ export const useMeetingStore = defineStore(
 
     /******************************** 计算属性 ********************************/
 
-    /** 是否有进行中的会议（ACTIVE 或 CLOSING 期间仍允许查看） */
+    /** 是否有进行中的会议（ACTIVE期间仍允许查看） */
     const hasActiveMeeting = computed(() =>
       isActiveStatus(meetingDetail.value?.session.status)
     );
@@ -531,7 +531,7 @@ export const useMeetingStore = defineStore(
           type: 'notice',
           title: '会议邀请',
           text: `${item.hostNickName || item.hostUserName} 邀请你加入会议《${item.title}》`,
-          path: '/meeting-assistant',
+          path: '/external-meeting',
           params: { meetingId: String(item.meetingId) },
           data: item,
         })
@@ -606,11 +606,14 @@ export const useMeetingStore = defineStore(
           (item) =>
             toNumericId(item.userId) === toNumericId(detail.currentUserId)
         ) || null;
+
       if (
         currentParticipant &&
         currentParticipant.inviteStatus !== 'ACCEPTED' &&
         isActiveStatus(detail.session.status)
       ) {
+        console.log('currentParticipant ==>');
+
         const accepted = await acceptMeeting(meetingId);
         shouldResumeCapture.value = true;
         shouldAutoOpenDrawer.value = isActiveStatus(accepted.session.status);
@@ -888,6 +891,19 @@ export const useMeetingStore = defineStore(
           message.data as CmsMeetingDetail,
           meetingDetail.value
         );
+
+        // 主持人调用 stop 接口直接所有人退出 根据CLOSING以及匹配当前房间号
+        if (
+          detail &&
+          currentMeetingId.value !== null &&
+          toMeetingId(currentMeetingId.value) ===
+            toMeetingId(detail.session.id) &&
+          detail?.session.status === 'CLOSING'
+        ) {
+          shouldResumeCapture.value = false;
+          shouldAutoOpenDrawer.value = false;
+          liveSummaryDraft.value = null;
+        }
         if (
           detail &&
           (currentMeetingId.value === null ||
@@ -1023,8 +1039,20 @@ export const useMeetingStore = defineStore(
       syncRtcOwnershipFromStorage();
     }
 
+    /**
+     * 判断当前标签页是否持有指定会议的 RTC 所有权
+     *
+     * 背景：同一时间只允许一个浏览器标签页连入同一场会议的 LiveKit 音频，
+     * 通过 localStorage 实现跨标签页互斥锁（key: MEETING_RTC_OWNER_KEY）。
+     *
+     * @returns
+     *  true  — 当前标签页是该会议的 RTC owner，可以连接语音
+     *  false — 两种情况：① 还没有任何标签页 claim（首次进入）；
+     *           ② 另一个标签页持有所有权（本页不应连入）
+     */
     function isCurrentTabRtcOwner(meetingId: string | null | undefined) {
       const owner = syncRtcOwnershipFromStorage();
+      console.log('owner ==>', owner);
       return (
         !!owner &&
         toMeetingId(meetingId) === owner.meetingId &&
@@ -1032,8 +1060,23 @@ export const useMeetingStore = defineStore(
       );
     }
 
+    /**
+     * 判断指定会议的 RTC 所有权是否被另一个标签页持有
+     *
+     * @returns
+     *  true  — 其他标签页持有该会议的 RTC 所有权
+     *  false — 要么没有人持有，要么就是当前标签页持有
+     */
     function isRtcOwnedByOtherTab(meetingId: string | null | undefined) {
       const owner = syncRtcOwnershipFromStorage();
+      console.log('owner ==>', owner);
+      if (owner) {
+        console.log('owner.meetingId ==>', owner.meetingId);
+        console.log('meetingId ==>', meetingId);
+        console.log('meetingClientId.value ==>', meetingClientId.value);
+        console.log('owner.clientId ==>', owner.clientId);
+      }
+
       return (
         !!owner &&
         toMeetingId(meetingId) === owner.meetingId &&

@@ -139,6 +139,7 @@ const avatarSize = computed(() => {
 .meeting-participant-grid {
   display: grid;
   gap: 16px;
+  justify-items: center;
 }
 
 .meeting-participant-grid--cols-1 {
@@ -159,6 +160,8 @@ const avatarSize = computed(() => {
 
 .meeting-participant-tile {
   position: relative;
+  width: 100%;
+  max-width: 400px;
   min-width: 0;
   overflow: hidden;
   border-radius: 24px;
@@ -172,15 +175,16 @@ const avatarSize = computed(() => {
 }
 
 .meeting-participant-tile--card {
-  min-height: 248px;
+  height: clamp(248px, 28vw, 400px);
 }
 
 .meeting-participant-tile--compact {
-  min-height: 188px;
+  height: clamp(188px, 22vw, 320px);
 }
 
 .meeting-participant-tile--avatar {
   min-height: 112px;
+  max-height: 112px;
   border-radius: 18px;
 }
 

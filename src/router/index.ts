@@ -139,6 +139,20 @@ const whiteList = ['/login', '/NotFound', '/external-meeting'];
 router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore();
   const token = localStorage.getItem('token');
+  const isPublicRoute =
+    to.meta?.requiresAuth === false || whiteList.includes(to.path);
+  const redirectToLogin = () => {
+    next({
+      path: '/login',
+      query: { redirect: to.fullPath },
+      replace: true,
+    });
+  };
+
+  if (isPublicRoute && to.path !== '/login') {
+    next();
+    return;
+  }
 
   if (token) {
     if (to.path === '/login') {
@@ -147,16 +161,16 @@ router.beforeEach(async (to, _from, next) => {
       const ready = await userStore.bootstrapSession();
       if (!ready) {
         userStore.logout();
-        next({ path: '/login', replace: true });
+        redirectToLogin();
         return;
       }
       next();
     }
   } else {
-    if (whiteList.includes(to.path)) {
+    if (isPublicRoute) {
       next();
     } else {
-      next({ path: '/login', replace: true });
+      redirectToLogin();
       // ElMessageBox.confirm(t('user.tokenExpiredDesc'), t('user.tokenExpired'), {
       //   confirmButtonText: t('common.confirm'),
       //   cancelButtonText: t('common.cancel'),

@@ -42,6 +42,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { VideoCamera, Close } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import type { CmsMeetingPendingInvite } from '@/api/modules/meeting.type';
@@ -62,6 +63,7 @@ const emit = defineEmits<{
 /******************************** 状态 ********************************/
 
 const meetingStore = useMeetingStore();
+const router = useRouter();
 
 /** 操作防重复标记 */
 const actionLoading = ref(false);
@@ -139,7 +141,7 @@ const inviteTime = computed(() => {
 
 /******************************** 操作方法 ********************************/
 
-/** 接受邀请：加入会议并打开抽屉 */
+/** 接受邀请：跳转会议页面 */
 async function handleAccept() {
   const meetingId = props.invite.meetingId;
   if (!meetingId || actionLoading.value) {
@@ -147,8 +149,10 @@ async function handleAccept() {
   }
   actionLoading.value = true;
   try {
-    await meetingStore.enterMeeting(meetingId);
-    meetingStore.openDrawer();
+    await router.push({
+      path: '/external-meeting',
+      query: { meetingId },
+    });
     emit('close');
   } catch (error: any) {
     ElMessage.error(error?.message || '加入会议失败');

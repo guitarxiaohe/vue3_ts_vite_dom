@@ -969,4 +969,8 @@ defineExpose({
 .user-avatar-info-drawer .el-drawer {
   background: var(--color-bg-page);
 }
+
+::deep(.el-avatar > img) {
+  width: none !important;
+}
 </style>

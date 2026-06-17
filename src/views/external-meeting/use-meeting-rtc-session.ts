@@ -6,7 +6,7 @@ import {
   watch,
   type Ref,
 } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import { ConnectionState } from 'livekit-client';
@@ -26,6 +26,7 @@ interface UseMeetingRtcSessionOptions {
   activeSpeakers: Ref<string[]>;
   isMicEnabled: Ref<boolean>;
   playbackVolume: Ref<number>;
+  bootstrapOnMount?: boolean;
   joinRoom: (tokenInfo: MeetingRtcTokenResponse) => Promise<void>;
   leaveRoom: () => Promise<void>;
   setPlaybackVolume: (value: number) => void;
@@ -42,6 +43,7 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
     activeSpeakers,
     isMicEnabled,
     playbackVolume,
+    bootstrapOnMount = true,
     joinRoom,
     leaveRoom,
     setPlaybackVolume,
@@ -50,6 +52,7 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
   } = options;
 
   const route = useRoute();
+  const router = useRouter();
   const { t } = useI18n();
   const meetingStore = useMeetingStore();
   const userStore = useUserStore();
@@ -68,12 +71,20 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
 
   const meetingDetail = computed(() => meetingStore.meetingDetail);
   const currentUser = computed(() => userStore.userInfo);
-  const currentUserId = computed(() =>
-    meetingStore.toNumericId(currentUser.value?.userId)
+
+  /**
+   * 有值就用，无值走兜底currentUserId
+   * 主要是拿当前用户 id。
+   */
+  const currentUserId = computed(
+    () =>
+      meetingStore.toNumericId(currentUser.value?.userId) ||
+      meetingStore.toNumericId(meetingDetail.value?.currentUserId)
   );
   const isConnected = computed(
     () => connectionState.value === ConnectionState.Connected
   );
+
   const isReconnecting = computed(
     () => connectionState.value === ConnectionState.Reconnecting
   );
@@ -81,6 +92,18 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
     () => meetingDetail.value?.session.rtcStatus === 'RUNNING'
   );
   const currentMeetingId = computed(() => meetingDetail.value?.session.id);
+
+  /**
+   * 判断当前标签页是否持有指定会议的 RTC 所有权
+   *
+   * 背景：同一时间只允许一个浏览器标签页连入同一场会议的 LiveKit 音频，
+   * 通过 localStorage 实现跨标签页互斥锁（key: MEETING_RTC_OWNER_KEY）。
+   *
+   * @returns
+   *  true  — 当前标签页是该会议的 RTC owner，可以连接语音
+   *  false — 两种情况：① 还没有任何标签页 claim（首次进入）；
+   *           ② 另一个标签页持有所有权（本页不应连入）
+   */
   const isCurrentTabRtcOwner = computed(() =>
     meetingStore.isCurrentTabRtcOwner(currentMeetingId.value)
   );
@@ -90,15 +113,14 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
 
   // 当前用户是否可加入 RTC
   const canCurrentUserJoinRtc = computed(() => {
-    if (!meetingDetail.value || !currentUser.value) {
+    if (!meetingDetail.value) {
       return false;
     }
     if (meetingDetail.value.session.status !== 'ACTIVE') {
       return false;
     }
-    if (meetingDetail.value.session.rtcStatus !== 'RUNNING') {
-      return false;
-    }
+    console.log('当前用户可以加入');
+    // 找到当前用户 id 数据证明加入了会议资格，并查看当前状态 是不是已经接受邀请
     return meetingDetail.value.participants.some(
       (item) =>
         meetingStore.toNumericId(item.userId) === currentUserId.value &&
@@ -112,12 +134,12 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
   );
 
   // 当前用户是否为主持人
-  const isHost = computed(
-    () =>
-      !!meetingDetail.value &&
-      meetingStore.toNumericId(meetingDetail.value.session.hostUserId) ===
-        currentUserId.value
-  );
+  // const isHost = computed(
+  //   () =>
+  //     !!meetingDetail.value &&
+  //     meetingStore.toNumericId(meetingDetail.value.session.hostUserId) ===
+  //       currentUserId.value
+  // );
 
   // 扬声器音量百分比
   const speakerVolumePercent = computed({
@@ -134,17 +156,21 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
 
   // 判断当前页是否应自动加入 RTC
   function shouldAutoJoinCurrentMeeting() {
-    return canCurrentUserJoinRtc.value && isCurrentTabRtcOwner.value;
+    console.log(
+      '判断当前页是否应自动加入RTC  canCurrentUserJoinRtc. isCurrentTabRtcOwner==>',
+      canCurrentUserJoinRtc.value,
+      isCurrentTabRtcOwner.value
+    );
+    return canCurrentUserJoinRtc.value && !isCurrentTabRtcOwner.value;
   }
 
   // 打开待处理会议
   async function openPendingMeeting(meetingId: string) {
     await meetingStore.enterMeeting(meetingId);
-    meetingStore.openDrawer();
   }
 
   /**
-   * 初始化会议抽屉（页面加载时调用）
+   * 初始化会议抽屉（页面加载时调用）抽屉弃用
    *
    * 完整流程：
    * 1. 加载待处理的会议列表
@@ -192,11 +218,8 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
       // meetingStore.loadMeetingDetail(activeMeetingId);
     }
 
-    // 5. 如果会议处于活跃状态，按需自动打开抽屉
+    // 5. 如果会议处于活跃状态，保持页面会议状态
     if (currentMeeting?.session.status === 'ACTIVE') {
-      if (meetingStore.shouldAutoOpenDrawer) {
-        meetingStore.openDrawer();
-      }
       return;
     }
 
@@ -276,15 +299,21 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
     if (!meetingId || isJoining.value) {
       return;
     }
+    if (!userStore.isLoggedIn) {
+      await router.push({
+        path: '/login',
+        query: { redirect: route.fullPath },
+      });
+      return;
+    }
     meetingStore.claimRtcOwnership(meetingId);
     await handleJoinVoice();
   }
 
-  // 主持人自动启动 RTC 服务
-  async function ensureHostRtcStarted() {
+  // 自动启动 RTC 服务（所有人均可触发）
+  async function ensureRtcStarted() {
     if (
       !meetingDetail.value ||
-      !isHost.value ||
       isStartingRtc.value ||
       isStoppingMeeting.value
     ) {
@@ -385,6 +414,7 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
     if (!waitingMicPermission.value || document.visibilityState !== 'visible') {
       return;
     }
+    console.log('权限恢复后自动重试加入 RTC==>');
     await handleJoinVoice(true);
   }
 
@@ -484,14 +514,21 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
     rtcOwnershipHeartbeatTimer = null;
   }
 
-  // 启动 RTC owner 心跳
+  /**
+   * 启动 RTC owner 心跳（每 5 秒刷新 localStorage 中的所有权时间戳）
+   *
+   * 使用 canCurrentUserJoinRtc 而非 isCurrentTabRtcOwner 作为启动条件，
+   * 避免 TTL 过期后心跳无法自恢复的死锁：
+   *   claimOwnership → 15s TTL 过期 → isOwner=false → 心跳停 → 永远 false
+   */
   function startRtcOwnershipHeartbeat() {
     stopRtcOwnershipHeartbeat();
-    if (!isCurrentTabRtcOwner.value || !currentMeetingId.value) {
+    if (!currentMeetingId.value || !canCurrentUserJoinRtc.value) {
       return;
     }
     rtcOwnershipHeartbeatTimer = setInterval(() => {
-      if (!currentMeetingId.value) {
+      if (!currentMeetingId.value || !canCurrentUserJoinRtc.value) {
+        stopRtcOwnershipHeartbeat();
         return;
       }
       meetingStore.claimRtcOwnership(currentMeetingId.value);
@@ -500,17 +537,17 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
 
   watch(
     () => meetingDetail.value?.session.status,
-    async (status, previousStatus) => {
+    async (status) => {
       if (status === 'ACTIVE') {
         disconnectNotifiedMeetingId = null;
       }
       if (status !== 'ACTIVE') {
         clearPermissionRetry();
       }
-      if (
-        previousStatus !== 'ACTIVE' ||
-        !meetingStore.isTerminalStatus(status)
-      ) {
+      if (isStoppingMeeting.value) {
+        return;
+      }
+      if (status !== 'CLOSING' && !meetingStore.isTerminalStatus(status)) {
         return;
       }
       meetingStore.releaseRtcOwnership(currentMeetingId.value);
@@ -525,10 +562,10 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
       meetingDetail.value?.session.id,
       meetingDetail.value?.session.status,
       meetingDetail.value?.session.rtcStatus,
-      currentUser.value?.userId,
+      currentUserId.value,
     ],
     async () => {
-      if (!meetingDetail.value || !isHost.value || isStoppingMeeting.value) {
+      if (!meetingDetail.value || isStoppingMeeting.value) {
         return;
       }
       if (meetingDetail.value.session.status !== 'ACTIVE') {
@@ -537,7 +574,7 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
       if (meetingDetail.value.session.rtcStatus === 'RUNNING') {
         return;
       }
-      await ensureHostRtcStarted();
+      await ensureRtcStarted();
     },
     { immediate: true }
   );
@@ -550,13 +587,19 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
       meetingDetail.value?.participants
         ?.map((item) => `${item.userId}:${item.inviteStatus}`)
         .join('|'),
-      currentUser.value?.userId,
+      currentUserId.value,
       isCurrentTabRtcOwner.value,
+      connectionState.value,
     ],
     async () => {
-      if (!shouldAutoJoinCurrentMeeting() || isConnected.value) {
+      if (
+        !shouldAutoJoinCurrentMeeting() ||
+        isConnected.value ||
+        isReconnecting.value
+      ) {
         return;
       }
+      console.log('watch----- ==>');
       await handleJoinVoice(true);
     },
     { immediate: true }
@@ -619,7 +662,9 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
     window.addEventListener('storage', handleRtcOwnershipStorageChange);
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('beforeunload', handleBeforeUnload);
-    await bootstrapMeetingDrawer();
+    if (bootstrapOnMount) {
+      await bootstrapMeetingDrawer();
+    }
   });
 
   onBeforeUnmount(() => {

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import axios from 'axios';
 import { login, register, getInfoApi, getRoutersApi } from '@/api/modules/user';
 import { ROUTER_TREE_QUERY_KEY } from '@/api/modules/menu';
 import { queryClient } from '@/api/query-client';
@@ -91,6 +92,17 @@ export const useUserStore = defineStore('user', () => {
     localStorage.setItem(USER_PERMISSIONS_KEY, JSON.stringify(nextPermissions));
   };
 
+  const isAuthError = (error: unknown) => {
+    if (!axios.isAxiosError(error)) {
+      return false;
+    }
+    const status = error.response?.status;
+    const data = error.response?.data as
+      | { code?: number; msg?: string; message?: string }
+      | undefined;
+    return status === 401 || data?.code === 401;
+  };
+
   const getInfoAction = async () => {
     try {
       const response = (await getInfoApi()) as GetInfoResponse;
@@ -111,11 +123,17 @@ export const useUserStore = defineStore('user', () => {
         setUserInfo(user, nextRoles, nextPermissions);
         return user;
       }
+      if (response.code === 401) {
+        return null;
+      }
       ElMessage.error(response.msg || response.message || '获取用户信息失败');
-      return null;
+      throw new Error(response.msg || response.message || '获取用户信息失败');
     } catch (error: any) {
+      if (isAuthError(error)) {
+        return null;
+      }
       ElMessage.error(error.message || '获取用户信息失败');
-      return null;
+      throw error;
     }
   };
 
@@ -130,14 +148,19 @@ export const useUserStore = defineStore('user', () => {
     }
 
     bootstrapPromise = (async () => {
-      const user = await getInfoAction();
-      if (!user) {
-        return false;
-      }
+      try {
+        const user = await getInfoAction();
+        if (!user) {
+          return false;
+        }
 
-      // 刷新时同步补一次动态路由缓存，确保菜单与按钮权限一致
-      await getRouters();
-      return true;
+        // 刷新时同步补一次动态路由缓存，确保菜单与按钮权限一致
+        await getRouters();
+        return true;
+      } catch {
+        // 服务临时异常时保留现有登录态，不强制跳登录页
+        return true;
+      }
     })();
 
     try {
@@ -171,7 +194,7 @@ export const useUserStore = defineStore('user', () => {
         return false;
       }
     } catch (error: any) {
-      ElMessage.error(error.message || '登录失败');
+      // ElMessage.error(error.message || '登录失败');
       return false;
     }
   };

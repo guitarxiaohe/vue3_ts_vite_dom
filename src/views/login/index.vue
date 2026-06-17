@@ -432,6 +432,7 @@
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { Sparkles, Eye, EyeOff, Mail } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
+import { useRoute } from 'vue-router';
 import Pupil from '@/components/login/Pupil.vue';
 import EyeBall from '@/components/login/EyeBall.vue';
 import { useSystemStore, useUserStore } from '@/stores';
@@ -445,6 +446,7 @@ const { t } = useI18n();
 const systemStore = useSystemStore();
 const isDark = computed(() => systemStore.isDark);
 const userStore = useUserStore();
+const route = useRoute();
 
 type AuthMode = 'login' | 'register';
 
@@ -491,6 +493,13 @@ const captchaImageSrc = computed(() =>
     ? `data:image/jpeg;base64,${captchaState.value.img}`
     : ''
 );
+const loginRedirectTarget = computed(() => {
+  const redirect = route.query.redirect;
+  if (Array.isArray(redirect)) {
+    return redirect[0] || '/components';
+  }
+  return redirect || '/components';
+});
 
 const mouseX = ref(0);
 const mouseY = ref(0);
@@ -783,6 +792,10 @@ watch(
 
 /******************************** 表单逻辑 ********************************/
 
+const navigateAfterAuthSuccess = () => {
+  void router.push(loginRedirectTarget.value);
+};
+
 // 切换模式
 const switchMode = async (mode: AuthMode) => {
   if (authMode.value === mode) {
@@ -864,7 +877,7 @@ const handleSubmit = async () => {
     if (isRegisterMode.value) {
       const success = await handleRegister();
       if (success) {
-        router.push('/components');
+        navigateAfterAuthSuccess();
       }
       return;
     }
@@ -874,7 +887,7 @@ const handleSubmit = async () => {
       password: formData.value.password,
     });
     if (success) {
-      router.push('/components');
+      navigateAfterAuthSuccess();
     }
   } finally {
     isLoading.value = false;

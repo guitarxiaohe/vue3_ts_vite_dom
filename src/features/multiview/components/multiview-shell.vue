@@ -36,6 +36,7 @@
             :selected-keys="selectedKeys"
             :entity-key="entityKey"
             :clear-selection="clearSelection"
+            :refresh="refetch"
           />
         </template>
 

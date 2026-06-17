@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import { useMeetingStore, useUserStore } from '@/stores';
@@ -12,6 +13,7 @@ const props = defineProps<{
 const { t } = useI18n();
 const meetingStore = useMeetingStore();
 const userStore = useUserStore();
+const router = useRouter();
 
 const inviteRows = computed(() =>
   props.selectedRows.filter(
@@ -21,10 +23,6 @@ const inviteRows = computed(() =>
 
 const inviteUserIds = computed(() =>
   inviteRows.value.map((item) => String(item.userId ?? '')).filter(Boolean)
-);
-
-const disabled = computed(
-  () => inviteUserIds.value.length === 0 || meetingStore.loading
 );
 
 function formatNow() {
@@ -61,7 +59,12 @@ async function handleStartMeeting() {
   }
 
   if (meetingStore.hasActiveMeeting) {
-    meetingStore.openDrawer();
+    if (meetingStore.currentMeetingId) {
+      await router.push({
+        path: '/external-meeting',
+        query: { meetingId: meetingStore.currentMeetingId },
+      });
+    }
     ElMessage.info(t('meeting.resumeCurrent'));
     return;
   }
@@ -72,7 +75,10 @@ async function handleStartMeeting() {
     inviteUserIds: inviteUserIds.value,
   });
 
-  meetingStore.openDrawer();
+  await router.push({
+    path: '/external-meeting',
+    query: { meetingId: detail.session.id },
+  });
   props.clearSelection?.();
 
   ElMessage.success(

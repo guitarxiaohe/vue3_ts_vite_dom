@@ -1,13 +1,6 @@
 <script lang="ts" setup>
 /******************************** 依赖导入 ********************************/
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import {
   Camera,
@@ -17,6 +10,7 @@ import {
   Mic,
   MicOff,
   MonitorUp,
+  PictureInPicture2,
   SendHorizontal,
   Settings2,
   Sparkles,
@@ -35,15 +29,44 @@ import { AsyncSelect } from '@/components/async-select';
 import { useMeetingParticipants } from './use-meeting-participants';
 import { useMeetingScreenShare } from './use-meeting-screen-share';
 import { useMeetingRtcSession } from './use-meeting-rtc-session';
-import { useRoute } from 'vue-router';
+import MeetingLiveTranscript from './components/meeting-live-transcript.vue';
+import MeetingScreenShareStage from './components/meeting-screen-share-stage.vue';
+import { useRoute, useRouter } from 'vue-router';
+import {
+  enterTheRoomByCodeApi,
+  getMeetingByRoomNameApi,
+} from '@/api/modules/meeting-public';
+import { useUserStore } from '@/stores';
+import { useWebSocket } from '@/composables/use-websocket';
+import { MEETING_CLIENT_ID_KEY } from '@/utils/meeting-cross-window';
+// import { getRtcTokenApi } from '@/api/modules/meeting-rtc.ts';
+
+const userStore = useUserStore();
+const { connect: connectNotifySocket, disconnect: disconnectNotifySocket } =
+  useWebSocket();
+const notifySocketStarted = ref(false);
 
 /***************************** Store / Composable 初始化 *****************************/
 const { t } = useI18n();
 const meetingStore = useMeetingStore();
 /***************************** 获取路由 *****************************/
-const router = useRoute();
-const meetingCode = router.query.code;
-console.log('meetingCode ==>', meetingCode);
+const route = useRoute();
+const router = useRouter();
+
+function getQueryString(key: string) {
+  const value = route.query[key];
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+}
+
+function redirectToLoginWithCurrentMeeting() {
+  void router.push({
+    path: '/login',
+    query: {
+      redirect: route.fullPath,
+    },
+  });
+}
+
 /***************************** LiveKit RTC 解构 *****************************/
 const {
   connectionState,
@@ -73,8 +96,6 @@ const activeSpeakerUserId = ref<string | null>(null);
 const joinedHighlightUserId = ref<string | null>(null);
 // 上一次水合（初始化）时记录的最新转写 ID，用于判断转写内容是否为增量更新、避免重复触发高亮
 const hydratedLastTranscriptId = ref<string | null>(null);
-// 实时转写面板的 DOM 元素引用，用于在新转写内容出现时自动滚动到底部
-const transcriptPanelRef = ref<HTMLElement | null>(null);
 // 当前时间戳（每秒刷新），驱动会议已进行时长的计算显示
 const meetingClockNow = ref(Date.now());
 // 是否正在提交邀请参与者请求，控制邀请按钮的 loading 状态
@@ -95,6 +116,22 @@ let activeSpeakerTimer: ReturnType<typeof setTimeout> | null = null;
 let joinedHighlightTimer: ReturnType<typeof setTimeout> | null = null;
 let meetingClockTimer: ReturnType<typeof setInterval> | null = null;
 
+function ensureNotifySocketConnected() {
+  if (!userStore.isLoggedIn || notifySocketStarted.value) {
+    return;
+  }
+  connectNotifySocket();
+  notifySocketStarted.value = true;
+}
+
+function stopNotifySocket() {
+  if (!notifySocketStarted.value) {
+    return;
+  }
+  disconnectNotifySocket();
+  notifySocketStarted.value = false;
+}
+
 /***************************** 计算属性 *****************************/
 
 // 会议详情 / 待处理会议 / 转写 / 摘要
@@ -110,9 +147,6 @@ const liveSummaryRenderKey = computed(
 );
 const renderedTranscriptLines = computed(() =>
   buildSpeakerTranscriptLines(liveTranscriptBlocks.value)
-);
-const transcriptScrollEnabled = computed(
-  () => liveTranscriptBlocks.value.length > 20
 );
 const meetingElapsedLabel = computed(() => {
   const startedAt = meetingDetail.value?.session.startedAt;
@@ -160,6 +194,9 @@ const networkStatusTone = computed(() => {
   }
   return 'danger';
 });
+const isFloatingMeetingWindow = computed(
+  () => getQueryString('mode') === 'floating'
+);
 // 最新一条转写记录
 const latestTranscript = computed(() => {
   const transcripts = meetingDetail.value?.transcripts ?? [];
@@ -195,13 +232,13 @@ const {
   handleTakeOverRtc,
   handleStopMeeting,
   declinePendingMeeting,
-  handleDrawerAttemptClose,
 } = useMeetingRtcSession({
   connectionState,
   rtcParticipants,
   activeSpeakers,
   isMicEnabled,
   playbackVolume,
+  bootstrapOnMount: false,
   joinRoom,
   leaveRoom,
   setPlaybackVolume,
@@ -226,7 +263,6 @@ const {
   startScreenShare,
   stopScreenShare,
 });
-void screenShareVideoRef;
 
 /***************************** 高亮脉冲效果 *****************************/
 
@@ -356,13 +392,117 @@ function handleSendTextInteraction() {
   void handleSendInteraction('TEXT', content);
 }
 
-function scrollTranscriptPanelToBottom() {
-  if (!transcriptScrollEnabled.value || !transcriptPanelRef.value) {
+function goBackAfterMeetingAction() {
+  if (window.history.length > 1) {
+    router.back();
     return;
   }
-  transcriptPanelRef.value.scrollTop = transcriptPanelRef.value.scrollHeight;
+  void router.push('/');
 }
 
+function buildFloatingMeetingUrl(meetingId: string) {
+  const url = new URL('/external-meeting', window.location.origin);
+  url.searchParams.set('meetingId', meetingId);
+  url.searchParams.set('mode', 'floating');
+  return url.toString();
+}
+
+function createFloatingMeetingClientId() {
+  return `meeting-floating-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+}
+
+function handleRunMeetingInBackground() {
+  const meetingId = meetingDetail.value?.session.id;
+  if (!meetingId) {
+    return;
+  }
+  const width = 520;
+  const height = 760;
+  const left = Math.max(24, window.screen.availWidth - width - 48);
+  const top = 64;
+  const meetingWindow = window.open(
+    '/components',
+    `xiaohe-meeting-${meetingId}`,
+    [
+      'popup=yes',
+      `width=${width}`,
+      `height=${height}`,
+      `left=${left}`,
+      `top=${top}`,
+      'resizable=yes',
+      'scrollbars=yes',
+    ].join(',')
+  );
+  if (!meetingWindow) {
+    ElMessage.error('浏览器阻止了独立窗口，请允许弹窗后重试');
+    return;
+  }
+  meetingWindow.sessionStorage.setItem(
+    MEETING_CLIENT_ID_KEY,
+    createFloatingMeetingClientId()
+  );
+  meetingWindow.location.href = buildFloatingMeetingUrl(String(meetingId));
+  meetingWindow.focus();
+  ElMessage.success('会议已在独立窗口后台运行');
+  goBackAfterMeetingAction();
+}
+
+async function handleStopMeetingAndBack() {
+  await handleStopMeeting();
+  goBackAfterMeetingAction();
+}
+
+/**
+ * 初始化数据
+ * - 通过 code 拿到房间信息
+ * - 判断是否登录做会议还是引导登录
+ */
+const initData = async () => {
+  const queryMeetingId = getQueryString('meetingId');
+  const meetingCode = getQueryString('code');
+
+  if (queryMeetingId) {
+    if (!userStore.isLoggedIn) {
+      // 没登录走 携带参数登录
+      redirectToLoginWithCurrentMeeting();
+      return;
+    }
+    await meetingStore.enterMeeting(queryMeetingId);
+    return;
+  }
+
+  if (!meetingCode) {
+    return;
+  }
+
+  const { data: result } = await getMeetingByRoomNameApi(meetingCode);
+
+  if (!result) {
+    return;
+  }
+
+  // result 为 CmsMeetingDetail，会议信息在 session 下
+  const meetingId = result.session?.id;
+  const publicCode = result.session?.publicCode;
+  if (!meetingId) {
+    return;
+  }
+
+  // 未登录走登录路线  - 已登录直接走会议
+  if (userStore.isLoggedIn) {
+    ensureNotifySocketConnected();
+    if (publicCode) {
+      await enterTheRoomByCodeApi(publicCode);
+    }
+    // 加载会议详情、自动接受邀请、claim RTC 所有权
+    await meetingStore.enterMeeting(meetingId);
+    return;
+  }
+  meetingStore.setMeetingDetail(result);
+};
+initData();
 /***************************** Watch 监听器 *****************************/
 
 // 监听转写更新，高亮发言人
@@ -381,17 +521,6 @@ watch(
     }
     hydratedLastTranscriptId.value = latestId;
     pulseSpeaker(String(latestTranscript.value?.userId ?? ''));
-  }
-);
-
-watch(
-  () =>
-    liveTranscriptBlocks.value
-      .map((item) => `${item.id}:${item.text}`)
-      .join('|'),
-  async () => {
-    await nextTick();
-    scrollTranscriptPanelToBottom();
   }
 );
 
@@ -427,6 +556,7 @@ watch(
 /***************************** 生命周期钩子 *****************************/
 
 onMounted(() => {
+  ensureNotifySocketConnected();
   meetingClockTimer = setInterval(() => {
     meetingClockNow.value = Date.now();
   }, 1000);
@@ -444,7 +574,24 @@ onBeforeUnmount(() => {
     meetingClockTimer = null;
   }
   clearScreenShareTrack();
+  stopNotifySocket();
 });
+
+function handleScreenShareVideoReady(element: HTMLDivElement | null) {
+  screenShareVideoRef.value = element;
+}
+
+watch(
+  () => userStore.isLoggedIn,
+  (isLoggedIn) => {
+    if (isLoggedIn) {
+      ensureNotifySocketConnected();
+      void initData();
+      return;
+    }
+    stopNotifySocket();
+  }
+);
 </script>
 
 <template>
@@ -513,27 +660,19 @@ onBeforeUnmount(() => {
       <p>{{ t('meeting.endedBannerDescription') }}</p>
     </section>
 
-    <!-------------------------- 共享屏幕舞台 -------------------------->
-    <section v-if="shouldShowShareStage" class="meeting-share-stage">
-      <div class="meeting-share-stage__header">
-        <span>
-          {{
-            t('meeting.shareScreenStageTitle', {
-              name: currentSharerName,
-            })
-          }}
-        </span>
-      </div>
-      <div class="meeting-share-stage__content">
-        <div ref="screenShareVideoRef" class="meeting-share-stage__video" />
-        <p v-if="!remoteScreenShare">
-          {{ t('meeting.shareScreenPlaceholder') }}
-        </p>
-      </div>
-    </section>
+    <MeetingScreenShareStage
+      v-if="shouldShowShareStage"
+      :current-sharer-name="currentSharerName"
+      :has-remote-screen-share="!!remoteScreenShare"
+      @video-ready="handleScreenShareVideoReady"
+    />
 
     <!-------------------------- 主体内容区域 -------------------------->
-    <div v-if="!shouldShowShareStage" class="meeting-grid">
+    <div
+      v-if="!shouldShowShareStage"
+      class="meeting-grid"
+      :class="{ 'meeting-grid--empty': !meetingDetail }"
+    >
       <!-------------------------- 侧边栏：待处理会议 / 参与者列表 -------------------------->
       <aside class="meeting-side">
         <article
@@ -636,48 +775,10 @@ onBeforeUnmount(() => {
       <!-------------------------- 主内容区：实时转写 / AI 摘要 -------------------------->
       <main class="meeting-main">
         <article class="meeting-card" v-if="meetingDetail">
-          <div
-            ref="transcriptPanelRef"
-            :class="[
-              'meeting-live-feed',
-              transcriptScrollEnabled ? 'meeting-live-feed--scrollable' : '',
-            ]"
-          >
-            <div class="meeting-live-feed__meta">
-              <strong>AI 实时字幕及转写</strong>
-            </div>
-
-            <div
-              v-for="item in renderedTranscriptLines"
-              :key="item.id"
-              :class="[
-                'meeting-live-line',
-                item.pending ? 'meeting-live-block--pending' : '',
-              ]"
-            >
-              <p class="meeting-live-line__text">
-                <strong class="meeting-live-line__label">
-                  {{ item.displayLabel }}说：
-                </strong>
-                {{ item.text }}
-                <small
-                  v-if="item.pending"
-                  class="meeting-transcript-pending-label meeting-live-line__pending"
-                >
-                  <el-icon class="is-loading" :size="12">
-                    <LoaderCircle />
-                  </el-icon>
-                  {{ t('meeting.liveDigestPolishing') }}
-                </small>
-                <span v-if="item.pending" class="typing-cursor" />
-              </p>
-            </div>
-
-            <el-empty
-              v-if="!liveTranscriptBlocks.length"
-              :description="t('meeting.rawTranscriptEmpty')"
-            />
-          </div>
+          <MeetingLiveTranscript
+            :lines="renderedTranscriptLines"
+            :block-count="liveTranscriptBlocks.length"
+          />
         </article>
 
         <article class="meeting-card" v-if="meetingDetail">
@@ -890,17 +991,34 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-if="isConnected" class="meeting-control-dock__volume">
-        <el-tooltip :content="t('meeting.playbackVolume')" placement="top">
-          <span class="meeting-control-dock__volume-icon">
-            <Volume2 :size="16" />
-          </span>
-        </el-tooltip>
-        <el-slider
-          v-model="speakerVolumePercent"
-          :max="100"
-          :min="0"
-          :show-tooltip="false"
-        />
+        <el-popover
+          placement="top"
+          trigger="click"
+          :width="56"
+          popper-class="meeting-volume-popover"
+        >
+          <template #reference>
+            <el-tooltip :content="t('meeting.playbackVolume')" placement="top">
+              <button
+                type="button"
+                class="meeting-control-dock__volume-trigger"
+                :aria-label="t('meeting.playbackVolume')"
+              >
+                <Volume2 :size="16" />
+              </button>
+            </el-tooltip>
+          </template>
+          <div class="meeting-control-dock__volume-slider">
+            <el-slider
+              v-model="speakerVolumePercent"
+              vertical
+              height="120px"
+              :max="100"
+              :min="0"
+              :show-tooltip="false"
+            />
+          </div>
+        </el-popover>
       </div>
 
       <el-button
@@ -912,11 +1030,30 @@ onBeforeUnmount(() => {
         {{ t('meeting.inviteMoreAction') }}
       </el-button>
 
-      <el-button v-if="!isHost" type="danger" plain @click="handleStopMeeting">
+      <el-button
+        v-if="meetingDetail && userStore.isLoggedIn && !isFloatingMeetingWindow"
+        type="primary"
+        plain
+        @click="handleRunMeetingInBackground"
+      >
+        <PictureInPicture2 :size="16" />
+        后台运行
+      </el-button>
+
+      <el-button
+        v-if="!isHost"
+        type="danger"
+        plain
+        @click="handleStopMeetingAndBack"
+      >
         {{ t('meeting.leaveMeeting') }}
       </el-button>
 
-      <el-button v-if="canStopMeeting" type="danger" @click="handleStopMeeting">
+      <el-button
+        v-if="canStopMeeting"
+        type="danger"
+        @click="handleStopMeetingAndBack"
+      >
         {{ t('meeting.stopMeeting') }}
       </el-button>
     </section>
@@ -956,28 +1093,17 @@ onBeforeUnmount(() => {
       </el-button>
     </template>
   </el-dialog>
-  <!-- <el-drawer
-    v-model="drawerVisible"
-    append-to-body
-    :destroy-on-close="false"
-    :before-close="handleDrawerAttemptClose"
-    :close-on-click-modal="true"
-    :modal-class="'meeting-drawer-modal'"
-    :size="'100%'"
-    :title="t('meeting.drawerTitle')"
-    custom-class="meeting-drawer"
-  >
-  </el-drawer> -->
 </template>
 
 <style lang="scss" scoped>
 .meeting-drawer__body {
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding-right: 4px;
+  padding: 0;
+  background: var(--color-bg-page);
 }
 
 .meeting-shell-bar {
@@ -1028,6 +1154,16 @@ onBeforeUnmount(() => {
   align-items: start;
 }
 
+.meeting-grid--empty {
+  grid-template-columns: 1fr;
+  flex: 1;
+  min-height: calc(100vh - 84px);
+}
+
+.meeting-grid--empty .meeting-side {
+  min-height: inherit;
+}
+
 .meeting-ended-banner {
   padding: 16px 18px;
   border: 1px solid var(--color-danger-light);
@@ -1048,59 +1184,6 @@ onBeforeUnmount(() => {
   p {
     margin: 0;
     line-height: 1.6;
-  }
-}
-
-.meeting-share-stage {
-  flex: 1;
-  min-height: calc(100vh - 220px);
-  border: 1px solid var(--color-primary-light);
-  border-radius: 24px;
-  background: var(--color-bg-page);
-  overflow: hidden;
-
-  &__header {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 14px 20px;
-    background: var(--color-primary-light);
-    font-size: 15px;
-    font-weight: 600;
-  }
-
-  &__content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: calc(100vh - 288px);
-    padding: 28px;
-    color: var(--color-text-secondary);
-    background: #1a1a2e;
-
-    p {
-      margin: 0;
-      font-size: 14px;
-    }
-  }
-
-  &__video {
-    width: 100%;
-    min-height: calc(100vh - 344px);
-    height: calc(100vh - 344px);
-    display: flex;
-    align-items: stretch;
-    justify-content: stretch;
-    overflow: hidden;
-    border-radius: 18px;
-    background: rgba(15, 23, 42, 0.32);
-
-    :deep(video) {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      background: #050816;
-    }
   }
 }
 
@@ -1136,16 +1219,49 @@ onBeforeUnmount(() => {
 .meeting-control-dock__volume {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-width: 220px;
   padding: 0 6px;
 }
 
-.meeting-control-dock__volume-icon {
+.meeting-control-dock__volume-trigger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--color-text-secondary);
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.meeting-control-dock__volume-trigger:hover {
+  background: var(--color-fill-blank);
+  color: var(--color-primary);
+}
+
+.meeting-control-dock__volume-trigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.meeting-control-dock__volume-slider {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+
+.meeting-control-dock__volume-slider :deep(.el-slider) {
+  margin: 0;
+}
+
+:global(.meeting-volume-popover) {
+  min-width: 56px !important;
+  padding: 10px 8px !important;
 }
 
 .meeting-control-dock__interaction {
@@ -1177,7 +1293,10 @@ onBeforeUnmount(() => {
 }
 
 .meeting-card--empty {
-  min-height: 220px;
+  min-height: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .meeting-card__header {
@@ -1224,38 +1343,11 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
-.meeting-live-feed {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 280px;
-  padding: 18px 20px;
-  border-radius: 22px;
-  overflow: hidden;
-  background:
-    linear-gradient(180deg, var(--color-bg-page), var(--color-border-light)),
-    radial-gradient(circle at top, var(--color-primary-bg), transparent 34%);
-  border: 1px solid var(--color-border);
-}
-
-.meeting-live-feed__meta {
-  display: flex;
-  align-items: center;
-  margin-bottom: 2px;
-}
-
-.meeting-live-feed__meta strong,
 .meeting-live-summary__meta strong {
   color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
-}
-
-.meeting-live-feed--scrollable {
-  max-height: 540px;
-  overflow: hidden;
-  scrollbar-width: none;
 }
 
 .meeting-live-summary {
@@ -1309,36 +1401,6 @@ onBeforeUnmount(() => {
 .meeting-summary-fade-leave-to {
   opacity: 0;
   transform: translateY(4px);
-}
-
-.meeting-live-line {
-  width: 100%;
-}
-
-.meeting-live-line__label {
-  color: var(--color-text-primary);
-  font-size: 12px;
-  line-height: 1.9;
-  letter-spacing: 0.02em;
-  font-weight: 700;
-}
-
-.meeting-live-line__text {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.9;
-  color: var(--color-text-primary);
-  font-size: 12px;
-}
-
-.meeting-live-line__pending {
-  margin-left: 8px;
-  vertical-align: middle;
-}
-
-.meeting-live-block--pending .meeting-live-line__label {
-  color: var(--color-primary-dark);
 }
 
 .meeting-pending-item {
@@ -1675,39 +1737,9 @@ onBeforeUnmount(() => {
     justify-self: stretch;
   }
 
-  .meeting-share-stage {
-    min-height: calc(100vh - 200px);
-
-    &__content {
-      min-height: calc(100vh - 252px);
-      padding: 18px;
-    }
-
-    &__video {
-      min-height: calc(100vh - 288px);
-      height: calc(100vh - 288px);
-    }
-  }
-
   .meeting-control-dock {
     bottom: 0;
     border-radius: 20px;
   }
-}
-
-.meeting-share-stage__video {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  /* 适配 Safari 浏览器的 WebRTC 视频渲染问题 */
-  @supports (-webkit-appearance: none) and (object-fit: contain) {
-    :deep(video) {
-      object-fit: cover;
-    }
-  }
-}
-
-:deep(.el-drawer__header) {
-  margin-bottom: 0px !important;
 }
 </style>

@@ -1,6 +1,6 @@
 import { computed, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useMeetingStore, usePresenceStore, useUserStore } from '@/stores';
+import { useMeetingStore, useUserStore } from '@/stores';
 import type { ParticipantInfo } from '@/composables/use-livekit-room';
 import type { CmsMeetingParticipant } from '@/api/modules/meeting.type';
 
@@ -23,7 +23,7 @@ interface UseMeetingParticipantsOptions {
  * 封装参会者列表的展示逻辑，包括：
  * - 参会者过滤（排除已拒绝的参会者）
  * - RTC 状态关联（是否进入房间、是否正在发言、麦克风是否静音）
- * - 在线状态判断（通过 Presence Store）
+ * - RTC 会议内连接状态判断
  * - 参会者状态标签（已连接 / 等待中 / 已拒绝 / 缺席）
  * - 邀请弹窗可选成员列表
  * - 主持人权限判断（是否可邀请、是否可结束会议）
@@ -37,7 +37,6 @@ export function useMeetingParticipants(options: UseMeetingParticipantsOptions) {
 
   const { t } = useI18n();
   const meetingStore = useMeetingStore();
-  const presenceStore = usePresenceStore();
   const userStore = useUserStore();
 
   /******************************** 基础计算属性 ********************************/
@@ -123,10 +122,10 @@ export function useMeetingParticipants(options: UseMeetingParticipantsOptions) {
     return getParticipantRtcInfo(userId)?.isMuted ?? true;
   }
 
-  /******************************** 在线与状态判断 ********************************/
+  /******************************** 会议内连接状态判断 ********************************/
 
   /**
-   * 判断参会人是否已成功连接（邀请已接受 且 在线）
+   * 判断参会人是否已成功连接会议音频（邀请已接受 且已进入 RTC）
    *
    * @param participant - 包含 inviteStatus 和 userId 的参会人对象
    * @returns 是否已连接
@@ -137,7 +136,7 @@ export function useMeetingParticipants(options: UseMeetingParticipantsOptions) {
   }) {
     return (
       participant.inviteStatus === 'ACCEPTED' &&
-      presenceStore.isUserOnline(participant.userId)
+      isParticipantInRtc(participant.userId)
     );
   }
 
@@ -145,8 +144,8 @@ export function useMeetingParticipants(options: UseMeetingParticipantsOptions) {
    * 计算参会人状态标签的颜色类型（用于 UI 渲染）
    * - DECLINED → danger（红色）
    * - 未接受 → warning（橙色）
-   * - 已接受且在线 → success（绿色）
-   * - 已接受但离线 → info（蓝色）
+   * - 已接受且进入 RTC → success（绿色）
+   * - 已接受但未进入 RTC → info（蓝色）
    *
    * @param participant - 参会人对象
    * @returns Element UI 状态类型
@@ -168,8 +167,8 @@ export function useMeetingParticipants(options: UseMeetingParticipantsOptions) {
    * 计算参会人状态文案（国际化）
    * - DECLINED → 已拒绝
    * - 未接受 → 待响应
-   * - 已接受且在线 → 已连接
-   * - 已接受但离线 → 连接中
+   * - 已接受且进入 RTC → 已连接
+   * - 已接受但未进入 RTC → 连接中
    *
    * @param participant - 参会人对象
    * @returns 状态描述文本

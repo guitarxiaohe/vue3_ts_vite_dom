@@ -11,6 +11,7 @@ export interface CmsMeetingSession {
   title: string;
   status: string;
   rtcStatus: string;
+  rtcRoomName?: string | null;
   hostUserId: string;
   hostUserName: string;
   hostNickName: string;
@@ -32,6 +33,11 @@ export interface CmsMeetingSession {
   updateBy: string;
   updateTime: string;
   remark: string | null;
+  scheduledStartAt?: string | null;
+  scheduledEndAt?: string | null;
+  publicCode?: string | null;
+  link?: string | null;
+  roomEnteredCount?: number | null;
 }
 
 export interface CmsMeetingParticipant {

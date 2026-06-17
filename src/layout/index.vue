@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 
 import {
   useMeetingStore,
@@ -9,7 +10,6 @@ import {
 } from '@/stores';
 import type { CmsMeetingPendingInvite } from '@/api/modules/meeting.type';
 import ConventionalMenu from '@/components/conventional-menu/index.vue';
-import GlobalMeetingDrawer from '@/components/global-meeting-drawer/index.vue';
 import NoticeBar from '@/components/notice-bar/index.vue';
 import NotifyBell from '@/components/notify-bell/index.vue';
 import {
@@ -22,6 +22,7 @@ const systemStore = useSystemStore();
 const notificationStore = useNotificationStore();
 const meetingStore = useMeetingStore();
 const { t } = useI18n();
+const router = useRouter();
 
 const { connect, disconnect } = useWebSocket();
 
@@ -46,14 +47,21 @@ const layoutTransitionStyle = computed(() => {
   };
 });
 const showMeetingReentry = computed(
-  () => meetingStore.hasActiveMeeting && !meetingStore.drawerVisible
+  () => meetingStore.hasActiveMeeting
 );
 const meetingReentryTitle = computed(
   () => meetingStore.meetingDetail?.session.title || t('meeting.drawerTitle')
 );
 
 function reopenMeetingDrawer() {
-  meetingStore.openDrawer();
+  const meetingId = meetingStore.currentMeetingId;
+  if (!meetingId) {
+    return;
+  }
+  router.push({
+    path: '/external-meeting',
+    query: { meetingId },
+  });
 }
 
 /******************************** 初始化 WebSocket + 历史消息 ********************************/
@@ -130,10 +138,9 @@ onUnmounted(() => {
         <span class="meeting-entry-float__text">
           {{ meetingReentryTitle }}
         </span>
-        <strong>{{ t('meeting.reopenDrawer') }}</strong>
+        <strong>进入会议</strong>
       </button>
     </transition>
-    <GlobalMeetingDrawer />
   </div>
 </template>
 

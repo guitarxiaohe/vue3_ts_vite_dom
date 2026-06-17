@@ -2,11 +2,10 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { Bell } from 'lucide-vue-next';
-import { useMeetingStore, useNotificationStore } from '@/stores';
+import { useNotificationStore } from '@/stores';
 import type { WsMessage } from '@/types/ws';
 
 const router = useRouter();
-const meetingStore = useMeetingStore();
 const notificationStore = useNotificationStore();
 
 const unreadCount = computed(() => notificationStore.unreadCount);
@@ -31,9 +30,11 @@ async function handleClick(msg: WsMessage) {
   const meetingId = resolveMeetingId(msg);
   if (String(msg.type || '').startsWith('meeting_') || meetingId) {
     if (meetingId) {
-      await meetingStore.enterMeeting(meetingId);
+      await router.push({
+        path: '/external-meeting',
+        query: { meetingId },
+      });
     }
-    meetingStore.openDrawer();
     return;
   }
 

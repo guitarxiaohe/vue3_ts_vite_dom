@@ -44,7 +44,6 @@ class HttpClient {
       (response) => {
         if (response.data?.code === 401) {
           const { t } = i18n.global;
-
           // 统一错误处理
           const { logout } = useUserStore();
 
@@ -59,33 +58,54 @@ class HttpClient {
           )
             .then(() => {
               logout();
-              window.location.href = '/login';
+              const fullPath =
+                window.location.pathname + window.location.search;
+              window.location.href = `/login?redirect=${encodeURIComponent(fullPath)}`;
             })
             .catch(() => {});
-        }
-        if (response.data?.code == 404) {
+          return Promise.reject(response.data);
+        } else if (response.data?.code == 404) {
           ElMessage.error('未找到当前接口');
           return Promise.reject(response.data.message);
-        }
-        if (response.data?.code == 500) {
+        } else if (response.data?.code == 500) {
           ElMessage.error(response?.data?.msg || '后端问题');
           return Promise.reject(response.data.msg);
+        } else {
+          return Promise.resolve(response?.data);
         }
-        return Promise.resolve(response?.data);
       },
       (error) => {
         console.error(`[Error] ${error.config?.url}`, error);
-
-        // 统一错误处理
-        // if (error.response?.code === 401) {
-        //   // 未授权，跳转登录
-        //   window.location.href = '/login';
-        // }
-        console.log('error ==>', error);
-        ElMessage.error(error || '后端问题');
+        ElMessage.error(this.resolveErrorMessage(error));
         return Promise.reject(error);
       }
     );
+  }
+
+  private resolveErrorMessage(error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      const data = error.response?.data as
+        | { msg?: string; message?: string }
+        | undefined;
+      if (data?.msg || data?.message) {
+        return data.msg || data.message || '后端问题';
+      }
+      if (status === 502) {
+        return '服务暂时不可用，请稍后重试';
+      }
+      if (status === 504) {
+        return '服务响应超时，请稍后重试';
+      }
+      if (status) {
+        return `请求失败（${status}）`;
+      }
+      return error.message || '网络异常，请稍后重试';
+    }
+    if (error instanceof Error) {
+      return error.message || '后端问题';
+    }
+    return '后端问题';
   }
 
   async request<T = any>(config: AxiosRequestConfig): Promise<ApiResponse<T>> {
