@@ -141,13 +141,6 @@ router.beforeEach(async (to, _from, next) => {
   const token = localStorage.getItem('token');
   const isPublicRoute =
     to.meta?.requiresAuth === false || whiteList.includes(to.path);
-  const redirectToLogin = () => {
-    next({
-      path: '/login',
-      query: { redirect: to.fullPath },
-      replace: true,
-    });
-  };
 
   if (isPublicRoute && to.path !== '/login') {
     next();
@@ -161,7 +154,7 @@ router.beforeEach(async (to, _from, next) => {
       const ready = await userStore.bootstrapSession();
       if (!ready) {
         userStore.logout();
-        redirectToLogin();
+        next({ path: '/login', replace: true });
         return;
       }
       next();
@@ -170,7 +163,7 @@ router.beforeEach(async (to, _from, next) => {
     if (isPublicRoute) {
       next();
     } else {
-      redirectToLogin();
+      next({ path: '/login', replace: true });
       // ElMessageBox.confirm(t('user.tokenExpiredDesc'), t('user.tokenExpired'), {
       //   confirmButtonText: t('common.confirm'),
       //   cancelButtonText: t('common.cancel'),

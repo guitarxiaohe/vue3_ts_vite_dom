@@ -12,6 +12,7 @@ import type { CmsMeetingPendingInvite } from '@/api/modules/meeting.type';
 import ConventionalMenu from '@/components/conventional-menu/index.vue';
 import NoticeBar from '@/components/notice-bar/index.vue';
 import NotifyBell from '@/components/notify-bell/index.vue';
+import AiChat from '@/components/ai-chat/index.vue';
 import {
   showMeetingInviteNotification,
   useWebSocket,
@@ -46,9 +47,7 @@ const layoutTransitionStyle = computed(() => {
     '--page-transition-duration': speedMap[systemStore.animationSpeed],
   };
 });
-const showMeetingReentry = computed(
-  () => meetingStore.hasActiveMeeting
-);
+const showMeetingReentry = computed(() => meetingStore.hasActiveMeeting);
 const meetingReentryTitle = computed(
   () => meetingStore.meetingDetail?.session.title || t('meeting.drawerTitle')
 );
@@ -141,6 +140,7 @@ onUnmounted(() => {
         <strong>进入会议</strong>
       </button>
     </transition>
+    <AiChat />
   </div>
 </template>
 
@@ -274,7 +274,7 @@ onUnmounted(() => {
 .meeting-entry-float {
   position: fixed;
   right: 24px;
-  bottom: 24px;
+  bottom: 88px;
   z-index: calc(var(--z-modal) - 1);
   display: inline-flex;
   align-items: center;

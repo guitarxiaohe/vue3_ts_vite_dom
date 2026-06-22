@@ -77,7 +77,7 @@ const entityTableConfig = computed(() =>
 const pageSize = computed<number>(
   () => props.config.pageSize ?? entityTableConfig.value.pageSize ?? 10
 );
-const resolvedHeight = computed<number>(() => props.config.height ?? 320);
+const resolvedHeight = computed<number>(() => props.config.height ?? 500);
 const relationFields = computed<EntityTableChildRelationFieldConfig[]>(() => {
   const source = props.config.relationField;
   return Array.isArray(source) ? source : [source];

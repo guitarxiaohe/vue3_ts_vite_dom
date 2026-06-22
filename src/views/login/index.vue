@@ -496,9 +496,9 @@ const captchaImageSrc = computed(() =>
 const loginRedirectTarget = computed(() => {
   const redirect = route.query.redirect;
   if (Array.isArray(redirect)) {
-    return redirect[0] || '/components';
+    return redirect[0] || '/external-meeting';
   }
-  return redirect || '/components';
+  return redirect || '/external-meeting';
 });
 
 const mouseX = ref(0);

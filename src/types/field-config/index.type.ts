@@ -12,6 +12,8 @@ export interface FieldConfig {
   fieldRole?: string | null;
   dictCode?: string | null;
   selectEntityKey?: string | null;
+  selectValueField?: string | null;
+  selectLabelField?: string | null;
   sort?: number;
   width?: number | null;
   isFuzzySearch?: number;
@@ -36,6 +38,8 @@ export interface FieldConfigQuery
         | 'fieldRole'
         | 'dictCode'
         | 'selectEntityKey'
+        | 'selectValueField'
+        | 'selectLabelField'
         | 'fixed'
       >
     >,

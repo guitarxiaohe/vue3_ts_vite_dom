@@ -11,6 +11,19 @@ import SocketMsg from '@/components/socket-msg/index.vue';
 import SocketPhone from '@/components/socket-phone/index.vue';
 /******************************** WebSocket URL 构建 ********************************/
 
+type WsMessageListener = (message: WsMessage) => void;
+
+const wsMessageListeners = new Set<WsMessageListener>();
+
+export function subscribeWsMessage(listener: WsMessageListener) {
+  wsMessageListeners.add(listener);
+  return () => wsMessageListeners.delete(listener);
+}
+
+function emitWsMessage(message: WsMessage) {
+  wsMessageListeners.forEach((listener) => listener(message));
+}
+
 interface BuildNotifyWebSocketUrlOptions {
   token: string;
   wsBaseUrl?: string;
@@ -99,6 +112,8 @@ function applyIncomingWsPayload(
     options.consumeMeetingEvent(message);
     return { kind: 'meeting', message };
   }
+
+  emitWsMessage(message);
 
   options.pushNotification(message);
   return { kind: 'notification', message };

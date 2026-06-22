@@ -34,6 +34,10 @@ const createMockField = (
   fieldType: (field.fieldType as string | null | undefined) ?? 'input',
   dictCode: (field.dictCode as string | null | undefined) ?? null,
   selectEntityKey: (field.selectEntityKey as string | null | undefined) ?? null,
+  selectValueField:
+    (field.selectValueField as string | null | undefined) ?? null,
+  selectLabelField:
+    (field.selectLabelField as string | null | undefined) ?? null,
   sort: Number(field.sort ?? 0),
   width: Number(field.width ?? 200),
   isFuzzySearch: Boolean(field.isFuzzySearch ?? false),

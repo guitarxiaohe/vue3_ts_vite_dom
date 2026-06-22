@@ -120,6 +120,45 @@ function resolveDictMetaFromCache(dictCode: string, value: unknown) {
   );
 }
 
+// 解析关联实体返回的显示文案
+function resolveRelatedSelectLabel(
+  field: Record<string, any>,
+  rowData: Record<string, any>,
+  value: unknown
+): string | undefined {
+  if (value == null || value === '') return undefined;
+
+  const selectEntityKey = String(
+    resolveFieldValue(field, 'selectEntityKey') ?? ''
+  ).trim();
+  const selectLabelField = String(
+    resolveFieldValue(field, 'selectLabelField') ?? ''
+  ).trim();
+  const fieldKey = String(resolveFieldValue(field, 'fieldKey') ?? '').trim();
+
+  if (!selectEntityKey || !selectLabelField || !fieldKey) {
+    return undefined;
+  }
+
+  const dataKey = snakeToCamel(fieldKey);
+  const labelKey = snakeToCamel(selectLabelField);
+  const candidates = [
+    `${dataKey}Lable`,
+    `${dataKey}Label`,
+    labelKey,
+    selectLabelField,
+  ];
+
+  for (const key of candidates) {
+    const label = rowData[key];
+    if (label != null && label !== '') {
+      return String(label);
+    }
+  }
+
+  return undefined;
+}
+
 function resolveDictFieldColor(
   field: Record<string, any>,
   rowData: Record<string, any>
@@ -275,7 +314,11 @@ function resolveDetailTextByFieldType(
   }
 
   if (fieldType === 'dict' || fieldType === 'select') {
-    return resolveDictLabel(field, cellData) ?? String(cellData ?? '--');
+    return (
+      resolveRelatedSelectLabel(field, rowData, cellData) ??
+      resolveDictLabel(field, cellData) ??
+      String(cellData ?? '--')
+    );
   }
 
   if (fieldType === 'user') {
@@ -447,6 +490,11 @@ function resolveCellRendererByFieldType(field: Record<string, any>) {
       rowData: Record<string, any>;
       cellData: unknown;
     }) => {
+      const relatedLabel = resolveRelatedSelectLabel(field, rowData, cellData);
+      if (relatedLabel) {
+        return h('span', {}, relatedLabel);
+      }
+
       if (!isDictTagField(field, fieldType)) {
         return h(
           'span',
