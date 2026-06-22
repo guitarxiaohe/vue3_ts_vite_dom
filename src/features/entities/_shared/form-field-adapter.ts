@@ -125,6 +125,17 @@ export function mapEntityFormFields(fields: EntityFormField[]): DetailField[] {
       };
     }
 
+    if (
+      field.type === 'radio' &&
+      field.optionSource === 'api' &&
+      field.apiOptions
+    ) {
+      const dictCode = field.apiOptions.dictCode?.trim();
+      if (dictCode) {
+        nextField.radioDictCode = dictCode;
+      }
+    }
+
     return nextField;
   });
 }

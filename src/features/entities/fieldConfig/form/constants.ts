@@ -96,6 +96,22 @@ export function getFieldConfigFormFields(t: Translate): EntityFormField[] {
       }),
     },
     {
+      prop: 'selectValueField',
+      label: t('fieldConfig.selectValueField'),
+      type: 'text',
+      placeholder: t('validation.enterField', {
+        field: t('fieldConfig.selectValueField'),
+      }),
+    },
+    {
+      prop: 'selectLabelField',
+      label: t('fieldConfig.selectLabelField'),
+      type: 'text',
+      placeholder: t('validation.enterField', {
+        field: t('fieldConfig.selectLabelField'),
+      }),
+    },
+    {
       prop: 'sort',
       label: t('fieldConfig.sort'),
       type: 'number',

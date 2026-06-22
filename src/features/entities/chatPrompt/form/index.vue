@@ -4,10 +4,7 @@ import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import DetailDrawer from '@/features/form-shell/components/form-drawer.vue';
 import { mapEntityFormFields } from '@/features/entities/_shared/form-field-adapter';
-import {
-  addEntityRowApi,
-  updateEntityRowApi,
-} from '@/api/modules/dynamic-entity';
+import { addChatPromptApi, editChatPromptApi } from '../services';
 import { getEntityTableConfig } from '@/utils/entity-config';
 import type {
   EntityFormEmits,
@@ -57,9 +54,9 @@ async function handleSave(data: Record<string, unknown>) {
       props.record?.id ?? props.record?.[resolvedRowKey.value] ?? undefined;
 
     if (props.isCreate || id == null) {
-      await addEntityRowApi('chatPrompt', data);
+      await addChatPromptApi(data as any);
     } else {
-      await updateEntityRowApi('chatPrompt', id as number | string, data);
+      await editChatPromptApi({ ...data, prompId: id } as any);
     }
 
     emit('save', data);

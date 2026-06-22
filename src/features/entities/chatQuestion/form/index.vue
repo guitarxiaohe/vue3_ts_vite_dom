@@ -4,15 +4,15 @@ import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import DetailDrawer from '@/features/form-shell/components/form-drawer.vue';
 import { mapEntityFormFields } from '@/features/entities/_shared/form-field-adapter';
-import { addChatCategoryApi, editChatCategoryApi } from '../services';
+import { addChatQuestionApi, editChatQuestionApi } from '../services';
 import { getEntityTableConfig } from '@/utils/entity-config';
 import type {
   EntityFormEmits,
   EntityFormProps,
 } from '@/features/entities/_shared/types';
-import { getChatCategoryFormFields } from './constants';
+import { getChatQuestionFormFields } from './constants';
 
-/******************************** AI 分类表单 ********************************/
+/******************************** 未命中问题表单 ********************************/
 
 const props = defineProps<EntityFormProps>();
 const emit = defineEmits<EntityFormEmits>();
@@ -24,28 +24,28 @@ const submitLoading = ref<boolean>(false);
 const formData = ref<Record<string, unknown>>({});
 
 const formFields = computed(() =>
-  mapEntityFormFields(getChatCategoryFormFields(t))
+  mapEntityFormFields(getChatQuestionFormFields(t))
 );
 const formChildren = computed(
-  () => getEntityTableConfig('chatCategory').children ?? []
+  () => getEntityTableConfig('chatQuestion').children ?? []
 );
 const resolvedRowKey = computed(() => {
-  const config = getEntityTableConfig('chatCategory');
+  const config = getEntityTableConfig('chatQuestion');
   return config.rowKey || 'id';
 });
 const drawerTitle = computed(() => {
   if (props.isCreate && props.record) {
-    return `${t('common.copy')}${t('entity.chatCategory.title')}`;
+    return `${t('common.copy')}${t('entity.chatQuestion.title')}`;
   }
 
   return props.isCreate
-    ? `${t('common.add')}${t('entity.chatCategory.title')}`
-    : `${t('common.edit')}${t('entity.chatCategory.title')}`;
+    ? `${t('common.add')}${t('entity.chatQuestion.title')}`
+    : `${t('common.edit')}${t('entity.chatQuestion.title')}`;
 });
 
 /******************************** 数据方法 ********************************/
 
-// 保存分类表单
+// 保存未命中问题表单
 async function handleSave(data: Record<string, unknown>) {
   submitLoading.value = true;
 
@@ -54,9 +54,9 @@ async function handleSave(data: Record<string, unknown>) {
       props.record?.id ?? props.record?.[resolvedRowKey.value] ?? undefined;
 
     if (props.isCreate || id == null) {
-      await addChatCategoryApi(data as any);
+      await addChatQuestionApi(data as any);
     } else {
-      await editChatCategoryApi({ ...data, categoryId: id } as any);
+      await editChatQuestionApi({ ...data, questionId: id } as any);
     }
 
     emit('save', data);

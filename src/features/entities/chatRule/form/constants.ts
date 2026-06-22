@@ -60,15 +60,13 @@ export function getChatRuleFormFields(t: Translate): EntityFormField[] {
     {
       prop: 'matchType',
       label: t('chatRuleForm.matchType'),
-      type: 'radio',
+      type: 'async-select',
       required: true,
-      optionSource: 'static',
+      optionSource: 'api',
       defaultValue: 'KEYWORD',
-      options: [
-        { label: t('chatRuleForm.matchKeyword'), value: 'KEYWORD' },
-        { label: t('chatRuleForm.matchRegex'), value: 'REGEX' },
-        { label: t('chatRuleForm.matchIntent'), value: 'INTENT' },
-      ],
+      apiOptions: {
+        dictCode: 'chat_rule_match_type',
+      },
     },
     {
       prop: 'matchPattern',
@@ -90,27 +88,16 @@ export function getChatRuleFormFields(t: Translate): EntityFormField[] {
     {
       prop: 'actionType',
       label: t('chatRuleForm.actionType'),
-      type: 'select',
+      type: 'async-select',
       required: true,
-      optionSource: 'static',
+      optionSource: 'api',
       defaultValue: 'ANSWER',
       placeholder: t('validation.selectField', {
         field: t('chatRuleForm.actionType'),
       }),
-      options: [
-        { label: t('chatRuleForm.actionAnswer'), value: 'ANSWER' },
-        {
-          label: t('chatRuleForm.actionProductSearch'),
-          value: 'PRODUCT_SEARCH',
-        },
-        { label: t('chatRuleForm.actionPriceQuery'), value: 'PRICE_QUERY' },
-        {
-          label: t('chatRuleForm.actionAskRedirect'),
-          value: 'ASK_REDIRECT',
-        },
-        { label: t('chatRuleForm.actionRedirect'), value: 'REDIRECT' },
-        { label: t('chatRuleForm.actionHandoff'), value: 'HANDOFF' },
-      ],
+      apiOptions: {
+        dictCode: 'chat_rule_action_type',
+      },
     },
     {
       prop: 'actionConfig',
@@ -135,6 +122,7 @@ export function getChatRuleFormFields(t: Translate): EntityFormField[] {
       optionSource: 'static',
       defaultValue: 1,
       options: [
+        { label: t('dictDataForm.enabled'), value: 2 },
         { label: t('dictDataForm.enabled'), value: 1 },
         { label: t('dictDataForm.disabled'), value: 0 },
       ],

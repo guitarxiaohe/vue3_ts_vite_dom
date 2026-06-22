@@ -4,10 +4,7 @@ import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import DetailDrawer from '@/features/form-shell/components/form-drawer.vue';
 import { mapEntityFormFields } from '@/features/entities/_shared/form-field-adapter';
-import {
-  addEntityRowApi,
-  updateEntityRowApi,
-} from '@/api/modules/dynamic-entity';
+import { addChatKnowledgeApi, editChatKnowledgeApi } from '../services';
 import { getEntityTableConfig } from '@/utils/entity-config';
 import type {
   EntityFormEmits,
@@ -57,9 +54,9 @@ async function handleSave(data: Record<string, unknown>) {
       props.record?.id ?? props.record?.[resolvedRowKey.value] ?? undefined;
 
     if (props.isCreate || id == null) {
-      await addEntityRowApi('chatKnowledge', data);
+      await addChatKnowledgeApi(data as any);
     } else {
-      await updateEntityRowApi('chatKnowledge', id as number | string, data);
+      await editChatKnowledgeApi({ ...data, knowledgeId: id } as any);
     }
 
     emit('save', data);

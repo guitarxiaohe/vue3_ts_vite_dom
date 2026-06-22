@@ -66,6 +66,8 @@ export interface DetailField {
   options?: Array<{ label: string; value: any }>;
   asyncSelectConfig?: AsyncSelectConfig;
   asyncCascaderConfig?: AsyncCascaderConfig;
+  /** radio 从字典加载选项时使用，值为 dictCode */
+  radioDictCode?: string;
   readonly?: boolean;
   disabled?: boolean;
   disabledOnEdit?: boolean;

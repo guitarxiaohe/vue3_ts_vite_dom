@@ -60,6 +60,8 @@ function normalizePayload(data: Record<string, unknown>): FieldConfig {
     fieldRole: String(data.fieldRole ?? '').trim() || null,
     dictCode: String(data.dictCode ?? '').trim() || null,
     selectEntityKey: String(data.selectEntityKey ?? '').trim() || null,
+    selectValueField: String(data.selectValueField ?? '').trim() || null,
+    selectLabelField: String(data.selectLabelField ?? '').trim() || null,
     fixed: fixed ? (fixed as 'left' | 'right') : null,
   };
 }

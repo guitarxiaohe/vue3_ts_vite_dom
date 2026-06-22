@@ -4,16 +4,13 @@ import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import DetailDrawer from '@/features/form-shell/components/form-drawer.vue';
 import { mapEntityFormFields } from '@/features/entities/_shared/form-field-adapter';
-import {
-  addEntityRowApi,
-  updateEntityRowApi,
-} from '@/api/modules/dynamic-entity';
 import { getEntityTableConfig } from '@/utils/entity-config';
 import type {
   EntityFormEmits,
   EntityFormProps,
 } from '@/features/entities/_shared/types';
 import { getChatRuleFormFields } from './constants';
+import { addChatRuleApi, editChatRuleApi } from '../services';
 
 /******************************** AI 规则表单 ********************************/
 
@@ -26,8 +23,12 @@ const { t } = useI18n();
 const submitLoading = ref<boolean>(false);
 const formData = ref<Record<string, unknown>>({});
 
-const formFields = computed(() => mapEntityFormFields(getChatRuleFormFields(t)));
-const formChildren = computed(() => getEntityTableConfig('chatRule').children ?? []);
+const formFields = computed(() =>
+  mapEntityFormFields(getChatRuleFormFields(t))
+);
+const formChildren = computed(
+  () => getEntityTableConfig('chatRule').children ?? []
+);
 const resolvedRowKey = computed(() => {
   const config = getEntityTableConfig('chatRule');
   return config.rowKey || 'id';
@@ -53,9 +54,9 @@ async function handleSave(data: Record<string, unknown>) {
       props.record?.id ?? props.record?.[resolvedRowKey.value] ?? undefined;
 
     if (props.isCreate || id == null) {
-      await addEntityRowApi('chatRule', data);
+      await addChatRuleApi(data as any);
     } else {
-      await updateEntityRowApi('chatRule', id as number | string, data);
+      await editChatRuleApi({ ...data, ruleId: id } as any);
     }
 
     emit('save', data);

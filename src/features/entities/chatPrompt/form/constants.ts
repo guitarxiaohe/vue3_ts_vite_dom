@@ -74,12 +74,11 @@ export function getChatPromptFormFields(t: Translate): EntityFormField[] {
       prop: 'status',
       label: t('chatPromptForm.status'),
       type: 'radio',
-      optionSource: 'static',
+      optionSource: 'api',
       defaultValue: 1,
-      options: [
-        { label: t('dictDataForm.enabled'), value: 1 },
-        { label: t('dictDataForm.disabled'), value: 0 },
-      ],
+      apiOptions: {
+        dictCode: 'chat_enable_status',
+      },
     },
   ];
 }

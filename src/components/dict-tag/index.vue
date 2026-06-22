@@ -37,7 +37,7 @@ const label = computed(
     props.label ?? matchedItem.value?.dictLabel ?? String(props.value ?? '--')
 );
 const color = computed<string | undefined>(() => {
-  const c = props.color ?? matchedItem.value?.color;
+  const c = props.color ?? matchedItem.value?.cssClass;
   return typeof c === 'string' ? c : undefined;
 });
 

@@ -479,6 +479,8 @@ export default {
     fieldRole: '字段角色',
     dictCode: '字典编码',
     selectEntityKey: '下拉实体Key',
+    selectValueField: '下拉值字段',
+    selectLabelField: '下拉显示字段',
     sort: '排序',
     width: '列宽',
     createdTime: '创建时间',
@@ -722,6 +724,21 @@ export default {
     sort: '排序',
     status: '状态',
   },
+  chatQuestionForm: {
+    questionId: '问题ID',
+    sessionId: '会话ID',
+    question: '用户问题',
+    category: '分类',
+    scene: '场景',
+    moduleKey: '模块标识',
+    entityKey: '实体标识',
+    pagePath: '页面路径',
+    status: '处理状态',
+    resolvedRuleId: '关联规则ID',
+    statusPending: '待处理',
+    statusResolved: '已处理',
+    statusIgnored: '已忽略',
+  },
   dictDataForm: {
     dictCode: '字典编码',
     dictSort: '字典排序',
@@ -901,6 +918,7 @@ export default {
     chatRule: { title: 'AI 规则' },
     chatPrompt: { title: '提示词维护' },
     chatKnowledge: { title: '知识库' },
+    chatQuestion: { title: '未命中问题' },
   },
   field: {
     // 通用字段

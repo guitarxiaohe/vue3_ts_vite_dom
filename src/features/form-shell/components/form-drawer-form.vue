@@ -7,6 +7,9 @@ import { useFormValidation } from '../composables/use-form-validation';
 import type { DetailField, DetailRecord } from '../types/detail';
 import FileUpload from '@/components/file-upload/file-upload.vue';
 import PictureUpload from '@/components/picture-upload/picture-upload.vue';
+import { queryClient } from '@/api/query-client';
+import { DICT_DATA_ALL_QUERY_KEY } from '@/api/modules/dict';
+import type { DictDataItem } from '@/types/dict';
 
 /******************************** 类型定义 ********************************/
 
@@ -61,6 +64,27 @@ function resolveSelectPlaceholder(field: DetailField) {
   return (
     field.placeholder || t('validation.selectField', { field: field.label })
   );
+}
+
+/******************************** radio 字典选项 ********************************/
+
+// 当 radio 配置了 radioDictCode 时，从字典缓存读取选项
+function resolveRadioOptions(
+  field: DetailField
+): Array<{ label: string; value: string }> {
+  // 优先使用静态 options
+  if (field.options?.length) return field.options;
+  if (!field.radioDictCode) return [];
+
+  const allDict =
+    queryClient.getQueryData<DictDataItem[]>(DICT_DATA_ALL_QUERY_KEY) ?? [];
+
+  return allDict
+    .filter((item) => item.dictType === field.radioDictCode)
+    .map((item) => ({
+      label: item.dictLabel ?? '',
+      value: (item.dictValue ?? item.dictCode ?? '') as string,
+    }));
 }
 
 defineExpose({ validate, formRef });
@@ -148,7 +172,7 @@ defineExpose({ validate, formRef });
                 :disabled="isFieldDisabled(field)"
               >
                 <el-radio
-                  v-for="option in field.options || []"
+                  v-for="option in resolveRadioOptions(field)"
                   :key="option.value"
                   :value="option.value"
                 >

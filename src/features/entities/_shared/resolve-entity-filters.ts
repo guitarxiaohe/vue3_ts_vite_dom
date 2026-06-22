@@ -56,6 +56,14 @@ function buildBaseBackendFilterField(
   return baseField;
 }
 
+function resolveSelectMappingKey(
+  field: FieldConfig,
+  key: 'selectValueField' | 'selectLabelField'
+) {
+  const value = String(field[key] ?? '').trim();
+  return value || undefined;
+}
+
 // 默认组件替换规则
 export function createDefaultFilterComponentRegistrations(): EntityFilterComponentRegistration[] {
   return [
@@ -71,6 +79,8 @@ export function createDefaultFilterComponentRegistrations(): EntityFilterCompone
         entityConfig: {
           entityKey: String(field.selectEntityKey ?? '').trim(),
         },
+        valueKey: resolveSelectMappingKey(field, 'selectValueField'),
+        labelKey: resolveSelectMappingKey(field, 'selectLabelField'),
       }),
     },
     // dict 有 dictCode 但无 selectEntityKey → async-select（走字典缓存数据）

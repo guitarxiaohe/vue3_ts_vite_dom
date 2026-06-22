@@ -12,6 +12,15 @@ const entityModule = createEntityModule({
   rowActions: {
     actionColumnWidth: 180,
   },
+  tableActions: {
+    right: [
+      {
+        component: defineAsyncComponent(
+          () => import('./batch-actions/rule.vue')
+        ),
+      },
+    ],
+  },
   config: {
     title,
     table: {

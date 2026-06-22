@@ -511,10 +511,20 @@ function normalizeField(field: Record<string, any>): GenericEntityField | null {
   // 字典字段使用 dictValue/dictLabel 作为值/标签键
   const valueKey = dictField
     ? 'dictValue'
-    : String(field.valueKey ?? field.select?.valueKey ?? 'value');
+    : String(
+        resolveFieldValue(field, 'selectValueField', 'select_value_field') ??
+          field.valueKey ??
+          field.select?.valueKey ??
+          'value'
+      );
   const labelKey = dictField
     ? 'dictLabel'
-    : String(field.labelKey ?? field.select?.labelKey ?? 'label');
+    : String(
+        resolveFieldValue(field, 'selectLabelField', 'select_label_field') ??
+          field.labelKey ??
+          field.select?.labelKey ??
+          'label'
+      );
 
   return {
     key,
