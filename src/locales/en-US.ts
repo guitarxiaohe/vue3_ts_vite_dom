@@ -984,4 +984,24 @@ export default {
     companyName: 'Company Name',
     remark: 'Remark',
   },
+  aiChat: {
+    title: 'AI Assistant',
+    greeting: 'Hello, I am the AI assistant.',
+    loading: 'Replying',
+    placeholder: 'Enter your question',
+    count: '{count} items',
+    errors: {
+      empty: 'AI assistant returned no data',
+    },
+    sections: {
+      products: 'Products',
+      recommendations: 'Recommendations',
+      faqPages: 'Help Articles',
+      faqCategories: 'Help Categories',
+    },
+    fields: {
+      sku: 'SKU',
+      model: 'Model',
+    },
+  },
 };

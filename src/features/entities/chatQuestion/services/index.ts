@@ -67,7 +67,7 @@ export const removeChatQuestionApi = (questionIds: string) => {
   return httpClient.delete(`/chat/question/${questionIds}`);
 };
 
-/**  AI 根据当前提供的问题批量生成规则，规则状态为  */
+/** AI 根据选中的问题批量生成规则，规则状态为 2（AI 生成） */
 export const aiCreateRuleApi = (questionIds: string) => {
-  return httpClient.delete(`/chat/question/aiCreateRule/${questionIds}`);
+  return httpClient.post(`/chat/question/aiCreateRule/${questionIds}`);
 };

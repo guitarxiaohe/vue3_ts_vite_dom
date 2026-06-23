@@ -957,4 +957,24 @@ export default {
     companyName: '公司名稱',
     remark: '專案備註',
   },
+  aiChat: {
+    title: 'AI 客服',
+    greeting: '你好，我是 AI 客服。',
+    loading: '正在回覆',
+    placeholder: '輸入你的問題',
+    count: '共 {count} 條',
+    errors: {
+      empty: 'AI 客服未返回資料',
+    },
+    sections: {
+      products: '商品列表',
+      recommendations: '推薦列表',
+      faqPages: '幫助內容',
+      faqCategories: '幫助分類',
+    },
+    fields: {
+      sku: 'SKU',
+      model: '型號',
+    },
+  },
 };

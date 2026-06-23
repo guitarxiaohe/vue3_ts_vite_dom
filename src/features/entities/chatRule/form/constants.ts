@@ -119,13 +119,11 @@ export function getChatRuleFormFields(t: Translate): EntityFormField[] {
       prop: 'status',
       label: t('chatRuleForm.status'),
       type: 'radio',
-      optionSource: 'static',
+      optionSource: 'api',
       defaultValue: 1,
-      options: [
-        { label: t('dictDataForm.enabled'), value: 2 },
-        { label: t('dictDataForm.enabled'), value: 1 },
-        { label: t('dictDataForm.disabled'), value: 0 },
-      ],
+      apiOptions: {
+        dictCode: 'chat_rule_status',
+      },
     },
   ];
 }

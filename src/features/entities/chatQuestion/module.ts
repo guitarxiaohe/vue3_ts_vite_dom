@@ -10,8 +10,21 @@ const entityModule = createEntityModule({
   entityKey: 'chatQuestion',
   formComponent: defineAsyncComponent(() => import('./form/index.vue')),
   rowActions: {
-    actionColumnWidth: 180,
+    actionColumnWidth: 280,
+    customButtons: [
+      {
+        key: 'aiCreateRule',
+        label: 'AI 生成规则',
+        component: defineAsyncComponent(
+          () => import('./row-actions/ai-create-rule.vue')
+        ),
+      },
+    ],
   },
+
+  batchActions: [
+    defineAsyncComponent(() => import('./batch-actions/ai-create-rule.vue')),
+  ],
 
   config: {
     title,
@@ -24,8 +37,8 @@ const entityModule = createEntityModule({
         {
           label: '规则',
           relationField: {
-            parentKey: 'ruleId',
-            childKey: 'chatRule',
+            parentKey: 'resolvedRuleId',
+            childKey: 'resolvedRuleId',
           },
           entityKey: 'chatRule',
           rowKey: 'ruleId',
