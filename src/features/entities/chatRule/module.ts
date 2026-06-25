@@ -23,6 +23,10 @@ const entityModule = createEntityModule({
   },
   config: {
     title,
+    actions: {
+      showImport: true,
+      showExport: true,
+    },
     table: {
       rowKey: 'ruleId',
       height: 560,

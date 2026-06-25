@@ -26,7 +26,8 @@ export interface EntityFormField {
     | 'textarea'
     | 'switch'
     | 'radio'
-    | 'checkbox';
+    | 'checkbox'
+    | 'articleEditor';
   required?: boolean;
   min?: number;
   max?: number;
@@ -106,6 +107,8 @@ export interface EntityFormField {
      */
     maxCount?: number;
   };
+  // 文本编辑器配置
+  articleEditorConfig?: {};
 }
 
 /******************************** 表单组件协议 ********************************/

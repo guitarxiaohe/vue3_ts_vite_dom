@@ -19,6 +19,11 @@
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
     "@tanstack/vue-query": "^5.12.0",
+    "@tiptap/extension-image": "^3.27.1",
+    "@tiptap/extension-link": "^3.27.1",
+    "@tiptap/extension-placeholder": "^3.27.1",
+    "@tiptap/starter-kit": "^3.27.1",
+    "@tiptap/vue-3": "^3.27.1",
     "@types/three": "^0.183.1",
     "@vueuse/core": "^14.2.1",
     "axios": "^1.6.0",

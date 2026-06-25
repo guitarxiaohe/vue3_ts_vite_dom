@@ -18,6 +18,7 @@ const entityModule = createEntityModule({
         component: defineAsyncComponent(
           () => import('./row-actions/ai-create-rule.vue')
         ),
+        visible: (row) => row.status == 'PENDING',
       },
     ],
   },
@@ -28,6 +29,10 @@ const entityModule = createEntityModule({
 
   config: {
     title,
+    actions: {
+      showImport: true,
+      showExport: true,
+    },
     table: {
       rowKey: 'questionId',
       height: 560,

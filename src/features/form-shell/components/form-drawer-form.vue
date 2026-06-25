@@ -2,6 +2,7 @@
 import { computed, toRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { AsyncSelect } from '@/components/async-select';
+import RichTextEditor from '@/components/rich-text-editor/index.vue';
 import { AsyncCascader } from '@/components/async-cascader';
 import { useFormValidation } from '../composables/use-form-validation';
 import type { DetailField, DetailRecord } from '../types/detail';
@@ -10,7 +11,6 @@ import PictureUpload from '@/components/picture-upload/picture-upload.vue';
 import { queryClient } from '@/api/query-client';
 import { DICT_DATA_ALL_QUERY_KEY } from '@/api/modules/dict';
 import type { DictDataItem } from '@/types/dict';
-
 /******************************** 类型定义 ********************************/
 
 interface FormDrawerFormProps {
@@ -221,6 +221,12 @@ defineExpose({ validate, formRef });
                 :disabled="isFieldDisabled(field)"
               />
 
+              <RichTextEditor
+                v-else-if="field.type === 'articleEditor'"
+                v-model="formData[field.prop]"
+                :disabled="isFieldDisabled(field)"
+                v-bind="field.fileConfig"
+              />
               <el-input
                 v-else
                 v-model="formData[field.prop]"

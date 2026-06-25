@@ -28,7 +28,8 @@ export type FieldType =
   | 'textarea'
   | 'radio'
   | 'checkbox'
-  | 'switch';
+  | 'switch'
+  | 'articleEditor';
 
 // 异步下拉配置
 export interface AsyncSelectConfig {

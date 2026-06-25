@@ -110,7 +110,7 @@ export function getChatRuleFormFields(t: Translate): EntityFormField[] {
     {
       prop: 'answerTemplate',
       label: answerTemplateLabel,
-      type: 'textarea',
+      type: 'articleEditor',
       placeholder: t('validation.enterField', {
         field: answerTemplateLabel,
       }),
@@ -122,7 +122,7 @@ export function getChatRuleFormFields(t: Translate): EntityFormField[] {
       optionSource: 'api',
       defaultValue: 1,
       apiOptions: {
-        dictCode: 'chat_rule_status',
+        dictCode: 'chat_enable_status',
       },
     },
   ];

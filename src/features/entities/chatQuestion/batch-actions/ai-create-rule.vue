@@ -46,7 +46,9 @@ async function handleBatchCreateRule() {
     props.clearSelection();
     props.refresh();
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '批量生成规则失败');
+    ElMessage.error(
+      error instanceof Error ? error.message : '批量生成规则失败'
+    );
     loading.value = false;
   }
 }
