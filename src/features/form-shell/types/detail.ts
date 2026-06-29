@@ -38,7 +38,7 @@ export interface AsyncSelectConfig {
   columns?: ColumnsItem[];
   valueKey?: string;
   labelKey?: string;
-  dragKey?: string;
+  subtitleKey?: string;
 }
 
 // 异步联级下拉配置

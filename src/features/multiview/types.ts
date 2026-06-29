@@ -47,7 +47,7 @@ export interface MultiviewFilterField {
   options?: MultiviewFilterOption[];
   valueKey?: string;
   labelKey?: string;
-  dragKey?: string;
+  subtitleKey?: string;
   entityConfig?: AsyncSelectEntityConfig;
   renderComponent?: Component;
   componentProps?: Record<string, unknown>;

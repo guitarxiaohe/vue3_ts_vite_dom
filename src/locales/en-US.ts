@@ -506,6 +506,7 @@ export default {
     selectEntityKey: 'Select Entity Key',
     selectValueField: 'Select Value Field',
     selectLabelField: 'Select Label Field',
+    subtitle: 'Select Subtitle Field',
     sort: 'Sort',
     width: 'Width',
     createdTime: 'Created Time',

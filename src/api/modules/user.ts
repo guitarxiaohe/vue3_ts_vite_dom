@@ -38,6 +38,7 @@ const createMockField = (
     (field.selectValueField as string | null | undefined) ?? null,
   selectLabelField:
     (field.selectLabelField as string | null | undefined) ?? null,
+  subtitle: (field.subtitle as string | null | undefined) ?? null,
   sort: Number(field.sort ?? 0),
   width: Number(field.width ?? 200),
   isFuzzySearch: Boolean(field.isFuzzySearch ?? false),
@@ -76,7 +77,7 @@ const mockEntityFields: Record<
       selectEntityKey: 'user',
       labelKey: 'nickName',
       valueKey: 'userId',
-      dragKey: 'userName',
+      subtitleKey: 'userName',
     }),
     createMockField({
       id: 3,
@@ -142,7 +143,7 @@ const mockEntityFields: Record<
       selectEntityKey: 'dept',
       labelKey: 'deptName',
       valueKey: 'deptId',
-      dragKey: 'leader',
+      subtitleKey: 'leader',
     }),
   ],
   fileInfo: [

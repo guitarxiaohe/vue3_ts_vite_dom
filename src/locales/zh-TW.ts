@@ -481,6 +481,7 @@ export default {
     selectEntityKey: '下拉實體Key',
     selectValueField: '下拉值欄位',
     selectLabelField: '下拉顯示欄位',
+    subtitle: '下拉副標題欄位',
     sort: '排序',
     width: '欄寬',
     createdTime: '建立時間',

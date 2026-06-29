@@ -36,43 +36,43 @@ const entityModule = createEntityModule({
       showImport: false,
       showExport: true,
     },
-    filters: {
-      fields: {
-        title: {
-          key: 'title',
-          label: '会议标题',
-          component: 'input',
-          placeholder: '请输入会议标题',
-          order: 1,
-        },
-        status: {
-          key: 'status',
-          label: '会议状态',
-          component: 'select',
-          placeholder: '请选择状态',
-          order: 2,
-          options: [
-            { label: '进行中', value: 'ACTIVE' },
-            { label: '关闭中', value: 'CLOSING' },
-            { label: '已关闭', value: 'CLOSED_SUCCESS' },
-            { label: '关闭失败', value: 'CLOSE_FAILED' },
-          ],
-        },
-        rtcStatus: {
-          key: 'rtcStatus',
-          label: 'RTC状态',
-          component: 'select',
-          placeholder: '请选择RTC状态',
-          order: 3,
-          options: [
-            { label: '初始化', value: 'INIT' },
-            { label: '运行中', value: 'RUNNING' },
-            { label: '已停止', value: 'STOPPED' },
-            { label: '失败', value: 'FAILED' },
-          ],
-        },
-      },
-    },
+    // filters: {
+    //   fields: {
+    //     title: {
+    //       key: 'title',
+    //       label: '会议标题',
+    //       component: 'input',
+    //       placeholder: '请输入会议标题',
+    //       order: 1,
+    //     },
+    //     status: {
+    //       key: 'status',
+    //       label: '会议状态',
+    //       component: 'select',
+    //       placeholder: '请选择状态',
+    //       order: 2,
+    //       options: [
+    //         { label: '进行中', value: 'ACTIVE' },
+    //         { label: '关闭中', value: 'CLOSING' },
+    //         { label: '已关闭', value: 'CLOSED_SUCCESS' },
+    //         { label: '关闭失败', value: 'CLOSE_FAILED' },
+    //       ],
+    //     },
+    //     rtcStatus: {
+    //       key: 'rtcStatus',
+    //       label: 'RTC状态',
+    //       component: 'select',
+    //       placeholder: '请选择RTC状态',
+    //       order: 3,
+    //       options: [
+    //         { label: '初始化', value: 'INIT' },
+    //         { label: '运行中', value: 'RUNNING' },
+    //         { label: '已停止', value: 'STOPPED' },
+    //         { label: '失败', value: 'FAILED' },
+    //       ],
+    //     },
+    //   },
+    // },
     table: {
       rowKey: 'id',
       height: 560,

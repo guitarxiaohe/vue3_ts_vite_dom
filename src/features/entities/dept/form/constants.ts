@@ -24,7 +24,7 @@ export function getDeptFormFields(t: Translate): EntityFormField[] {
         entityKey: 'dept',
         valueKey: 'deptId',
         labelKey: 'deptName',
-        dragKey: 'leader',
+        subtitleKey: 'leader',
       },
     },
     {

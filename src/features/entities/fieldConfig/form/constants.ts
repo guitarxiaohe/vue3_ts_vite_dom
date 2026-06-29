@@ -112,6 +112,14 @@ export function getFieldConfigFormFields(t: Translate): EntityFormField[] {
       }),
     },
     {
+      prop: 'subtitle',
+      label: t('fieldConfig.subtitle'),
+      type: 'text',
+      placeholder: t('validation.enterField', {
+        field: t('fieldConfig.subtitle'),
+      }),
+    },
+    {
       prop: 'sort',
       label: t('fieldConfig.sort'),
       type: 'number',

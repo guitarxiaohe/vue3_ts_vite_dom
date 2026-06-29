@@ -47,7 +47,7 @@ export interface EntityFormField {
     dictCode?: string;
     valueKey?: string;
     labelKey?: string;
-    dragKey?: string;
+    subtitleKey?: string;
     columns?: ColumnsItem[];
     dataParams?: Record<string, string | number | boolean | undefined>;
     fetcher?: (

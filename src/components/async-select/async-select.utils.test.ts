@@ -17,7 +17,7 @@ test('loadMissingSelectedOptions should resolve missing selected options from fa
       value: row.deptId as number,
       label: {
         label: row.deptName as string,
-        dragLabel: '',
+        subtitle: '',
         raw: row,
       },
     }),
@@ -28,7 +28,7 @@ test('loadMissingSelectedOptions should resolve missing selected options from fa
       value: 2,
       label: {
         label: '产品部',
-        dragLabel: '',
+        subtitle: '',
         raw: { deptId: 2, deptName: '产品部' },
       },
     },
@@ -50,7 +50,7 @@ test('loadMissingSelectedOptions should skip fetch when selected values are alre
       value: row.deptId as number,
       label: {
         label: row.deptName as string,
-        dragLabel: '',
+        subtitle: '',
         raw: row,
       },
     }),

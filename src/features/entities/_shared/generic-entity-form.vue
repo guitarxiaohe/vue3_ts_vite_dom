@@ -84,7 +84,7 @@
             :columns="field.columns"
             :value-key="field.valueKey"
             :label-key="field.labelKey"
-            :drag-key="field.dragKey"
+            :subtitle-key="field.subtitleKey"
             :placeholder="field.placeholder"
             :dialog-title="field.label"
           />
@@ -195,7 +195,7 @@ interface GenericEntityField {
   columns?: ColumnsItem[];
   valueKey?: string;
   labelKey?: string;
-  dragKey?: string;
+  subtitleKey?: string;
   activeValue?: string | number | boolean;
   inactiveValue?: string | number | boolean;
   precision?: number;
@@ -455,7 +455,12 @@ function resolveDictCode(field: Record<string, any>) {
 // 构建静态下拉列
 function buildStaticColumns(field: Record<string, any>) {
   const labelKey = String(field.labelKey ?? field.select?.labelKey ?? 'label');
-  const dragKey = String(field.dragKey ?? field.select?.dragKey ?? '');
+  const subtitleKey = String(
+    resolveFieldValue(field, 'subtitle', 'subtitle') ??
+      field.subtitleKey ??
+      field.select?.subtitleKey ??
+      ''
+  );
   const columns: ColumnsItem[] = [
     {
       key: labelKey,
@@ -467,10 +472,10 @@ function buildStaticColumns(field: Record<string, any>) {
     },
   ];
 
-  if (dragKey) {
+  if (subtitleKey) {
     columns.push({
-      key: dragKey,
-      dataKey: dragKey,
+      key: subtitleKey,
+      dataKey: subtitleKey,
       title: t('common.keyword'),
       width: 200,
     });
@@ -544,7 +549,12 @@ function normalizeField(field: Record<string, any>): GenericEntityField | null {
     ),
     valueKey,
     labelKey,
-    dragKey: String(field.dragKey ?? field.select?.dragKey ?? ''),
+    subtitleKey: String(
+      resolveFieldValue(field, 'subtitle', 'subtitle') ??
+        field.subtitleKey ??
+        field.select?.subtitleKey ??
+        ''
+    ),
     activeValue: field.activeValue ?? '0',
     inactiveValue: field.inactiveValue ?? '1',
     precision: field.precision == null ? undefined : Number(field.precision),

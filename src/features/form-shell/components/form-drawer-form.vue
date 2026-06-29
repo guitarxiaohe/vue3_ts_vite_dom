@@ -130,7 +130,7 @@ defineExpose({ validate, formRef });
                 :columns="field.asyncSelectConfig.columns"
                 :value-key="field.asyncSelectConfig.valueKey"
                 :label-key="field.asyncSelectConfig.labelKey"
-                :drag-key="field.asyncSelectConfig.dragKey"
+                :subtitle-key="field.asyncSelectConfig.subtitleKey"
                 :placeholder="resolveSelectPlaceholder(field)"
                 :disabled="isFieldDisabled(field)"
                 :multiple="field.multiple"

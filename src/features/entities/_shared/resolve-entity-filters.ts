@@ -58,7 +58,7 @@ function buildBaseBackendFilterField(
 
 function resolveSelectMappingKey(
   field: FieldConfig,
-  key: 'selectValueField' | 'selectLabelField'
+  key: 'selectValueField' | 'selectLabelField' | 'subtitle'
 ) {
   const value = String(field[key] ?? '').trim();
   return value || undefined;
@@ -81,6 +81,7 @@ export function createDefaultFilterComponentRegistrations(): EntityFilterCompone
         },
         valueKey: resolveSelectMappingKey(field, 'selectValueField'),
         labelKey: resolveSelectMappingKey(field, 'selectLabelField'),
+        subtitleKey: resolveSelectMappingKey(field, 'subtitle'),
       }),
     },
     // dict 有 dictCode 但无 selectEntityKey → async-select（走字典缓存数据）

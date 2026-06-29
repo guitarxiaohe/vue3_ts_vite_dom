@@ -144,6 +144,7 @@ export interface FieldConfig {
   selectEntityKey: string | null;
   selectValueField: string | null;
   selectLabelField: string | null;
+  subtitle: string | null;
   sort: number;
   isFuzzySearch: boolean; // 转为布尔值
   isVisible: boolean; // 转为布尔值

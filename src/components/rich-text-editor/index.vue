@@ -109,11 +109,7 @@ function setHorizontalRule() {
 function addLink() {
   const url = window.prompt('输入链接地址');
   if (url) {
-    editor.value
-      ?.chain()
-      .focus()
-      .setLink({ href: url })
-      .run();
+    editor.value?.chain().focus().setLink({ href: url }).run();
   }
 }
 function addImage() {
@@ -141,10 +137,7 @@ defineExpose({ editor, clearFormat });
 <template>
   <div v-if="editor" class="tiptap-wrapper">
     <!-------------------------- 工具栏 -------------------------->
-    <div
-      class="tiptap-toolbar"
-      @mousedown.prevent
-    >
+    <div class="tiptap-toolbar" @mousedown.prevent>
       <button
         type="button"
         :class="{ 'is-active': isActive('bold') }"
@@ -242,7 +235,9 @@ defineExpose({ editor, clearFormat });
 
       <button type="button" title="撤销" @click="undo">↩</button>
       <button type="button" title="重做" @click="redo">↪</button>
-      <button type="button" title="清除格式" @click="clearFormat">清除格式</button>
+      <button type="button" title="清除格式" @click="clearFormat">
+        清除格式
+      </button>
     </div>
 
     <!-------------------------- 编辑区 -------------------------->
@@ -323,9 +318,21 @@ defineExpose({ editor, clearFormat });
   }
 
   // 标题
-  h1 { font-size: 1.6em; font-weight: 700; margin: 0.8em 0 0.4em; }
-  h2 { font-size: 1.3em; font-weight: 600; margin: 0.6em 0 0.3em; }
-  h3 { font-size: 1.1em; font-weight: 600; margin: 0.5em 0 0.2em; }
+  h1 {
+    font-size: 1.6em;
+    font-weight: 700;
+    margin: 0.8em 0 0.4em;
+  }
+  h2 {
+    font-size: 1.3em;
+    font-weight: 600;
+    margin: 0.6em 0 0.3em;
+  }
+  h3 {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin: 0.5em 0 0.2em;
+  }
 
   // 引用
   blockquote {
@@ -343,7 +350,10 @@ defineExpose({ editor, clearFormat });
     overflow-x: auto;
     font-family: 'Fira Code', 'Consolas', monospace;
     font-size: 13px;
-    code { background: none; padding: 0; }
+    code {
+      background: none;
+      padding: 0;
+    }
   }
 
   // 行内代码
@@ -376,7 +386,8 @@ defineExpose({ editor, clearFormat });
   }
 
   // 列表
-  ul, ol {
+  ul,
+  ol {
     padding-left: 1.5em;
     margin: 4px 0;
   }

@@ -56,7 +56,7 @@ export function mapEntityFormFields(fields: EntityFormField[]): DetailField[] {
           },
           valueKey: field.apiOptions.valueKey ?? 'dictValue',
           labelKey: field.apiOptions.labelKey ?? 'dictLabel',
-          dragKey: field.apiOptions.dragKey,
+          subtitleKey: field.apiOptions.subtitleKey,
         };
       } else {
         nextField.asyncSelectConfig = {
@@ -86,7 +86,7 @@ export function mapEntityFormFields(fields: EntityFormField[]): DetailField[] {
           columns: field.apiOptions.columns,
           valueKey: field.apiOptions.valueKey,
           labelKey: field.apiOptions.labelKey,
-          dragKey: field.apiOptions.dragKey,
+          subtitleKey: field.apiOptions.subtitleKey,
         };
       }
     }

@@ -14,6 +14,7 @@ export interface FieldConfig {
   selectEntityKey?: string | null;
   selectValueField?: string | null;
   selectLabelField?: string | null;
+  subtitle?: string | null;
   sort?: number;
   width?: number | null;
   isFuzzySearch?: number;
@@ -40,6 +41,7 @@ export interface FieldConfigQuery
         | 'selectEntityKey'
         | 'selectValueField'
         | 'selectLabelField'
+        | 'subtitle'
         | 'fixed'
       >
     >,

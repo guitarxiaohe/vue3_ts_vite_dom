@@ -481,6 +481,7 @@ export default {
     selectEntityKey: '下拉实体Key',
     selectValueField: '下拉值字段',
     selectLabelField: '下拉显示字段',
+    subtitle: '下拉副标题字段',
     sort: '排序',
     width: '列宽',
     createdTime: '创建时间',

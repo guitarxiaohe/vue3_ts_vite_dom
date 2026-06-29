@@ -70,3 +70,35 @@ export function snakeToCamel(
 
   return result;
 }
+
+/**
+ * 将下划线字符串转换为驼峰命名（小驼峰）
+ * @param {string} str - 包含下划线的字符串，如 "user_name"
+ * @param {boolean} [capitalizeFirst=false] - 是否首字母大写（大驼峰）
+ * @returns {string} 转换后的驼峰字符串
+ */
+export function toCamelCase(str: string, capitalizeFirst = false) {
+  // 处理空值或非字符串
+  if (typeof str !== 'string') return '';
+
+  // 将字符串按一个或多个下划线分割，过滤掉空段（避免连续下划线）
+  const parts = str.split('_').filter((part) => part.length > 0);
+
+  if (parts.length === 0) return '';
+
+  // 首段特殊处理
+  let result = parts[0].toLowerCase();
+
+  // 从第二段开始，每个单词首字母大写，其余小写
+  for (let i = 1; i < parts.length; i++) {
+    const word = parts[i].toLowerCase();
+    result += word.charAt(0).toUpperCase() + word.slice(1);
+  }
+
+  // 如果需要大驼峰（首字母大写）
+  if (capitalizeFirst) {
+    result = result.charAt(0).toUpperCase() + result.slice(1);
+  }
+
+  return result;
+}

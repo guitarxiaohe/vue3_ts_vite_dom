@@ -57,7 +57,7 @@ export function getUserFormFields(
         entityKey: 'dept',
         valueKey: 'deptId',
         labelKey: 'deptName',
-        dragKey: 'leader',
+        subtitleKey: 'leader',
       },
     },
     {

@@ -18,6 +18,7 @@ describe('resolveBackendFilterFields', () => {
           selectEntityKey: 'chatCategory',
           selectValueField: 'category_code',
           selectLabelField: 'category_name',
+          subtitle: 'category_desc',
           sort: 1,
           isFuzzySearch: true,
           isVisible: true,
@@ -37,6 +38,7 @@ describe('resolveBackendFilterFields', () => {
       component: 'async-select',
       valueKey: 'category_code',
       labelKey: 'category_name',
+      subtitleKey: 'category_desc',
       entityConfig: {
         entityKey: 'chatCategory',
       },
