@@ -17,6 +17,7 @@ import type {
   AsyncSelectFetchResult,
   SelectVal,
 } from './async-select.type';
+import { toCamelCase } from '@/utils/value';
 
 const { t } = useI18n();
 
@@ -24,7 +25,7 @@ const { t } = useI18n();
 
 type OptLabel = {
   label: string;
-  dragLabel: string;
+  subtitle: string;
   raw: Record<string, any>;
 };
 
@@ -62,12 +63,12 @@ const props = withDefaults(
     dialogPageSize?: number;
     queryKey?: string | string[];
     staleTime?: number;
-    dragKey?: string;
+    subtitleKey?: string;
   }>(),
   {
     multiple: false,
     valueKey: 'value',
-    labelKey: 'deptName',
+    labelKey: 'label',
     placeholder: '',
     disabled: false,
     dictCode: '',
@@ -75,10 +76,9 @@ const props = withDefaults(
     columns: () => [],
     dialogPageSize: 20,
     staleTime: 5 * 60 * 1000,
-    dragKey: '',
+    subtitleKey: '',
   }
 );
-
 const emit = defineEmits<{
   'update:modelValue': [v: SelectVal];
   change: [v: SelectVal, rows: Record<string, any>[]];
@@ -145,7 +145,9 @@ function toOpt(item: Record<string, any>): Opt {
     value: resolveOptionValue(item),
     label: {
       label: resolveOptionLabel(item),
-      dragLabel: props.dragKey ? String(item[props.dragKey] ?? '') : '',
+      subtitle: props.subtitleKey
+        ? String(item[toCamelCase(props.subtitleKey)] ?? '')
+        : '',
       raw: item,
     },
   };
@@ -207,6 +209,7 @@ async function fetchEntityList(
   if (!config?.entityKey) {
     throw new Error('AsyncSelect entityConfig.entityKey is required');
   }
+
   const query: TableListQuery & { keyword?: string } = {
     pageNum: params.page,
     pageSize: params.pageSize,
@@ -230,13 +233,17 @@ async function fetchEntityList(
     rows?: Record<string, any>[];
     total?: number;
   };
-  return {
-    items:
-      result.rows?.map((t) => ({
+  const items =
+    result.rows?.map((t) => {
+      return {
         ...t,
-        label: t[props.labelKey],
-        value: t[props.valueKey],
-      })) ?? [],
+        label: t[toCamelCase(props.labelKey)],
+        value: t[toCamelCase(props.valueKey)],
+        subTitle: t[toCamelCase(props.subtitleKey)],
+      };
+    }) ?? [];
+  return {
+    items,
     total: Number(result.total) || 0,
   };
 }
@@ -372,8 +379,8 @@ const computedDialogTitle = computed(
           <p class="async-select__option-label">
             {{ item.label.label }}
           </p>
-          <p v-if="item.label.dragLabel" class="async-select__option-desc">
-            {{ item.label.dragLabel }}
+          <p v-if="item.label.subtitle" class="async-select__option-desc">
+            {{ item.label.subtitle }}
           </p>
         </div>
       </template>
