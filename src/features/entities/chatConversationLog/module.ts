@@ -17,13 +17,13 @@ const entityModule = createEntityModule({
       defaultSort: { field: 'createdAt', order: 'desc' },
       children: [
         {
-          label: '命中规则',
+          label: '规则得分情况',
           relationField: {
-            parentKey: 'ruleId',
-            childKey: ' ruleId',
+            parentKey: 'logId',
+            childKey: ' conversationLogId',
           },
-          entityKey: 'chatRule',
-          rowKey: 'chatRuleId',
+          entityKey: 'chatRuleMatchLog',
+          rowKey: 'matchLogId',
         },
       ],
     },

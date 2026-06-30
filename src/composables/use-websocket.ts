@@ -187,6 +187,17 @@ export function useWebSocket() {
   function connect() {
     const token = localStorage.getItem('token');
     if (!token) return;
+    // if (
+    //   ws.value &&
+    //   (ws.value.readyState === WebSocket.OPEN ||
+    //     ws.value.readyState === WebSocket.CONNECTING)
+    // ) {
+    //   return;
+    // }
+    // if (reconnectTimer) {
+    //   clearTimeout(reconnectTimer);
+    //   reconnectTimer = null;
+    // }
 
     const url = buildNotifyWebSocketUrl({
       token,

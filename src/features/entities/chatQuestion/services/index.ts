@@ -21,7 +21,7 @@ export interface ChatQuestionData {
   /** 页面路径 */
   pagePath?: string;
   /** 处理状态 */
-  status?: string;
+  status: string;
   /** 关联规则ID */
   resolvedRuleId?: number;
 }

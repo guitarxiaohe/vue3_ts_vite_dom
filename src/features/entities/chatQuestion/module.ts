@@ -43,7 +43,7 @@ const entityModule = createEntityModule({
           label: '规则',
           relationField: {
             parentKey: 'resolvedRuleId',
-            childKey: 'resolvedRuleId',
+            childKey: 'ruleId',
           },
           entityKey: 'chatRule',
           rowKey: 'ruleId',

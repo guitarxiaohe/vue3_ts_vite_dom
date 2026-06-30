@@ -31,6 +31,17 @@ const entityModule = createEntityModule({
       rowKey: 'ruleId',
       height: 560,
       defaultSort: { field: 'priority', order: 'asc' },
+      children: [
+        {
+          label: '规则得分情况',
+          relationField: {
+            parentKey: 'ruleId',
+            childKey: ' ruleId',
+          },
+          entityKey: 'chatRuleMatchLog',
+          rowKey: 'matchLogId',
+        },
+      ],
     },
     detail: {
       title,
