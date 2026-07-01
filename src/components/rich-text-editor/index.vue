@@ -251,6 +251,7 @@ defineExpose({ editor, clearFormat });
   border-radius: var(--el-border-radius-base);
   overflow: hidden;
   background: var(--el-bg-color);
+  width: 100%;
 }
 
 .tiptap-toolbar {

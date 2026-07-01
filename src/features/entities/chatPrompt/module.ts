@@ -28,7 +28,7 @@ const entityModule = createEntityModule({
       showExport: true,
     },
     table: {
-      rowKey: 'prompId',
+      rowKey: 'promptId',
       height: 560,
       defaultSort: { field: 'createdAt', order: 'desc' },
     },

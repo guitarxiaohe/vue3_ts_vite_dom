@@ -86,7 +86,7 @@ function resolveRadioOptions(
       value: (item.dictValue ?? item.dictCode ?? '') as string,
     }));
 }
-
+console.log('formData ==>', formData.value);
 defineExpose({ validate, formRef });
 </script>
 
@@ -102,7 +102,7 @@ defineExpose({ validate, formRef });
       <!-------------------------- 栅格表单 -------------------------->
       <el-row :gutter="16">
         <template v-for="field in visibleFields" :key="field.prop">
-          <el-col :span="colSpan">
+          <el-col :span="field.type === 'textarea' || field.type === 'articleEditor' ? 24 : colSpan">
             <el-form-item :label="field.label" :prop="field.prop">
               <el-select
                 v-if="field.type === 'select'"

@@ -20,17 +20,18 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/external-meeting/index.vue'),
     meta: { requiresAuth: false },
   },
-  {
-    path: '/index',
-    name: 'Index',
-    component: () => import('@/views/index.vue'),
-    meta: { requiresAuth: false, titleKey: 'user.login' },
-  },
+
   {
     path: '/',
     component: Layout,
-    redirect: '/entity',
+    redirect: '/index',
     children: [
+      {
+        path: '/index',
+        name: 'Index',
+        component: () => import('@/views/index.vue'),
+        meta: { requiresAuth: false, titleKey: 'user.index' },
+      },
       {
         path: '/entity',
         redirect: '/multiview/entity',

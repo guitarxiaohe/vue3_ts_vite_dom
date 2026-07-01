@@ -251,7 +251,6 @@ onBeforeUnmount(() => {
   min-height: 100vh;
   background: var(--home-bg);
   color: var(--home-text);
-  overflow-x: hidden;
 }
 
 /* ══════════════════════════════════════════════════════════════════

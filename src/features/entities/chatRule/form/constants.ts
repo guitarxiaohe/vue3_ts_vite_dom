@@ -68,15 +68,7 @@ export function getChatRuleFormFields(t: Translate): EntityFormField[] {
         dictCode: 'chat_rule_match_type',
       },
     },
-    {
-      prop: 'matchPattern',
-      label: matchPatternLabel,
-      type: 'textarea',
-      required: true,
-      placeholder: t('validation.enterField', {
-        field: matchPatternLabel,
-      }),
-    },
+
     {
       prop: 'priority',
       label: t('chatRuleForm.priority'),
@@ -100,6 +92,25 @@ export function getChatRuleFormFields(t: Translate): EntityFormField[] {
       },
     },
     {
+      prop: 'status',
+      label: t('chatRuleForm.status'),
+      type: 'radio',
+      optionSource: 'api',
+      defaultValue: 1,
+      apiOptions: {
+        dictCode: 'chat_enable_status',
+      },
+    },
+    {
+      prop: 'matchPattern',
+      label: matchPatternLabel,
+      type: 'textarea',
+      required: true,
+      placeholder: t('validation.enterField', {
+        field: matchPatternLabel,
+      }),
+    },
+    {
       prop: 'actionConfig',
       label: actionConfigLabel,
       type: 'textarea',
@@ -114,16 +125,6 @@ export function getChatRuleFormFields(t: Translate): EntityFormField[] {
       placeholder: t('validation.enterField', {
         field: answerTemplateLabel,
       }),
-    },
-    {
-      prop: 'status',
-      label: t('chatRuleForm.status'),
-      type: 'radio',
-      optionSource: 'api',
-      defaultValue: 1,
-      apiOptions: {
-        dictCode: 'chat_enable_status',
-      },
     },
   ];
 }

@@ -81,6 +81,7 @@ function onCancel() {
     :record="props.record"
     :record-list="props.recordList"
     :initial-index="props.initialIndex"
+    :columns="2"
     :visible="props.visible"
     :is-create="props.isCreate"
     :fields="formFields"

@@ -14,14 +14,6 @@ export function getChatPromptFormFields(t: Translate): EntityFormField[] {
 
   return [
     {
-      prop: 'prompId',
-      label: t('chatPromptForm.prompId'),
-      type: 'text',
-      readonly: true,
-      hideOnCreate: true,
-      copyable: false,
-    },
-    {
       prop: 'name',
       label: nameLabel,
       type: 'text',
