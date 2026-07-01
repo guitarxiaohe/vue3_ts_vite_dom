@@ -125,6 +125,7 @@ export function getChatRuleFormFields(t: Translate): EntityFormField[] {
       placeholder: t('validation.enterField', {
         field: answerTemplateLabel,
       }),
+      visibleWhen: (formData) => formData.actionType === 'ANSWER',
     },
   ];
 }

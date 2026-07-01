@@ -100,6 +100,8 @@ export interface EntityFormField {
   defaultValue?: unknown;
   /** 是否显示复制按钮 */
   copyable?: boolean;
+  /** 条件可见性：根据表单数据动态控制字段是否显示 */
+  visibleWhen?: (formData: Record<string, any>) => boolean;
 
   /** 图片上传配置（仅 type='picture' 时有效） */
   pictureConfig?: {

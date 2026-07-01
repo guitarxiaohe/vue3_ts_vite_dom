@@ -46,6 +46,7 @@ const visibleFields = computed(() => {
   return (props.fields ?? []).filter((field) => {
     if (props.isCreate && field.hideOnCreate) return false;
     if (!props.isCreate && field.hideOnEdit) return false;
+    if (field.visibleWhen && !field.visibleWhen(formData.value)) return false;
     return true;
   });
 });
@@ -102,7 +103,13 @@ defineExpose({ validate, formRef });
       <!-------------------------- 栅格表单 -------------------------->
       <el-row :gutter="16">
         <template v-for="field in visibleFields" :key="field.prop">
-          <el-col :span="field.type === 'textarea' || field.type === 'articleEditor' ? 24 : colSpan">
+          <el-col
+            :span="
+              field.type === 'textarea' || field.type === 'articleEditor'
+                ? 24
+                : colSpan
+            "
+          >
             <el-form-item :label="field.label" :prop="field.prop">
               <el-select
                 v-if="field.type === 'select'"

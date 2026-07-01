@@ -25,6 +25,7 @@ export function mapEntityFormFields(fields: EntityFormField[]): DetailField[] {
       hideOnCreate: field.hideOnCreate,
       hideOnEdit: field.hideOnEdit,
       copyable: field.copyable,
+      visibleWhen: field.visibleWhen,
     };
 
     if (field.type === 'picture') {
