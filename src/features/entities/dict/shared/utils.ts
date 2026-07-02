@@ -10,7 +10,7 @@ export interface DictPayload {
   dictId?: number | string;
   dictType: string;
   dictName: string;
-  dictClass: DictClassValue;
+  dictScope: DictClassValue;
   status: DictStatusValue;
   remark: string;
 }
@@ -55,7 +55,7 @@ export function createDefaultParentForm(): DictFormData {
     dictId: undefined,
     dictType: '',
     dictName: '',
-    dictClass: 'system',
+    dictScope: 'system',
     status: '0',
     remark: '',
   };
@@ -70,9 +70,10 @@ export function cloneParentForm(
     ...createDefaultParentForm(),
     dictId: source.dictId as number | string | undefined,
     dictType: String(source.dictType ?? '').trim(),
+
     dictName: String(source.dictName ?? '').trim(),
-    dictClass:
-      (String(source.dictClass ?? 'system') as DictClassValue) || 'system',
+    dictScope:
+      (String(source.dictScope ?? 'system') as DictClassValue) || 'system',
     status: normalizeStatus(source.status),
     remark: String(source.remark ?? ''),
   };
@@ -172,7 +173,7 @@ export function buildDictPayload(form: DictFormData): DictPayload {
     dictId: form.dictId,
     dictType: form.dictType.trim(),
     dictName: form.dictName.trim(),
-    dictClass: form.dictClass,
+    dictScope: form.dictScope,
     status: normalizeStatus(form.status),
     remark: String(form.remark ?? '').trim(),
   };

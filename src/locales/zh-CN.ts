@@ -606,7 +606,7 @@ export default {
     typeDocument: '文档',
     typeOther: '其他',
     createBy: '创建者',
-    createByPlaceholder: '列表查询必填，与后端 list 一致',
+    createByPlaceholder: '可按创建者筛选，不填显示全部',
     createByRequired: '请先填写创建者后再查询或新增',
     selectOneToEdit: '请只选择一条记录进行编辑',
     delFlagY: '已删除',

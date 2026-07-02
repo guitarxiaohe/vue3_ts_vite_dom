@@ -631,7 +631,7 @@ export default {
     typeDocument: 'Document',
     typeOther: 'Other',
     createBy: 'Creator',
-    createByPlaceholder: 'Required for list API',
+    createByPlaceholder: 'Filter by creator, blank shows all',
     createByRequired: 'Enter creator before search or add',
     selectOneToEdit: 'Select exactly one row to edit',
     delFlagY: 'Deleted',

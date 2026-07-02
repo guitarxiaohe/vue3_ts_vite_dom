@@ -606,7 +606,7 @@ export default {
     typeDocument: '文件',
     typeOther: '其他',
     createBy: '建立者',
-    createByPlaceholder: '列表查詢必填，與後端 list 一致',
+    createByPlaceholder: '可依建立者篩選，不填顯示全部',
     createByRequired: '請先填寫建立者後再查詢或新增',
     selectOneToEdit: '請只選擇一筆資料進行編輯',
     delFlagY: '已刪除',

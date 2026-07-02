@@ -15,7 +15,7 @@ export interface DictFormData extends Record<string, unknown> {
   dictId?: number | string;
   dictType: string;
   dictName: string;
-  dictClass: DictClassValue;
+  dictScope: DictClassValue;
   status: DictStatusValue;
   remark?: string;
 }

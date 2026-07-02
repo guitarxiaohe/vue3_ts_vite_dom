@@ -61,16 +61,16 @@ export function getFileInfoFormFields(t: Translate): EntityFormField[] {
     //     field: t('fileInfo.column.filePath'),
     //   }),
     // },
-    // {
-    //   prop: 'delFlag',
-    //   label: t('fileInfo.column.delFlag'),
-    //   type: 'select',
-    //   optionSource: 'static',
-    //   options: [
-    //     { label: t('fileInfo.delFlagN'), value: 'N' },
-    //     { label: t('fileInfo.delFlagY'), value: 'Y' },
-    //   ],
-    //   defaultValue: 'N',
-    // },
+    {
+      prop: 'delFlag',
+      label: t('fileInfo.column.delFlag'),
+      type: 'select',
+      optionSource: 'static',
+      options: [
+        { label: t('fileInfo.delFlagN'), value: 'N' },
+        { label: t('fileInfo.delFlagY'), value: 'Y' },
+      ],
+      defaultValue: 'N',
+    },
   ];
 }

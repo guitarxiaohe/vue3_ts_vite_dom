@@ -65,7 +65,7 @@ const parentRules = computed<FormRules<DictFormData>>(() => ({
       trigger: 'blur',
     },
   ],
-  dictClass: [
+  dictScope: [
     {
       required: true,
       message: t('validation.selectField', { field: t('dictPage.dictClass') }),
@@ -143,10 +143,9 @@ function handleCancel() {
                 clearable
               />
             </el-form-item>
-
-            <el-form-item :label="t('dictPage.dictClass')" prop="dictClass">
+            <el-form-item :label="t('dictPage.dictClass')" prop="dictScope">
               <el-select
-                v-model="parentForm.dictClass"
+                v-model="parentForm.dictScope"
                 :placeholder="
                   t('validation.selectField', {
                     field: t('dictPage.dictClass'),

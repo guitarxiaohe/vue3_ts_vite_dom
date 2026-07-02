@@ -142,16 +142,17 @@ const { t } = useI18n();
 const tableRef = ref<InstanceType<typeof TableEntity>>();
 const formRef = ref<FormInstance>();
 
-/** 列表接口要求带 createBy；可按实际登录用户修改 */
-const createByFilter = ref('admin');
+/** 创建者仅作为可选筛选条件，不填写时查询全部文件。 */
+const createByFilter = ref('');
 const page = ref(1);
 const pageSize = ref(10);
 const selectedKeys = ref<(number | string)[]>([]);
 const tableWidth = ref(1100);
 
-const listParams = computed(() => ({
-  createBy: createByFilter.value,
-}));
+const listParams = computed(() => {
+  const createBy = createByFilter.value.trim();
+  return createBy ? { createBy } : {};
+});
 
 /** 表格异步数据源：分页 + 筛选参数由 TableEntity 合并传入 */
 async function fetchFileList(query: TableListQuery) {
@@ -251,21 +252,12 @@ function resetForm() {
 }
 
 function reloadTable() {
-  if (!createByFilter.value?.trim()) {
-    ElMessage.warning(t('fileInfo.createByRequired'));
-    return;
-  }
   tableRef.value?.reload();
 }
 
 function openAdd() {
-  if (!createByFilter.value?.trim()) {
-    ElMessage.warning(t('fileInfo.createByRequired'));
-    return;
-  }
   isEdit.value = false;
   resetForm();
-  form.value.createBy = createByFilter.value.trim();
   dialogVisible.value = true;
 }
 

@@ -406,7 +406,7 @@ watch(currentIndex, async (value) => {
       </slot>
 
       <!-------------------------- 子表区域 -------------------------->
-      <div v-if="hasChildTables" class="form-drawer__children">
+      <div v-if="hasChildTables && false" class="form-drawer__children">
         <el-tabs
           v-if="showChildTabs"
           v-model="activeChildTab"

@@ -16,6 +16,7 @@ const entityModule: EntityModule = {
         component: defineAsyncComponent(
           () => import('./row-actions/reset-button.vue')
         ),
+        permissionCode: 'system:user:resetPwd',
       },
       {
         key: 'sendMsg',
