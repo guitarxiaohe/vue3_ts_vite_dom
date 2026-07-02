@@ -36,6 +36,24 @@ metadata:
 
 **这意味着：** 新增一个业务模块，前端几乎不需要写代码，只需在后端配好 `entity_config` + `field_config`，然后注册一个 `EntityModule`（有时连表单都能自动生成）。
 
+### 快速 CRUD 决策树
+
+新增后台页面时按下面顺序判断：
+
+1. **普通维护页**：只有列表、筛选、新增、编辑、复制、删除、详情，优先走后端 `entity_config + field_config` 和前端 `EntityModule`。
+2. **少量前端定制**：仍走动态实体，只在 `EntityModule` 中配置自定义表单、行按钮、表头按钮、批量按钮、详情组件或子表。
+3. **后端用代码生成器**：前端仍优先使用通用实体页；只有生成后的接口不符合动态实体 API 时，才新增专用 API 和 `config.table.fetcher`。
+4. **复杂业务页**：流程编排、复杂交互、跨实体聚合、图表/大屏/特殊布局时，才写独立 `views/` 页面。
+
+快速 CRUD 自检：
+
+- `entityKey`、实体目录名、后端 `entity_config.entity_key` 三者一致。
+- 访问路径为 `/#/multiview/<entityKey>`，无需手动新增路由。
+- `table.rowKey` 与业务表主键一致；默认 `id`，非 `id` 必须显式配置。
+- 能由 `field_config.is_fuzzy_search` 自动生成的筛选，不要在 `filters.fields` 里重复硬编码。
+- 字典、关联下拉优先由后端 `dict_code/select_entity_key` 驱动，不在页面里复制选项。
+- 只有动态实体通用接口无法满足时，才新增 `src/api/modules/<module>.ts`。
+
 ### TableEntity 包装了哪些配置
 
 | 配置项     | 说明                                               | 来源                                  |
@@ -63,6 +81,8 @@ src/
         module.ts                    # 实体注册配置
         form/index.vue               # 自定义表单组件
         row-actions/*.vue            # 行内自定义操作按钮
+        batch-actions/*.vue          # 批量操作按钮
+        detail/index.vue             # 专用详情组件
     multiview/                       # 通用多视图页面
       components/
         multiview-shell.vue          # 核心的通用页面壳
@@ -96,6 +116,14 @@ src/
     entity-config.ts                 # EntityConfig 类型定义
 ```
 
+普通动态实体只需要：
+
+```text
+src/features/entities/<entityKey>/module.ts
+```
+
+只有复杂表单、行按钮、批量按钮或专用详情时，才增加 `form/row-actions/batch-actions/detail` 等目录。
+
 ---
 
 ## 3. 实体模块注册（核心 API）
@@ -123,6 +151,45 @@ const entityModule = createEntityModule({
 });
 
 export default entityModule;
+```
+
+最小实体模块写法：
+
+```typescript
+import { createEntityModule } from '@/features/entities/_shared/create-entity-module';
+
+export default createEntityModule({
+  entityKey: 'demoEntity',
+  config: {
+    title: '示例实体',
+    table: {
+      rowKey: 'id',
+      height: 560,
+      defaultSort: { field: 'createTime', order: 'desc' },
+    },
+    detail: {
+      title: '示例详情',
+      width: '52%',
+      visibleCount: 8,
+    },
+  },
+});
+```
+
+自定义表单通过 `formComponent` 挂载，优先不要绕过 `createEntityModule`：
+
+```typescript
+import { defineAsyncComponent } from 'vue';
+import { createEntityModule } from '@/features/entities/_shared/create-entity-module';
+
+export default createEntityModule({
+  entityKey: 'demoEntity',
+  formComponent: defineAsyncComponent(() => import('./form/index.vue')),
+  config: {
+    title: '示例实体',
+    table: { rowKey: 'id' },
+  },
+});
 ```
 
 ### 3.2 直接写 EntityModule（更灵活）
@@ -311,6 +378,44 @@ export function getByEntityKeyAndFieldKeyApi(entityKey: string) {
 }
 ```
 
+### 7.1 动态实体接口优先级
+
+前端默认使用 `src/api/modules/dynamic-entity.ts`：
+
+| 功能 | 接口 |
+| ---- | ---- |
+| 字段配置 | `GET /system/fieldConfig/listByEntityKey/{entityKey}`，不带分页参数 |
+| 分页列表 | `GET /system/fieldConfig/listByEntityKey/{entityKey}?pageNum=1&pageSize=20` |
+| 新增 | `POST /system/fieldConfig/data/{entityKey}` |
+| 编辑 | `PUT /system/fieldConfig/data/{entityKey}/{id}` |
+| 删除 | `DELETE /system/fieldConfig/delete/{entityKey}/{ids}` |
+| 列排序 | `PUT /system/fieldConfig/sort` |
+
+筛选条件直接作为 query params 传给后端，key 必须与 `field_config.field_key` 对齐；固定等值条件用 `dataParams`。
+
+只有动态实体 API 无法满足时，才新增专用 API，并通过 `config.table.fetcher` 接入：
+
+```typescript
+import { createEntityModule } from '@/features/entities/_shared/create-entity-module';
+import { customListApi } from '@/api/modules/demo';
+
+export default createEntityModule({
+  entityKey: 'demoEntity',
+  config: {
+    title: '示例实体',
+    table: {
+      rowKey: 'id',
+      fetcher: async (query) => {
+        const res = await customListApi(query);
+        return { total: res.data.total, rows: res.data.rows };
+      },
+    },
+  },
+});
+```
+
+新增专用 API 时，以后端真实返回结构为准，不新增兼容字段、别名字段或二次转换层。
+
 ---
 
 ## 8. 表单（FormDrawer）规范
@@ -323,6 +428,13 @@ export function getByEntityKeyAndFieldKeyApi(entityKey: string) {
 - **自定义表单：** 通过 `slot name="content"` 完全自定义内容
 - **子表：** 通过 `childTables` 配置在表单底部渲染关联子表
 - **导航：** `showNavigation` 控制多条记录间的上一条/下一条切换
+
+默认使用 `GenericEntityForm`/`FormDrawerForm` 消费后端 `field_config`。只有以下情况才写 `features/entities/<entityKey>/form/index.vue`：
+
+- 表单存在复杂联动、动态校验、分步骤填写。
+- 需要嵌套子表或批量编辑。
+- 字段提交前需要特殊转换。
+- 某些字段不是数据库字段，而是前端临时交互字段。
 
 ---
 
