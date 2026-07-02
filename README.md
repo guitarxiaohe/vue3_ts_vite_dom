@@ -21,18 +21,18 @@ XiaoHe Frontend 是一个基于 `Vue 3 + TypeScript + Vite` 的配置化后台�
 
 ## 技术栈
 
-| 分类 | 技术 |
-|------|------|
-| 框架 | `Vue 3.5` + `<script setup>` + `TypeScript 5` |
-| 构建 | `Vite 8` |
-| 状态管理 | `Pinia` |
-| 数据请求 | `@tanstack/vue-query` + `axios` |
-| UI 组件 | `Element Plus` |
-| 国际化 | `vue-i18n` |
-| 工具库 | `VueUse` |
-| 图标 | `lucide-vue-next` |
-| 动画 | `GSAP` + `ScrollTrigger` |
-| 三维 | `Three.js` |
+| 分类     | 技术                                          |
+| -------- | --------------------------------------------- |
+| 框架     | `Vue 3.5` + `<script setup>` + `TypeScript 5` |
+| 构建     | `Vite 8`                                      |
+| 状态管理 | `Pinia`                                       |
+| 数据请求 | `@tanstack/vue-query` + `axios`               |
+| UI 组件  | `Element Plus`                                |
+| 国际化   | `vue-i18n`                                    |
+| 工具库   | `VueUse`                                      |
+| 图标     | `lucide-vue-next`                             |
+| 动画     | `GSAP` + `ScrollTrigger`                      |
+| 三维     | `Three.js`                                    |
 
 ## 目录结构
 
@@ -135,13 +135,13 @@ pnpm build
 
 项目通过 `.env.*` 管理运行配置：
 
-| 变量 | 说明 |
-|------|------|
-| `VITE_APP_BASE_API` | 接口前缀 |
-| `VITE_BASE_URL` | 文件/图片资源基础地址 |
-| `VITE_WS_URL` | WebSocket 地址（留空走当前域名） |
-| `VITE_IS_MOCK` | 是否启用 Mock |
-| `VITE_PAGE_SIZES` | 分页可选每页条数 |
+| 变量                | 说明                             |
+| ------------------- | -------------------------------- |
+| `VITE_APP_BASE_API` | 接口前缀                         |
+| `VITE_BASE_URL`     | 文件/图片资源基础地址            |
+| `VITE_WS_URL`       | WebSocket 地址（留空走当前域名） |
+| `VITE_IS_MOCK`      | 是否启用 Mock                    |
+| `VITE_PAGE_SIZES`   | 分页可选每页条数                 |
 
 ## 配置化实体开发流程
 
@@ -181,7 +181,13 @@ export default createEntityModule({
   formComponent: defineAsyncComponent(() => import('./form/index.vue')),
   rowActions: { actionColumnWidth: 180 },
   tableActions: {
-    right: [{ component: defineAsyncComponent(() => import('./batch-actions/rule.vue')) }],
+    right: [
+      {
+        component: defineAsyncComponent(
+          () => import('./batch-actions/rule.vue')
+        ),
+      },
+    ],
   },
   config: {
     title,
@@ -204,67 +210,67 @@ export default createEntityModule({
 
 ### 字段类型与后端对齐
 
-| field_type | 说明 | 特殊配置 |
-|------------|------|----------|
-| `input` | 文本输入 | — |
-| `number` | 数值 | `min` / `max` |
-| `textarea` | 多行文本 | — |
-| `select` | 下拉选择 | `select_entity_key` |
-| `dict` | 字典选择 | `dict_code` |
-| `date` | 日期 | — |
-| `datetime` | 日期时间 | — |
-| `switch` | 开关 | — |
-| `file` | 文件 | 自动关联 fileInfo |
-| `by` | 审计人 | 展示 createUser / updateUser |
-| `user` | 用户选择 | — |
+| field_type | 说明     | 特殊配置                     |
+| ---------- | -------- | ---------------------------- |
+| `input`    | 文本输入 | —                            |
+| `number`   | 数值     | `min` / `max`                |
+| `textarea` | 多行文本 | —                            |
+| `select`   | 下拉选择 | `select_entity_key`          |
+| `dict`     | 字典选择 | `dict_code`                  |
+| `date`     | 日期     | —                            |
+| `datetime` | 日期时间 | —                            |
+| `switch`   | 开关     | —                            |
+| `file`     | 文件     | 自动关联 fileInfo            |
+| `by`       | 审计人   | 展示 createUser / updateUser |
+| `user`     | 用户选择 | —                            |
 
 ## 实体模块清单
 
 当前已注册的实体模块（位于 `src/features/entities/`）：
 
-| 模块 | 说明 |
-|------|------|
-| `chatRule` | AI 聊天规则 |
-| `chatCategory` | AI 聊天分类 |
-| `chatPrompt` | AI 聊天提示词 |
-| `chatKnowledge` | AI 知识库 |
-| `chatQuestion` | AI 聊天问题 |
-| `chatConversationLog` | AI 对话日志 |
-| `meetingSession` | 会议会话 |
-| `meetingParticipant` | 会议参与者 |
-| `meetingSummary` | 会议摘要 |
-| `meetingTranscript` | 会议转录 |
-| `user` | 用户管理 |
-| `role` | 角色管理 |
-| `dept` | 部门管理 |
-| `post` | 岗位管理 |
-| `menu` | 菜单管理 |
-| `dict` / `dictData` | 字典管理 |
-| `config` | 系统配置 |
-| `notice` | 通知公告 |
-| `fileInfo` | 文件管理 |
-| `job` / `jobLog` | 定时任务 |
-| `operLog` / `loginLog` | 操作/登录日志 |
-| `fieldConfig` | 字段配置 |
-| `projectConfig` / `projectType` | 项目配置 |
-| `print-config` | 打印配置 |
-| `wx-*` | 微信相关实体 |
+| 模块                            | 说明          |
+| ------------------------------- | ------------- |
+| `chatRule`                      | AI 聊天规则   |
+| `chatCategory`                  | AI 聊天分类   |
+| `chatPrompt`                    | AI 聊天提示词 |
+| `chatKnowledge`                 | AI 知识库     |
+| `chatQuestion`                  | AI 聊天问题   |
+| `chatConversationLog`           | AI 对话日志   |
+| `meetingSession`                | 会议会话      |
+| `meetingParticipant`            | 会议参与者    |
+| `meetingSummary`                | 会议摘要      |
+| `meetingTranscript`             | 会议转录      |
+| `user`                          | 用户管理      |
+| `role`                          | 角色管理      |
+| `dept`                          | 部门管理      |
+| `post`                          | 岗位管理      |
+| `menu`                          | 菜单管理      |
+| `dict` / `dictData`             | 字典管理      |
+| `config`                        | 系统配置      |
+| `notice`                        | 通知公告      |
+| `fileInfo`                      | 文件管理      |
+| `job` / `jobLog`                | 定时任务      |
+| `operLog` / `loginLog`          | 操作/登录日志 |
+| `fieldConfig`                   | 字段配置      |
+| `projectConfig` / `projectType` | 项目配置      |
+| `print-config`                  | 打印配置      |
+| `wx-*`                          | 微信相关实体  |
 
 ## 核心页面
 
-| 路由 | 说明 |
-|------|------|
-| `/` | 首页（Hero + 时间轴） |
-| `/login` | 登录/注册（入场动画） |
-| `/multiview/:entityKey` | 通用实体页面 |
-| `/entity` | 实体配置管理 |
-| `/fileInfo` | 文件管理 |
-| `/external-meeting` | 外部会议（LiveKit 音视频） |
-| `/meeting-assistant` | 会议助手 |
-| `/tool/gen` | 代码生成器 |
-| `/tool/build` | 表单构建器 |
-| `/tool/swagger` | 接口文档 |
-| `/monitor/*` | 监控（缓存/Druid/在线用户/服务器） |
+| 路由                    | 说明                               |
+| ----------------------- | ---------------------------------- |
+| `/`                     | 首页（Hero + 时间轴）              |
+| `/login`                | 登录/注册（入场动画）              |
+| `/multiview/:entityKey` | 通用实体页面                       |
+| `/entity`               | 实体配置管理                       |
+| `/fileInfo`             | 文件管理                           |
+| `/external-meeting`     | 外部会议（LiveKit 音视频）         |
+| `/meeting-assistant`    | 会议助手                           |
+| `/tool/gen`             | 代码生成器                         |
+| `/tool/build`           | 表单构建器                         |
+| `/tool/swagger`         | 接口文档                           |
+| `/monitor/*`            | 监控（缓存/Druid/在线用户/服务器） |
 
 ## 关键文档
 
