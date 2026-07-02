@@ -382,14 +382,14 @@ export function getByEntityKeyAndFieldKeyApi(entityKey: string) {
 
 前端默认使用 `src/api/modules/dynamic-entity.ts`：
 
-| 功能 | 接口 |
-| ---- | ---- |
-| 字段配置 | `GET /system/fieldConfig/listByEntityKey/{entityKey}`，不带分页参数 |
+| 功能     | 接口                                                                        |
+| -------- | --------------------------------------------------------------------------- |
+| 字段配置 | `GET /system/fieldConfig/listByEntityKey/{entityKey}`，不带分页参数         |
 | 分页列表 | `GET /system/fieldConfig/listByEntityKey/{entityKey}?pageNum=1&pageSize=20` |
-| 新增 | `POST /system/fieldConfig/data/{entityKey}` |
-| 编辑 | `PUT /system/fieldConfig/data/{entityKey}/{id}` |
-| 删除 | `DELETE /system/fieldConfig/delete/{entityKey}/{ids}` |
-| 列排序 | `PUT /system/fieldConfig/sort` |
+| 新增     | `POST /system/fieldConfig/data/{entityKey}`                                 |
+| 编辑     | `PUT /system/fieldConfig/data/{entityKey}/{id}`                             |
+| 删除     | `DELETE /system/fieldConfig/delete/{entityKey}/{ids}`                       |
+| 列排序   | `PUT /system/fieldConfig/sort`                                              |
 
 筛选条件直接作为 query params 传给后端，key 必须与 `field_config.field_key` 对齐；固定等值条件用 `dataParams`。
 

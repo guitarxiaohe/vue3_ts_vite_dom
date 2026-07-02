@@ -491,32 +491,32 @@ src/features/entities/<entityKey>/
 
 前端默认使用 [src/api/modules/dynamic-entity.ts](src/api/modules/dynamic-entity.ts)：
 
-| 功能 | 接口 |
-| ---- | ---- |
-| 字段配置 | `GET /system/fieldConfig/listByEntityKey/{entityKey}`，不带分页参数 |
+| 功能     | 接口                                                                        |
+| -------- | --------------------------------------------------------------------------- |
+| 字段配置 | `GET /system/fieldConfig/listByEntityKey/{entityKey}`，不带分页参数         |
 | 分页列表 | `GET /system/fieldConfig/listByEntityKey/{entityKey}?pageNum=1&pageSize=20` |
-| 新增 | `POST /system/fieldConfig/data/{entityKey}` |
-| 编辑 | `PUT /system/fieldConfig/data/{entityKey}/{id}` |
-| 删除 | `DELETE /system/fieldConfig/delete/{entityKey}/{ids}` |
-| 列排序 | `PUT /system/fieldConfig/sort` |
+| 新增     | `POST /system/fieldConfig/data/{entityKey}`                                 |
+| 编辑     | `PUT /system/fieldConfig/data/{entityKey}/{id}`                             |
+| 删除     | `DELETE /system/fieldConfig/delete/{entityKey}/{ids}`                       |
+| 列排序   | `PUT /system/fieldConfig/sort`                                              |
 
 查询筛选直接作为 query params 传给后端，字段 key 必须与 `field_config.field_key` 对齐。固定等值条件用 `dataParams`。
 
 ### field_config 到前端控件
 
-| 后端 `field_type` / 配置 | 前端效果 |
-| ------------------------ | -------- |
-| `input` / `text` | 普通文本、可作为输入筛选 |
-| `textarea` | 长文本表单 |
-| `number` | 数字输入 |
-| `switch` | 开关 |
-| `date` / `datetime` | 日期或日期时间选择 |
-| `dict` + `dict_code` | 字典下拉、表格自动显示字典标签 |
-| `select` + `select_entity_key` | 关联实体异步下拉 |
-| `file` 或 `field_role=fileInfo` | 文件上传和文件信息展示 |
-| `field_role=createUser/updateUser` | 操作人展示 |
-| `is_fuzzy_search=1` | 自动进入筛选区 |
-| `is_visible=1` | 自动成为表格/详情字段 |
+| 后端 `field_type` / 配置           | 前端效果                       |
+| ---------------------------------- | ------------------------------ |
+| `input` / `text`                   | 普通文本、可作为输入筛选       |
+| `textarea`                         | 长文本表单                     |
+| `number`                           | 数字输入                       |
+| `switch`                           | 开关                           |
+| `date` / `datetime`                | 日期或日期时间选择             |
+| `dict` + `dict_code`               | 字典下拉、表格自动显示字典标签 |
+| `select` + `select_entity_key`     | 关联实体异步下拉               |
+| `file` 或 `field_role=fileInfo`    | 文件上传和文件信息展示         |
+| `field_role=createUser/updateUser` | 操作人展示                     |
+| `is_fuzzy_search=1`                | 自动进入筛选区                 |
+| `is_visible=1`                     | 自动成为表格/详情字段          |
 
 新增字段类型时必须同时更新：
 
@@ -577,18 +577,18 @@ export default createEntityModule({
 
 ### 常见定制入口
 
-| 需求 | 写法 |
-| ---- | ---- |
-| 修改标题、主键、分页、默认排序 | `config.title/table.rowKey/table.pageSize/table.defaultSort` |
-| 控制新增/编辑/删除/导入/导出 | `config.actions` |
-| 自定义筛选 | `config.filters.fields`，但能由 `field_config.is_fuzzy_search` 自动生成时不要手写 |
-| 自定义表单 | `formComponent: defineAsyncComponent(() => import('./form/index.vue'))` |
-| 行内特殊按钮 | `rowActions.customButtons` |
-| 表头按钮 | `tableActions.left/right` |
-| 批量按钮 | `batchActions` |
-| 主子表 | `config.table.children` |
-| 专用详情 | `detailComponent` |
-| 专用列表接口 | `config.table.fetcher` |
+| 需求                           | 写法                                                                              |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| 修改标题、主键、分页、默认排序 | `config.title/table.rowKey/table.pageSize/table.defaultSort`                      |
+| 控制新增/编辑/删除/导入/导出   | `config.actions`                                                                  |
+| 自定义筛选                     | `config.filters.fields`，但能由 `field_config.is_fuzzy_search` 自动生成时不要手写 |
+| 自定义表单                     | `formComponent: defineAsyncComponent(() => import('./form/index.vue'))`           |
+| 行内特殊按钮                   | `rowActions.customButtons`                                                        |
+| 表头按钮                       | `tableActions.left/right`                                                         |
+| 批量按钮                       | `batchActions`                                                                    |
+| 主子表                         | `config.table.children`                                                           |
+| 专用详情                       | `detailComponent`                                                                 |
+| 专用列表接口                   | `config.table.fetcher`                                                            |
 
 快速 CRUD 自检：
 
