@@ -165,26 +165,26 @@ const formRules = computed<FormRules>(() => ({
       trigger: 'blur',
     },
   ],
-  component: [
-    {
-      validator: (_rule, value, callback) => {
-        if (
-          !isButtonType.value &&
-          !isExternalLink.value &&
-          !String(value ?? '').trim()
-        ) {
-          callback(
-            new Error(
-              t('validation.enterField', { field: t('menuPage.component') })
-            )
-          );
-          return;
-        }
-        callback();
-      },
-      trigger: 'blur',
-    },
-  ],
+  // component: [
+  //   {
+  //     validator: (_rule, value, callback) => {
+  //       if (
+  //         !isButtonType.value &&
+  //         !isExternalLink.value &&
+  //         !String(value ?? '').trim()
+  //       ) {
+  //         callback(
+  //           new Error(
+  //             t('validation.enterField', { field: t('menuPage.component') })
+  //           )
+  //         );
+  //         return;
+  //       }
+  //       callback();
+  //     },
+  //     trigger: 'blur',
+  //   },
+  // ],
   perms: [
     {
       validator: (_rule, value, callback) => {

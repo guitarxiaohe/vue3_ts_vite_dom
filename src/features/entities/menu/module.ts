@@ -1,6 +1,5 @@
 import { defineAsyncComponent } from 'vue';
 import type { EntityModule } from '@/features/entities/types';
-import { listMenuRows } from '@/api/modules/menu';
 
 /******************************** 菜单实体 ********************************/
 
@@ -41,9 +40,6 @@ const entityModule: EntityModule = {
 
       height: 560,
       pageSize: 20,
-      showColumnSettings: true,
-      useFieldConfig: false,
-      fetcher: listMenuRows,
     },
     detail: {
       title: '菜单详情',

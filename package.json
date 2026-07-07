@@ -27,6 +27,7 @@
     "@types/three": "^0.183.1",
     "@vueuse/core": "^14.2.1",
     "axios": "^1.6.0",
+    "echarts": "^6.1.0",
     "element-plus": "^2.5.0",
     "gsap": "^3.12.7",
     "livekit-client": "^2.19.2",

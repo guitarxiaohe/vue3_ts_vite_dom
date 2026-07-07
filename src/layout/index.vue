@@ -104,7 +104,11 @@ onUnmounted(() => {
           <!-------------------------- 顶部栏 -------------------------->
           <el-header class="layout-header">
             <div class="layout-header__left">
-              <span class="layout-header__brand">XiaoHe</span>
+              <span
+                class="layout-header__brand cursor-pointer"
+                @click="$router.push('/')"
+                >XiaoHe</span
+              >
               <ConventionalMenu v-if="isTopNav" mode="top" />
             </div>
 

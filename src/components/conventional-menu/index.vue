@@ -8,6 +8,7 @@ import SettingsPanel from '@/components/settings-panel/index.vue';
 import { fetchRouterTree, ROUTER_TREE_QUERY_KEY } from '@/api/modules/menu';
 import type { SysRouter } from '@/types/menu';
 import { resolveMenuIcon } from '@/features/entities/menu/form/menu-icons';
+import { isRoutePathRegistered } from '@/router/dynamic-routes';
 import type { ConventionalMenuItem } from './index.type';
 import MenuBranch from './menu-branch.vue';
 
@@ -102,6 +103,13 @@ function normalizeMenuIndex(routeItem: SysRouter): string {
     return `menu-${routeItem.menuId ?? routeItem.name ?? Date.now()}`;
   }
 
+  const absolutePath = `/${normalizedPath}`;
+
+  // 已注册页面路由优先按真实页面跳转
+  if (isRoutePathRegistered(router, absolutePath)) {
+    return absolutePath;
+  }
+
   // 独立页面路径（不以 /multiview/ 包装）
   if (
     normalizedPath.startsWith('multiview/') ||
@@ -110,9 +118,10 @@ function normalizeMenuIndex(routeItem: SysRouter): string {
     normalizedPath.startsWith('entity/') ||
     normalizedPath.startsWith('fileInfo/') ||
     normalizedPath.startsWith('components/') ||
+    normalizedPath.startsWith('analysis/') ||
     normalizedPath.startsWith('three/')
   ) {
-    return `/${normalizedPath}`;
+    return absolutePath;
   }
 
   return `/multiview/${normalizedPath}`;

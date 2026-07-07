@@ -1,8 +1,13 @@
-<script lang="ts" setup></script>
+<script lang="ts" setup>
+/**
+ * 根据接口写出首页的分析表
+ * 图标
+ */
+</script>
 
 <template>
   <div class="layout-header">
-    <div class="layout-header-text">GUITARXIOAHE</div>
+    <div class="layout-header-text">GUITARXIAOHE</div>
   </div>
 </template>
 
@@ -12,10 +17,11 @@
   align-items: center;
   justify-content: center;
   font-size: 2vw;
-  background: url('../../assets/qw.png') no-repeat center;
+  background: url('../../assets/qw.png') no-repeat center center;
   background-clip: text;
   color: #090000;
   font-weight: 900;
+  height: 100vh;
   animation: slide-in 3s;
 }
 @keyframes slide-in {

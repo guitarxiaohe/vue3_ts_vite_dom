@@ -4,8 +4,12 @@ import { i18n } from '@/i18n';
 import { getEntityModule } from '@/features/entities/registry';
 import { useUserStore } from '@/stores/modules/user';
 import Layout from '@/layout/index.vue';
+import {
+  registerDynamicRoutes,
+  ROOT_ROUTE_NAME,
+} from '@/router/dynamic-routes';
 
-const APP_TITLE = import.meta.env.VITE_APP_TITLE || 'XiaoHe';
+const APP_TITLE = import.meta.env.VITE_APP_TITLE;
 
 const routes: RouteRecordRaw[] = [
   {
@@ -23,6 +27,7 @@ const routes: RouteRecordRaw[] = [
 
   {
     path: '/',
+    name: ROOT_ROUTE_NAME,
     component: Layout,
     redirect: '/index',
     children: [
@@ -49,54 +54,61 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/three/index'),
         meta: { requiresAuth: true, titleKey: 'menu.threeScene' },
       },
-      {
-        path: '/fileInfo',
-        name: 'FileInfo',
-        component: () => import('@/views/fileInfo/index.vue'),
-        meta: { requiresAuth: true, titleKey: 'menu.files' },
-      },
-      {
-        path: '/monitor/online',
-        name: 'MonitorOnline',
-        component: () => import('@/views/monitor/online/index.vue'),
-        meta: { requiresAuth: true, titleKey: 'monitor.online.title' },
-      },
-      {
-        path: '/monitor/server',
-        name: 'MonitorServer',
-        component: () => import('@/views/monitor/server/index.vue'),
-        meta: { requiresAuth: true, titleKey: 'monitor.server.title' },
-      },
-      {
-        path: '/monitor/cache',
-        name: 'MonitorCache',
-        component: () => import('@/views/monitor/cache/index.vue'),
-        meta: { requiresAuth: true, titleKey: 'monitor.cache.title' },
-      },
-      {
-        path: '/monitor/druid',
-        name: 'MonitorDruid',
-        component: () => import('@/views/monitor/druid/index.vue'),
-        meta: { requiresAuth: true, titleKey: 'monitor.druid.title' },
-      },
-      {
-        path: '/tool/build',
-        name: 'ToolBuild',
-        component: () => import('@/views/tool/build/index.vue'),
-        meta: { requiresAuth: true, titleKey: 'tool.build.title' },
-      },
-      {
-        path: '/tool/gen',
-        name: 'ToolGen',
-        component: () => import('@/views/tool/gen/index.vue'),
-        meta: { requiresAuth: true, titleKey: 'tool.gen.title' },
-      },
-      {
-        path: '/tool/swagger',
-        name: 'ToolSwagger',
-        component: () => import('@/views/tool/swagger/index.vue'),
-        meta: { requiresAuth: true, titleKey: 'tool.swagger.title' },
-      },
+      // {
+      //   path: '/fileInfo',
+      //   name: 'FileInfo',
+      //   component: () => import('@/views/fileInfo/index.vue'),
+      //   meta: { requiresAuth: true, titleKey: 'menu.files' },
+      // },
+      // {
+      //   path: '/monitor/online',
+      //   name: 'MonitorOnline',
+      //   component: () => import('@/views/monitor/online/index.vue'),
+      //   meta: { requiresAuth: true, titleKey: 'monitor.online.title' },
+      // },
+      // {
+      //   path: '/monitor/server',
+      //   name: 'MonitorServer',
+      //   component: () => import('@/views/monitor/server/index.vue'),
+      //   meta: { requiresAuth: true, titleKey: 'monitor.server.title' },
+      // },
+      // {
+      //   path: '/monitor/cache',
+      //   name: 'MonitorCache',
+      //   component: () => import('@/views/monitor/cache/index.vue'),
+      //   meta: { requiresAuth: true, titleKey: 'monitor.cache.title' },
+      // },
+      // {
+      //   path: '/monitor/druid',
+      //   name: 'MonitorDruid',
+      //   component: () => import('@/views/monitor/druid/index.vue'),
+      //   meta: { requiresAuth: true, titleKey: 'monitor.druid.title' },
+      // },
+      // {
+      //   path: '/analysis/customer-service-analysis',
+      //   name: 'CustomerServiceAnalysis',
+      //   component: () =>
+      //     import('@/views/analysis/customer-service-analysis/index.vue'),
+      //   meta: { requiresAuth: true, title: '客服数据分析' },
+      // },
+      // {
+      //   path: '/tool/build',
+      //   name: 'ToolBuild',
+      //   component: () => import('@/views/tool/build/index.vue'),
+      //   meta: { requiresAuth: true, titleKey: 'tool.build.title' },
+      // },
+      // {
+      //   path: '/tool/gen',
+      //   name: 'ToolGen',
+      //   component: () => import('@/views/tool/gen/index.vue'),
+      //   meta: { requiresAuth: true, titleKey: 'tool.gen.title' },
+      // },
+      // {
+      //   path: '/tool/swagger',
+      //   name: 'ToolSwagger',
+      //   component: () => import('@/views/tool/swagger/index.vue'),
+      //   meta: { requiresAuth: true, titleKey: 'tool.swagger.title' },
+      // },
       {
         path: 'multiview/:entityKey(.*)',
         name: 'Multiview',
@@ -130,6 +142,8 @@ router.afterEach((to) => {
     pageTitle = module?.config?.title || entityKey;
   } else if (to.meta?.titleKey) {
     pageTitle = t(to.meta.titleKey as string);
+  } else if (to.meta?.title) {
+    pageTitle = String(to.meta.title);
   }
 
   document.title = pageTitle ? `${APP_TITLE} - ${pageTitle}` : APP_TITLE;
@@ -140,8 +154,12 @@ const whiteList = ['/login', '/NotFound', '/external-meeting'];
 router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore();
   const token = localStorage.getItem('token');
+  const isNotFoundMatch = to.matched.some(
+    (record) => record.name === 'NotFound'
+  );
   const isPublicRoute =
-    to.meta?.requiresAuth === false || whiteList.includes(to.path);
+    (to.meta?.requiresAuth === false && !isNotFoundMatch) ||
+    whiteList.includes(to.path);
 
   if (isPublicRoute && to.path !== '/login') {
     next();
@@ -156,6 +174,14 @@ router.beforeEach(async (to, _from, next) => {
       if (!ready) {
         userStore.logout();
         next({ path: '/login', replace: true });
+        return;
+      }
+      const hasRegisteredRoutes = registerDynamicRoutes(
+        router,
+        userStore.treeRouters ?? []
+      );
+      if (hasRegisteredRoutes && isNotFoundMatch) {
+        next({ ...to, replace: true });
         return;
       }
       next();
