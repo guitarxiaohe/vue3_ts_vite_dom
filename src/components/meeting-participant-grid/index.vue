@@ -50,12 +50,12 @@ const sizeMode = computed<'avatar' | 'compact' | 'card'>(() => {
 });
 const avatarSize = computed(() => {
   if (sizeMode.value === 'avatar') {
-    return 42;
+    return 21;
   }
   if (sizeMode.value === 'compact') {
-    return 52;
+    return 26;
   }
-  return 68;
+  return 34;
 });
 </script>
 
@@ -138,16 +138,25 @@ const avatarSize = computed(() => {
 <style scoped lang="scss">
 .meeting-participant-grid {
   display: grid;
-  gap: 16px;
+  gap: 12px;
   justify-items: center;
+  align-items: start;
 }
 
 .meeting-participant-grid--cols-1 {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.meeting-participant-grid--cols-1 .meeting-participant-tile {
+  max-width: min(420px, 100%);
+}
+
 .meeting-participant-grid--cols-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.meeting-participant-grid--cols-2 .meeting-participant-tile {
+  max-width: min(320px, 100%);
 }
 
 .meeting-participant-grid--cols-3 {
@@ -161,12 +170,12 @@ const avatarSize = computed(() => {
 .meeting-participant-tile {
   position: relative;
   width: 100%;
-  max-width: 400px;
+  max-width: 220px;
   min-width: 0;
   overflow: hidden;
-  border-radius: 24px;
-  border: 1px solid rgba(191, 219, 254, 0.6);
-  background: linear-gradient(135deg, #dbeafe, #e9d5ff);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-border-light);
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease,
@@ -175,32 +184,32 @@ const avatarSize = computed(() => {
 }
 
 .meeting-participant-tile--card {
-  height: clamp(248px, 28vw, 400px);
+  aspect-ratio: 1;
 }
 
 .meeting-participant-tile--compact {
-  height: clamp(188px, 22vw, 320px);
+  height: clamp(96px, 10vw, 132px);
 }
 
 .meeting-participant-tile--avatar {
-  min-height: 112px;
-  max-height: 112px;
-  border-radius: 18px;
+  min-height: 76px;
+  max-height: 76px;
+  border-radius: 8px;
 }
 
 .meeting-participant-tile--active {
-  border-color: rgba(14, 165, 233, 0.45);
+  border-color: rgba(94, 106, 210, 0.45);
   box-shadow:
-    0 18px 38px rgba(14, 165, 233, 0.18),
-    0 0 0 4px rgba(14, 165, 233, 0.1);
+    0 14px 30px rgba(94, 106, 210, 0.14),
+    0 0 0 3px rgba(94, 106, 210, 0.1);
   transform: translateY(-1px);
 }
 
 .meeting-participant-tile--speaking {
   border-color: rgba(34, 197, 94, 0.45);
   box-shadow:
-    0 18px 38px rgba(34, 197, 94, 0.2),
-    0 0 0 4px rgba(34, 197, 94, 0.12);
+    0 14px 30px rgba(34, 197, 94, 0.18),
+    0 0 0 3px rgba(34, 197, 94, 0.12);
 }
 
 .meeting-participant-tile--joined {
@@ -238,8 +247,8 @@ const avatarSize = computed(() => {
 
 .meeting-participant-avatar__mute {
   position: absolute;
-  right: 12px;
-  top: 12px;
+  right: 10px;
+  top: 10px;
   z-index: 2;
   width: 26px;
   height: 26px;
@@ -263,7 +272,7 @@ const avatarSize = computed(() => {
   align-items: center;
   max-width: calc(100% - 24px);
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
   color: #0f172a;
@@ -274,23 +283,23 @@ const avatarSize = computed(() => {
 }
 
 .meeting-participant-tile__host-chip {
-  left: 12px;
-  top: 12px;
+  left: 10px;
+  top: 10px;
   font-size: 11px;
   font-weight: 700;
   color: #b91c1c;
 }
 
 .meeting-participant-tile__name-chip {
-  left: 12px;
-  bottom: 12px;
+  left: 10px;
+  bottom: 10px;
   font-size: 12px;
   font-weight: 700;
 }
 
 .meeting-participant-tile__status-chip {
-  right: 12px;
-  bottom: 12px;
+  right: 10px;
+  bottom: 10px;
   font-size: 11px;
   color: #475569;
 }
@@ -300,7 +309,7 @@ const avatarSize = computed(() => {
   left: 50%;
   max-width: min(78%, 240px);
   padding: 8px 14px;
-  border-radius: 18px;
+  border-radius: 8px;
   transform: translate(-50%, -50%);
   background: rgba(15, 23, 42, 0.78);
   color: #fff;
@@ -401,7 +410,7 @@ const avatarSize = computed(() => {
 }
 
 .meeting-participant-tile--avatar:deep(.user-avatar-info__avatar) {
-  border-radius: 18px !important;
+  border-radius: 8px !important;
   font-size: 24px;
 }
 

@@ -23,7 +23,10 @@ import {
 import { useI18n } from 'vue-i18n';
 import MeetingParticipantGrid from '@/components/meeting-participant-grid/index.vue';
 import { useMeetingStore } from '@/stores';
-import { useLivekitRoom } from '@/composables/use-livekit-room';
+import {
+  useLivekitRoom,
+  type ScreenShareQuality,
+} from '@/composables/use-livekit-room';
 import { buildSpeakerTranscriptLines } from '@/utils/meeting-transcript';
 import { AsyncSelect } from '@/components/async-select';
 import { useMeetingParticipants } from './use-meeting-participants';
@@ -110,6 +113,18 @@ const inviteUserIds = ref<string[]>([]);
 const interactionText = ref('');
 // 互动表情面板中可选的表情列表
 const interactionEmojiOptions = ['👍', '👏', '🎉', '🔥', '✅', '❓'];
+// 当前屏幕共享清晰度档位
+const screenShareQuality = ref<ScreenShareQuality>('clear');
+// 屏幕共享清晰度选项
+const screenShareQualityOptions: Array<{
+  value: ScreenShareQuality;
+  labelKey: string;
+}> = [
+  { value: 'smooth', labelKey: 'meeting.shareScreenQualitySmooth' },
+  { value: 'balanced', labelKey: 'meeting.shareScreenQualityBalanced' },
+  { value: 'clear', labelKey: 'meeting.shareScreenQualityClear' },
+  { value: 'ultra', labelKey: 'meeting.shareScreenQualityUltra' },
+];
 
 /***************************** 定时器 / 权限状态 *****************************/
 let activeSpeakerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -263,6 +278,17 @@ const {
   startScreenShare,
   stopScreenShare,
 });
+
+const currentScreenShareQualityLabel = computed(() => {
+  const option = screenShareQualityOptions.find(
+    (item) => item.value === screenShareQuality.value
+  );
+  return option ? t(option.labelKey) : t('meeting.shareScreenQualityClear');
+});
+
+function handleScreenShareQualityCommand(command: string | number | object) {
+  screenShareQuality.value = command as ScreenShareQuality;
+}
 
 /***************************** 高亮脉冲效果 *****************************/
 
@@ -660,23 +686,25 @@ watch(
       <p>{{ t('meeting.endedBannerDescription') }}</p>
     </section>
 
-    <MeetingScreenShareStage
-      v-if="shouldShowShareStage"
-      :current-sharer-name="currentSharerName"
-      :has-remote-screen-share="!!remoteScreenShare"
-      @video-ready="handleScreenShareVideoReady"
-    />
-
     <!-------------------------- 主体内容区域 -------------------------->
     <div
-      v-if="!shouldShowShareStage"
       class="meeting-grid"
-      :class="{ 'meeting-grid--empty': !meetingDetail }"
+      :class="{
+        'meeting-grid--empty': !meetingDetail,
+        'meeting-grid--sharing': shouldShowShareStage,
+      }"
     >
-      <!-------------------------- 侧边栏：待处理会议 / 参与者列表 -------------------------->
-      <aside class="meeting-side">
+      <!-------------------------- 主舞台：共享屏幕 / 待处理会议 / 参与者列表 -------------------------->
+      <main class="meeting-stage">
+        <MeetingScreenShareStage
+          v-if="shouldShowShareStage"
+          :current-sharer-name="currentSharerName"
+          :has-remote-screen-share="!!remoteScreenShare"
+          @video-ready="handleScreenShareVideoReady"
+        />
+
         <article
-          v-if="pendingMeetings.length && !meetingDetail"
+          v-else-if="pendingMeetings.length && !meetingDetail"
           class="meeting-card"
         >
           <div class="meeting-card__header">
@@ -719,7 +747,10 @@ watch(
           </div>
         </article>
 
-        <article class="meeting-card" v-if="meetingDetail">
+        <article
+          v-else-if="meetingDetail"
+          class="meeting-card meeting-card--stage"
+        >
           <div class="meeting-card__header">
             <h2>
               <el-icon><Users /></el-icon>
@@ -754,10 +785,7 @@ watch(
           />
         </article>
 
-        <article
-          v-if="!meetingDetail && !pendingMeetings.length"
-          class="meeting-card meeting-card--empty"
-        >
+        <article v-else class="meeting-card meeting-card--empty">
           <el-empty
             :description="t('meeting.noMeetingDescription')"
             :image-size="108"
@@ -770,10 +798,10 @@ watch(
             </template>
           </el-empty>
         </article>
-      </aside>
+      </main>
 
       <!-------------------------- 主内容区：实时转写 / AI 摘要 -------------------------->
-      <main class="meeting-main">
+      <aside v-if="meetingDetail" class="meeting-main">
         <article class="meeting-card" v-if="meetingDetail">
           <MeetingLiveTranscript
             :lines="renderedTranscriptLines"
@@ -823,7 +851,7 @@ watch(
             </transition>
           </div>
         </article>
-      </main>
+      </aside>
     </div>
 
     <section
@@ -894,18 +922,46 @@ watch(
           <Camera :size="16" />
         </el-button>
       </el-tooltip>
-      <el-tooltip :content="shareScreenLabel" placement="top">
-        <el-button
-          :type="isCurrentUserSharing ? 'primary' : 'default'"
-          plain
-          circle
-          :disabled="shareScreenDisabled"
-          :aria-label="shareScreenLabel"
-          @click="handleSharedScreen"
+      <div class="meeting-control-dock__screen-share">
+        <el-tooltip :content="shareScreenLabel" placement="top">
+          <el-button
+            :type="isCurrentUserSharing ? 'primary' : 'default'"
+            plain
+            circle
+            :disabled="shareScreenDisabled"
+            :aria-label="shareScreenLabel"
+            @click="handleSharedScreen(screenShareQuality)"
+          >
+            <MonitorUp :size="16" />
+          </el-button>
+        </el-tooltip>
+        <el-dropdown
+          trigger="click"
+          :disabled="isCurrentUserSharing"
+          @command="handleScreenShareQualityCommand"
         >
-          <MonitorUp :size="16" />
-        </el-button>
-      </el-tooltip>
+          <el-button
+            class="meeting-control-dock__quality-button"
+            plain
+            :disabled="isCurrentUserSharing"
+            :aria-label="t('meeting.shareScreenQuality')"
+          >
+            {{ currentScreenShareQualityLabel }}
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item
+                v-for="option in screenShareQualityOptions"
+                :key="option.value"
+                :command="option.value"
+                :disabled="screenShareQuality === option.value"
+              >
+                {{ t(option.labelKey) }}
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
       <el-tooltip :content="t('meeting.interactionHandAction')" placement="top">
         <el-button
           plain
@@ -1101,9 +1157,9 @@ watch(
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 0;
-  background: var(--color-bg-page);
+  gap: 12px;
+  padding: 12px;
+  background: var(--color-border-light);
 }
 
 .meeting-shell-bar {
@@ -1112,14 +1168,10 @@ watch(
   align-items: center;
   gap: 16px;
   padding: 10px 14px;
-  border-radius: 18px;
-  border: 1px solid var(--color-primary-light-7);
-  background: linear-gradient(
-    180deg,
-    var(--color-border-light),
-    var(--color-bg-page)
-  );
-  box-shadow: var(--shadow-md);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  box-shadow: 0 8px 24px rgba(17, 24, 39, 0.06);
 }
 
 .meeting-shell-bar__status,
@@ -1149,18 +1201,18 @@ watch(
 
 .meeting-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 26vw);
-  gap: 20px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 27vw, 420px);
+  gap: 12px;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 .meeting-grid--empty {
   grid-template-columns: 1fr;
-  flex: 1;
-  min-height: calc(100vh - 84px);
 }
 
-.meeting-grid--empty .meeting-side {
+.meeting-grid--empty .meeting-stage {
   min-height: inherit;
 }
 
@@ -1187,18 +1239,23 @@ watch(
   }
 }
 
-.meeting-side,
+.meeting-stage,
 .meeting-main {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
   min-width: 0;
+  min-height: 0;
+}
+
+.meeting-stage {
+  align-self: stretch;
 }
 
 .meeting-main {
-  max-width: min(26vw, 420px);
-  justify-self: end;
   width: 100%;
+  max-height: calc(100vh - 154px);
+  overflow-y: auto;
 }
 
 .meeting-control-dock {
@@ -1209,17 +1266,30 @@ watch(
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-  padding: 14px 18px;
-  border-radius: 24px;
-  border: 1px solid var(--color-primary-light-7);
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-card) 90%, transparent);
   backdrop-filter: blur(14px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.1);
 }
 
 .meeting-control-dock__volume {
   display: flex;
   align-items: center;
   padding: 0 6px;
+}
+
+.meeting-control-dock__screen-share {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.meeting-control-dock__quality-button {
+  min-width: 56px;
+  height: 34px;
+  padding: 0 10px;
 }
 
 .meeting-control-dock__volume-trigger {
@@ -1284,12 +1354,19 @@ watch(
 
 .meeting-card {
   border: 1px solid var(--color-border);
-  border-radius: 24px;
-  padding: 22px;
-  background:
-    linear-gradient(180deg, var(--color-bg-page), var(--color-border-light)),
-    linear-gradient(135deg, var(--color-primary-bg), transparent 30%);
-  box-shadow: var(--shadow-lg);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--color-bg-card);
+  box-shadow: 0 10px 28px rgba(17, 24, 39, 0.06);
+}
+
+.meeting-card--stage {
+  flex: 1;
+  min-height: 0;
+}
+
+.meeting-card--stage :deep(.meeting-participant-grid) {
+  align-content: start;
 }
 
 .meeting-card--empty {
@@ -1304,7 +1381,7 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .meeting-card__header-actions {
@@ -1351,17 +1428,13 @@ watch(
 }
 
 .meeting-live-summary {
-  min-height: 220px;
-  padding: 20px 22px;
-  border-radius: 22px;
+  min-height: 190px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 16px;
+  border-radius: 8px;
   border: 1px solid var(--color-border);
-  background:
-    linear-gradient(180deg, var(--color-bg-page), var(--color-border-light)),
-    radial-gradient(
-      circle at top right,
-      var(--color-warning-bg),
-      transparent 36%
-    );
+  background: var(--color-bg-card);
 }
 
 .meeting-live-summary--streaming {
@@ -1733,13 +1806,12 @@ watch(
   }
 
   .meeting-main {
-    max-width: none;
-    justify-self: stretch;
+    max-height: none;
   }
 
   .meeting-control-dock {
     bottom: 0;
-    border-radius: 20px;
+    border-radius: 8px;
   }
 }
 </style>

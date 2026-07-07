@@ -34,6 +34,12 @@ import {
   RemoteVideoTrack,
   LocalTrackPublication,
   LocalVideoTrack,
+  VideoQuality,
+} from 'livekit-client';
+import type {
+  ScreenShareCaptureOptions,
+  TrackPublishOptions,
+  VideoResolution,
 } from 'livekit-client';
 
 import type { MeetingRtcTokenResponse } from '@/api/modules/meeting-rtc.type';
@@ -52,6 +58,98 @@ export interface RemoteScreenShareInfo {
   participantName: string;
   publication: RemoteTrackPublication;
   track: RemoteVideoTrack;
+}
+
+export type ScreenShareQuality = 'smooth' | 'balanced' | 'clear' | 'ultra';
+
+interface ScreenShareQualityConfig {
+  /** 屏幕共享采集分辨率 */
+  resolution: VideoResolution;
+  /** 屏幕共享发布码率 */
+  maxBitrate: number;
+  /** 屏幕共享内容提示 */
+  contentHint: ScreenShareCaptureOptions['contentHint'];
+}
+
+/** 屏幕共享质量档位 */
+export const SCREEN_SHARE_QUALITY_CONFIGS: Record<
+  ScreenShareQuality,
+  ScreenShareQualityConfig
+> = {
+  smooth: {
+    resolution: {
+      width: 1280,
+      height: 720,
+      frameRate: 15,
+    },
+    maxBitrate: 2_500_000,
+    contentHint: 'motion',
+  },
+  balanced: {
+    resolution: {
+      width: 1920,
+      height: 1080,
+      frameRate: 15,
+    },
+    maxBitrate: 4_000_000,
+    contentHint: 'detail',
+  },
+  clear: {
+    resolution: {
+      width: 1920,
+      height: 1080,
+      frameRate: 30,
+    },
+    maxBitrate: 6_000_000,
+    contentHint: 'detail',
+  },
+  ultra: {
+    resolution: {
+      width: 2560,
+      height: 1440,
+      frameRate: 30,
+    },
+    maxBitrate: 10_000_000,
+    contentHint: 'detail',
+  },
+};
+
+const DEFAULT_SCREEN_SHARE_QUALITY: ScreenShareQuality = 'clear';
+
+function resolveScreenShareQualityConfig(quality?: ScreenShareQuality) {
+  return (
+    SCREEN_SHARE_QUALITY_CONFIGS[quality || DEFAULT_SCREEN_SHARE_QUALITY] ||
+    SCREEN_SHARE_QUALITY_CONFIGS[DEFAULT_SCREEN_SHARE_QUALITY]
+  );
+}
+
+function buildScreenShareCaptureOptions(
+  quality?: ScreenShareQuality
+): ScreenShareCaptureOptions {
+  const config = resolveScreenShareQualityConfig(quality);
+  return {
+    audio: false,
+    video: true,
+    resolution: config.resolution,
+    contentHint: config.contentHint,
+    surfaceSwitching: 'include',
+  };
+}
+
+function buildScreenSharePublishOptions(
+  quality?: ScreenShareQuality
+): TrackPublishOptions {
+  const config = resolveScreenShareQualityConfig(quality);
+  return {
+    source: Track.Source.ScreenShare,
+    screenShareEncoding: {
+      maxBitrate: config.maxBitrate,
+      maxFramerate: config.resolution.frameRate || 30,
+      priority: 'high',
+    },
+    degradationPreference: 'maintain-resolution',
+    simulcast: false,
+  };
 }
 
 /**
@@ -204,6 +302,14 @@ export function useLivekitRoom() {
     publication: RemoteTrackPublication,
     track: RemoteVideoTrack
   ) {
+    publication.setVideoQuality(VideoQuality.HIGH);
+    publication.setVideoDimensions({
+      width: SCREEN_SHARE_QUALITY_CONFIGS.ultra.resolution.width,
+      height: SCREEN_SHARE_QUALITY_CONFIGS.ultra.resolution.height,
+    });
+    publication.setVideoFPS(
+      SCREEN_SHARE_QUALITY_CONFIGS.ultra.resolution.frameRate || 30
+    );
     remoteScreenShare.value = {
       participantIdentity: participant.identity,
       participantName: participant.name || participant.identity,
@@ -223,7 +329,7 @@ export function useLivekitRoom() {
     }
   }
 
-  async function startScreenShare() {
+  async function startScreenShare(quality?: ScreenShareQuality) {
     if (!room.value) {
       throw new Error('尚未加入语音房间');
     }
@@ -231,10 +337,9 @@ export function useLivekitRoom() {
       return localScreenTrack.value;
     }
 
-    const tracks = await room.value.localParticipant.createScreenTracks({
-      audio: false,
-      video: true,
-    });
+    const tracks = await room.value.localParticipant.createScreenTracks(
+      buildScreenShareCaptureOptions(quality)
+    );
 
     const screenTrack = tracks.find(
       (item) => item.kind === Track.Kind.Video
@@ -246,9 +351,7 @@ export function useLivekitRoom() {
 
     const publication = await room.value.localParticipant.publishTrack(
       screenTrack,
-      {
-        source: Track.Source.ScreenShare,
-      }
+      buildScreenSharePublishOptions(quality)
     );
 
     localScreenTrack.value = screenTrack;

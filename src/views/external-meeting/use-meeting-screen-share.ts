@@ -13,7 +13,10 @@ import { ConnectionState, LocalVideoTrack, Room } from 'livekit-client';
 import { useI18n } from 'vue-i18n';
 import { startScreenShareApi, stopScreenShareApi } from '@/api/modules/meeting';
 import { useMeetingStore, useUserStore } from '@/stores';
-import type { RemoteScreenShareInfo } from '@/composables/use-livekit-room';
+import type {
+  RemoteScreenShareInfo,
+  ScreenShareQuality,
+} from '@/composables/use-livekit-room';
 import { useFullscreen } from '@vueuse/core';
 /******************************** 类型定义 ********************************/
 
@@ -27,7 +30,7 @@ interface UseMeetingScreenShareOptions {
   /** 远端屏幕共享信息（参与者标识、显示名、视频轨等） */
   remoteScreenShare: ShallowRef<RemoteScreenShareInfo | null>;
   /** 开始本地屏幕共享，返回屏幕视频轨 */
-  startScreenShare: () => Promise<LocalVideoTrack>;
+  startScreenShare: (quality?: ScreenShareQuality) => Promise<LocalVideoTrack>;
   /** 停止本地屏幕共享 */
   stopScreenShare: () => Promise<void>;
 }
@@ -369,7 +372,7 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
    * 同时监听浏览器原生的屏幕共享停止事件（如点击浏览器"停止共享"按钮），
    * 确保通过浏览器 UI 停止共享时也能同步调用后端 API
    */
-  async function handleSharedScreen() {
+  async function handleSharedScreen(quality?: ScreenShareQuality) {
     const meetingId = currentMeetingId.value;
     if (!meetingId) {
       return;
@@ -402,7 +405,7 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
       await startScreenShareApi(meetingId);
 
       try {
-        const screenTrack = await startScreenShare();
+        const screenTrack = await startScreenShare(quality);
         // 监听浏览器原生停止共享事件（点击浏览器停止共享按钮时触发）
         screenTrack.mediaStreamTrack?.addEventListener(
           'ended',

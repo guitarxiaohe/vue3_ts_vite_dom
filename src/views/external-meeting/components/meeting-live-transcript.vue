@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, nextTick, ref, watch } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import { LoaderCircle } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import type { SpeakerTranscriptLine } from '@/utils/meeting-transcript';
@@ -12,10 +12,8 @@ const props = defineProps<{
 const { t } = useI18n();
 const transcriptPanelRef = ref<HTMLElement | null>(null);
 
-const transcriptScrollEnabled = computed(() => props.blockCount > 20);
-
 function scrollTranscriptPanelToBottom() {
-  if (!transcriptScrollEnabled.value || !transcriptPanelRef.value) {
+  if (!transcriptPanelRef.value) {
     return;
   }
   transcriptPanelRef.value.scrollTop = transcriptPanelRef.value.scrollHeight;
@@ -33,10 +31,7 @@ watch(
 <template>
   <div
     ref="transcriptPanelRef"
-    :class="[
-      'meeting-live-feed',
-      transcriptScrollEnabled ? 'meeting-live-feed--scrollable' : '',
-    ]"
+    class="meeting-live-feed meeting-live-feed--scrollable"
   >
     <div class="meeting-live-feed__meta">
       <strong>AI 实时字幕及转写</strong>
@@ -79,14 +74,12 @@ watch(
 .meeting-live-feed {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-height: 280px;
-  padding: 18px 20px;
-  border-radius: 22px;
+  gap: 8px;
+  min-height: 320px;
+  padding: 16px;
+  border-radius: 8px;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, var(--color-bg-page), var(--color-border-light)),
-    radial-gradient(circle at top, var(--color-primary-bg), transparent 34%);
+  background: var(--color-bg-card);
   border: 1px solid var(--color-border);
 }
 
@@ -104,9 +97,8 @@ watch(
 }
 
 .meeting-live-feed--scrollable {
-  max-height: 540px;
-  overflow: hidden;
-  scrollbar-width: none;
+  max-height: calc(100vh - 392px);
+  overflow-y: auto;
 }
 
 .meeting-live-line {
@@ -115,9 +107,8 @@ watch(
 
 .meeting-live-line__label {
   color: var(--color-text-primary);
-  font-size: 12px;
-  line-height: 1.9;
-  letter-spacing: 0.02em;
+  font-size: 13px;
+  line-height: 1.75;
   font-weight: 700;
 }
 
@@ -125,9 +116,9 @@ watch(
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.9;
+  line-height: 1.75;
   color: var(--color-text-primary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .meeting-live-line__pending {
