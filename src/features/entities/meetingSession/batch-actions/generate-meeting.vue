@@ -60,9 +60,7 @@ async function handleConfirm() {
 </script>
 
 <template>
-  <el-button type="primary" @click.stop="openDialog">
-    生成会议链接
-  </el-button>
+  <el-button type="primary" @click.stop="openDialog"> 生成会议链接 </el-button>
 
   <el-dialog
     v-model="dialogVisible"
@@ -70,12 +68,7 @@ async function handleConfirm() {
     width="480px"
     :close-on-click-modal="false"
   >
-    <el-form
-      ref="formRef"
-      :model="form"
-      :rules="rules"
-      label-width="100px"
-    >
+    <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
       <el-form-item label="会议标题" prop="title">
         <el-input
           v-model="form.title"
