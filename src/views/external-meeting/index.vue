@@ -4,21 +4,11 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import {
   Camera,
-  CircleDot,
-  Hand,
-  LoaderCircle,
+  Captions,
   Mic,
   MicOff,
   MonitorUp,
-  PictureInPicture2,
-  SendHorizontal,
-  Settings2,
-  Sparkles,
-  Users,
-  Volume2,
-  VolumeX,
-  Wifi,
-  WifiOff,
+  MoreVertical,
 } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import MeetingParticipantGrid from '@/components/meeting-participant-grid/index.vue';
@@ -35,6 +25,7 @@ import { useMeetingRtcSession } from './use-meeting-rtc-session';
 import MeetingLiveTranscript from './components/meeting-live-transcript.vue';
 import MeetingScreenShareStage from './components/meeting-screen-share-stage.vue';
 import MeetingAiSummary from './components/meeting-ai-summary.vue';
+import MeetingInteractionChat from './components/meeting-interaction-chat.vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   enterTheRoomByCodeApi,
@@ -42,7 +33,6 @@ import {
 } from '@/api/modules/meeting-public';
 import { useUserStore } from '@/stores';
 import { useWebSocket } from '@/composables/use-websocket';
-import { MEETING_CLIENT_ID_KEY } from '@/utils/meeting-cross-window';
 import meetingTag from './components/meeting-tag.vue';
 // import { getRtcTokenApi } from '@/api/modules/meeting-rtc.ts';
 
@@ -78,13 +68,11 @@ const {
   participants: rtcParticipants,
   activeSpeakers,
   isMicEnabled,
-  isSpeakerMuted,
   playbackVolume,
   joinRoom,
   leaveRoom,
   toggleMic,
   setPlaybackVolume,
-  toggleSpeakerMute,
   requestPlaybackPermission,
   room,
   localScreenTrack,
@@ -113,20 +101,10 @@ const inviteDialogVisible = ref(false);
 const inviteUserIds = ref<string[]>([]);
 // 互动文字输入框的当前内容
 const interactionText = ref('');
-// 互动表情面板中可选的表情列表
-const interactionEmojiOptions = ['👍', '👏', '🎉', '🔥', '✅', '❓'];
+// 移动端信息区当前选中的面板
+const mobileActivePanel = ref<'transcript' | 'summary' | 'chat'>('transcript');
 // 当前屏幕共享清晰度档位
 const screenShareQuality = ref<ScreenShareQuality>('clear');
-// 屏幕共享清晰度选项
-const screenShareQualityOptions: Array<{
-  value: ScreenShareQuality;
-  labelKey: string;
-}> = [
-  { value: 'smooth', labelKey: 'meeting.shareScreenQualitySmooth' },
-  { value: 'balanced', labelKey: 'meeting.shareScreenQualityBalanced' },
-  { value: 'clear', labelKey: 'meeting.shareScreenQualityClear' },
-  { value: 'ultra', labelKey: 'meeting.shareScreenQualityUltra' },
-];
 
 /***************************** 定时器 / 权限状态 *****************************/
 let activeSpeakerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -187,33 +165,6 @@ const meetingElapsedLabel = computed(() => {
     .map((value) => String(value).padStart(2, '0'))
     .join(':');
 });
-const networkStatusText = computed(() => {
-  if (isReconnecting.value) {
-    return '重连中';
-  }
-  if (isConnected.value) {
-    return '网络良好';
-  }
-  if (isRtcRunning.value) {
-    return '待接入';
-  }
-  return '未连接';
-});
-const networkStatusTone = computed(() => {
-  if (isReconnecting.value) {
-    return 'warning';
-  }
-  if (isConnected.value) {
-    return 'success';
-  }
-  if (isRtcRunning.value) {
-    return 'info';
-  }
-  return 'danger';
-});
-const isFloatingMeetingWindow = computed(
-  () => getQueryString('mode') === 'floating'
-);
 // 最新一条转写记录
 const latestTranscript = computed(() => {
   const transcripts = meetingDetail.value?.transcripts ?? [];
@@ -225,8 +176,6 @@ const isMeetingEnded = computed(() =>
 );
 const {
   isHost,
-  visibleMeetingParticipants,
-  participantRtcCount,
   participantDisplayItems,
   canInviteParticipants,
   inviteSelectableUsers,
@@ -238,15 +187,9 @@ const {
 });
 
 const {
-  isConnected,
-  isReconnecting,
-  isRtcRunning,
   isRtcOwnedByOtherTab,
-  showJoinRtcButton,
-  speakerVolumePercent,
   waitingMicPermission,
   openPendingMeeting,
-  handleTakeOverRtc,
   handleStopMeeting,
   declinePendingMeeting,
 } = useMeetingRtcSession({
@@ -280,17 +223,6 @@ const {
   startScreenShare,
   stopScreenShare,
 });
-
-const currentScreenShareQualityLabel = computed(() => {
-  const option = screenShareQualityOptions.find(
-    (item) => item.value === screenShareQuality.value
-  );
-  return option ? t(option.labelKey) : t('meeting.shareScreenQualityClear');
-});
-
-function handleScreenShareQualityCommand(command: string | number | object) {
-  screenShareQuality.value = command as ScreenShareQuality;
-}
 
 /***************************** 高亮脉冲效果 *****************************/
 
@@ -368,7 +300,7 @@ async function handleInviteParticipants() {
 }
 
 function handleUnavailableFeature(label: string) {
-  ElMessage.info(`${label}能力正在接入中`);
+  ElMessage.info(t('meeting.featureConnecting', { label }));
 }
 
 async function handleSendInteraction(
@@ -400,19 +332,9 @@ async function handleSendInteraction(
   }
 }
 
-// 发送举手
-function handleRaiseHand() {
-  void handleSendInteraction('HAND', t('meeting.interactionHandBubble'));
-}
-
-// 发送表情
-function handleSendEmoji(emoji: string) {
-  void handleSendInteraction('EMOJI', emoji);
-}
-
 // 发送文字
-function handleSendTextInteraction() {
-  const content = interactionText.value.trim();
+function handleSendTextInteraction(text?: string) {
+  const content = (text ?? interactionText.value).trim();
   if (!content) {
     return;
   }
@@ -426,55 +348,6 @@ function goBackAfterMeetingAction() {
     return;
   }
   void router.push('/');
-}
-
-function buildFloatingMeetingUrl(meetingId: string) {
-  const url = new URL('/external-meeting', window.location.origin);
-  url.searchParams.set('meetingId', meetingId);
-  url.searchParams.set('mode', 'floating');
-  return url.toString();
-}
-
-function createFloatingMeetingClientId() {
-  return `meeting-floating-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2, 10)}`;
-}
-
-function handleRunMeetingInBackground() {
-  const meetingId = meetingDetail.value?.session.id;
-  if (!meetingId) {
-    return;
-  }
-  const width = 520;
-  const height = 760;
-  const left = Math.max(24, window.screen.availWidth - width - 48);
-  const top = 64;
-  const meetingWindow = window.open(
-    '/components',
-    `xiaohe-meeting-${meetingId}`,
-    [
-      'popup=yes',
-      `width=${width}`,
-      `height=${height}`,
-      `left=${left}`,
-      `top=${top}`,
-      'resizable=yes',
-      'scrollbars=yes',
-    ].join(',')
-  );
-  if (!meetingWindow) {
-    ElMessage.error('浏览器阻止了独立窗口，请允许弹窗后重试');
-    return;
-  }
-  meetingWindow.sessionStorage.setItem(
-    MEETING_CLIENT_ID_KEY,
-    createFloatingMeetingClientId()
-  );
-  meetingWindow.location.href = buildFloatingMeetingUrl(String(meetingId));
-  meetingWindow.focus();
-  ElMessage.success('会议已在独立窗口后台运行');
-  goBackAfterMeetingAction();
 }
 
 async function handleStopMeetingAndBack() {
@@ -631,21 +504,6 @@ watch(
           {{ meetingDetail?.session.title || t('meeting.drawerTitle') }}
         </strong>
         <span class="meeting-shell-bar__timer">{{ meetingElapsedLabel }}</span>
-        <el-tag
-          size="small"
-          :type="networkStatusTone"
-          class="meeting-shell-bar__network"
-        >
-          <el-icon class="is-loading" v-if="isReconnecting">
-            <LoaderCircle />
-          </el-icon>
-          <el-icon v-else-if="isConnected"><Wifi /></el-icon>
-          <el-icon v-else><WifiOff /></el-icon>
-          {{ networkStatusText }}
-        </el-tag>
-        <span v-if="meetingDetail" class="meeting-shell-bar__id">
-          ID {{ meetingDetail.session.id }}
-        </span>
       </div>
 
       <div class="meeting-shell-bar__meta" v-if="meetingDetail">
@@ -673,12 +531,16 @@ watch(
     >
       <!-------------------------- 主舞台：共享屏幕 / 待处理会议 / 参与者列表 -------------------------->
       <main class="meeting-stage">
-        <MeetingScreenShareStage
+        <div
           v-if="shouldShowShareStage"
-          :current-sharer-name="currentSharerName"
-          :has-remote-screen-share="!!remoteScreenShare"
-          @video-ready="handleScreenShareVideoReady"
-        />
+          class="meeting-stage__canvas meeting-stage__canvas--share"
+        >
+          <MeetingScreenShareStage
+            :current-sharer-name="currentSharerName"
+            :has-remote-screen-share="!!remoteScreenShare"
+            @video-ready="handleScreenShareVideoReady"
+          />
+        </div>
 
         <article
           v-else-if="pendingMeetings.length && !meetingDetail"
@@ -724,38 +586,10 @@ watch(
           </div>
         </article>
 
-        <article
-          v-else-if="meetingDetail"
-          class="meeting-card meeting-card--stage"
-        >
-          <div class="meeting-card__header">
-            <h2>
-              <el-icon><Users /></el-icon>
-              {{ t('meeting.participantsTitle') }}
-            </h2>
-            <div class="meeting-card__header-actions">
-              <span>
-                {{
-                  t('meeting.participantCount', {
-                    count: visibleMeetingParticipants.length,
-                  })
-                }}
-                <template v-if="participantRtcCount">
-                  · RTC: {{ participantRtcCount }}
-                </template>
-              </span>
-              <el-button
-                v-if="canInviteParticipants"
-                type="primary"
-                link
-                size="small"
-                @click="openInviteParticipantsDialog"
-              >
-                {{ t('meeting.inviteMoreAction') }}
-              </el-button>
-            </div>
-          </div>
-
+        <article v-else-if="meetingDetail" class="meeting-stage__canvas">
+          <p class="meeting-stage__hint">
+            {{ t('meeting.noScreenSharing') }}
+          </p>
           <MeetingParticipantGrid
             :items="participantDisplayItems"
             :host-label="t('meeting.roleHost')"
@@ -777,20 +611,65 @@ watch(
         </article>
       </main>
 
-      <!-------------------------- 主内容区：实时转写 / AI 摘要 -------------------------->
+      <!-------------------------- 信息区：实时转写 / AI 摘要 / 互动聊天 -------------------------->
       <aside v-if="meetingDetail" class="meeting-main">
-        <article class="meeting-card" v-if="meetingDetail">
+        <nav
+          class="meeting-mobile-tabs"
+          :aria-label="t('meeting.mobilePanelTabs')"
+        >
+          <button
+            type="button"
+            :class="{ 'is-active': mobileActivePanel === 'transcript' }"
+            @click="mobileActivePanel = 'transcript'"
+          >
+            {{ t('meeting.mobileTranscriptTab') }}
+          </button>
+          <button
+            type="button"
+            :class="{ 'is-active': mobileActivePanel === 'summary' }"
+            @click="mobileActivePanel = 'summary'"
+          >
+            {{ t('meeting.mobileSummaryTab') }}
+          </button>
+          <button
+            type="button"
+            :class="{ 'is-active': mobileActivePanel === 'chat' }"
+            @click="mobileActivePanel = 'chat'"
+          >
+            {{ t('meeting.mobileChatTab') }}
+          </button>
+        </nav>
+
+        <article
+          class="meeting-side-section meeting-side-section--transcript"
+          :class="{ 'is-mobile-active': mobileActivePanel === 'transcript' }"
+        >
           <MeetingLiveTranscript
             :lines="renderedTranscriptLines"
             :block-count="liveTranscriptBlocks.length"
           />
         </article>
 
-        <article class="meeting-card" v-if="meetingDetail">
+        <article
+          class="meeting-side-section meeting-side-section--summary"
+          :class="{ 'is-mobile-active': mobileActivePanel === 'summary' }"
+        >
           <MeetingAiSummary
             :text="liveSummaryText"
             :status="liveSummaryStatus"
             :render-key="liveSummaryRenderKey"
+          />
+        </article>
+
+        <article
+          class="meeting-side-section meeting-side-section--chat"
+          :class="{ 'is-mobile-active': mobileActivePanel === 'chat' }"
+        >
+          <MeetingInteractionChat
+            :messages="meetingStore.interactionMessages"
+            :is-sending="isSendingInteraction"
+            :placeholder="t('meeting.interactionTextPlaceholder')"
+            @send-text="handleSendTextInteraction"
           />
         </article>
       </aside>
@@ -803,256 +682,98 @@ watch(
       "
       class="meeting-control-dock"
     >
-      <el-button
-        v-if="showJoinRtcButton"
-        type="primary"
-        @click="handleTakeOverRtc"
-      >
-        {{
-          isRtcOwnedByOtherTab
-            ? t('meeting.takeOverAudio')
-            : t('meeting.joinMeeting')
-        }}
-      </el-button>
-
       <el-tooltip
-        v-if="isConnected"
         :content="isMicEnabled ? t('meeting.micOn') : t('meeting.micOff')"
         placement="top"
       >
-        <el-button
-          :type="isMicEnabled ? 'primary' : 'info'"
-          circle
+        <button
+          type="button"
+          class="meeting-control-button"
           :aria-label="isMicEnabled ? t('meeting.micOn') : t('meeting.micOff')"
           @click="toggleMic"
         >
-          <Mic v-if="isMicEnabled" :size="16" />
-          <MicOff v-else :size="16" />
-        </el-button>
+          <Mic v-if="isMicEnabled" :size="22" />
+          <MicOff v-else :size="22" />
+          <span>{{
+            isMicEnabled ? t('meeting.micShort') : t('meeting.micMutedShort')
+          }}</span>
+        </button>
       </el-tooltip>
 
-      <el-tooltip
-        v-if="isConnected"
-        :content="
-          isSpeakerMuted ? t('meeting.unmuteSpeaker') : t('meeting.muteSpeaker')
-        "
-        placement="top"
-      >
-        <el-button
-          :type="isSpeakerMuted ? 'info' : 'primary'"
-          plain
-          circle
-          :aria-label="
-            isSpeakerMuted
-              ? t('meeting.unmuteSpeaker')
-              : t('meeting.muteSpeaker')
-          "
-          @click="toggleSpeakerMute"
+      <el-tooltip :content="t('meeting.cameraAction')" placement="top">
+        <button
+          type="button"
+          class="meeting-control-button"
+          :aria-label="t('meeting.cameraAction')"
+          @click="handleUnavailableFeature(t('meeting.cameraAction'))"
         >
-          <VolumeX v-if="isSpeakerMuted" :size="16" />
-          <Volume2 v-else :size="16" />
-        </el-button>
+          <Camera :size="22" />
+          <span>{{ t('meeting.cameraShort') }}</span>
+        </button>
       </el-tooltip>
 
-      <el-tooltip content="摄像头" placement="top">
-        <el-button
-          plain
-          circle
-          aria-label="摄像头"
-          @click="handleUnavailableFeature('摄像头')"
-        >
-          <Camera :size="16" />
-        </el-button>
-      </el-tooltip>
       <div class="meeting-control-dock__screen-share">
         <el-tooltip :content="shareScreenLabel" placement="top">
-          <el-button
-            :type="isCurrentUserSharing ? 'primary' : 'default'"
-            plain
-            circle
+          <button
+            type="button"
+            class="meeting-control-button"
+            :class="{ 'is-active': isCurrentUserSharing }"
             :disabled="shareScreenDisabled"
             :aria-label="shareScreenLabel"
             @click="handleSharedScreen(screenShareQuality)"
           >
-            <MonitorUp :size="16" />
-          </el-button>
-        </el-tooltip>
-        <el-dropdown
-          trigger="click"
-          :disabled="isCurrentUserSharing"
-          @command="handleScreenShareQualityCommand"
-        >
-          <el-button
-            class="meeting-control-dock__quality-button"
-            plain
-            :disabled="isCurrentUserSharing"
-            :aria-label="t('meeting.shareScreenQuality')"
-          >
-            {{ currentScreenShareQualityLabel }}
-          </el-button>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item
-                v-for="option in screenShareQualityOptions"
-                :key="option.value"
-                :command="option.value"
-                :disabled="screenShareQuality === option.value"
-              >
-                {{ t(option.labelKey) }}
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </div>
-      <el-tooltip :content="t('meeting.interactionHandAction')" placement="top">
-        <el-button
-          plain
-          circle
-          :loading="isSendingInteraction"
-          :aria-label="t('meeting.interactionHandAction')"
-          @click="handleRaiseHand"
-        >
-          <Hand :size="16" />
-        </el-button>
-      </el-tooltip>
-      <el-tooltip content="录制" placement="top">
-        <el-button
-          plain
-          circle
-          aria-label="录制"
-          @click="handleUnavailableFeature('录制')"
-        >
-          <CircleDot :size="16" />
-        </el-button>
-      </el-tooltip>
-      <el-tooltip content="设置" placement="top">
-        <el-button
-          plain
-          circle
-          aria-label="设置"
-          @click="handleUnavailableFeature('设置')"
-        >
-          <Settings2 :size="16" />
-        </el-button>
-      </el-tooltip>
-      <el-popover
-        placement="top"
-        trigger="click"
-        width="220"
-        popper-class="meeting-interaction-popover"
-      >
-        <template #reference>
-          <el-tooltip
-            :content="t('meeting.interactionEmojiAction')"
-            placement="top"
-          >
-            <el-button
-              plain
-              circle
-              :aria-label="t('meeting.interactionEmojiAction')"
-            >
-              <Sparkles :size="16" />
-            </el-button>
-          </el-tooltip>
-        </template>
-        <div class="meeting-emoji-picker">
-          <button
-            v-for="emoji in interactionEmojiOptions"
-            :key="emoji"
-            type="button"
-            class="meeting-emoji-picker__item"
-            @click="handleSendEmoji(emoji)"
-          >
-            {{ emoji }}
+            <MonitorUp :size="22" />
+            <span>{{ t('meeting.shareScreenShort') }}</span>
           </button>
-        </div>
-      </el-popover>
-
-      <div class="meeting-control-dock__interaction">
-        <el-input
-          v-model="interactionText"
-          maxlength="40"
-          clearable
-          :placeholder="t('meeting.interactionTextPlaceholder')"
-          @keyup.enter="handleSendTextInteraction"
-        />
-        <el-button
-          type="primary"
-          plain
-          circle
-          :loading="isSendingInteraction"
-          :aria-label="t('meeting.interactionTextAction')"
-          @click="handleSendTextInteraction"
-        >
-          <SendHorizontal :size="16" />
-        </el-button>
+        </el-tooltip>
       </div>
 
-      <div v-if="isConnected" class="meeting-control-dock__volume">
-        <el-popover
-          placement="top"
-          trigger="click"
-          :width="56"
-          popper-class="meeting-volume-popover"
+      <el-tooltip :content="t('meeting.captionAction')" placement="top">
+        <button
+          type="button"
+          class="meeting-control-button"
+          :aria-label="t('meeting.captionAction')"
+          @click="mobileActivePanel = 'transcript'"
         >
-          <template #reference>
-            <el-tooltip :content="t('meeting.playbackVolume')" placement="top">
-              <button
-                type="button"
-                class="meeting-control-dock__volume-trigger"
-                :aria-label="t('meeting.playbackVolume')"
-              >
-                <Volume2 :size="16" />
-              </button>
-            </el-tooltip>
-          </template>
-          <div class="meeting-control-dock__volume-slider">
-            <el-slider
-              v-model="speakerVolumePercent"
-              vertical
-              height="120px"
-              :max="100"
-              :min="0"
-              :show-tooltip="false"
-            />
-          </div>
-        </el-popover>
-      </div>
+          <Captions :size="22" />
+          <span>{{ t('meeting.captionShort') }}</span>
+        </button>
+      </el-tooltip>
 
-      <el-button
-        v-if="canInviteParticipants"
-        type="primary"
-        plain
-        @click="openInviteParticipantsDialog"
-      >
-        {{ t('meeting.inviteMoreAction') }}
-      </el-button>
-
-      <el-button
-        v-if="meetingDetail && userStore.isLoggedIn && !isFloatingMeetingWindow"
-        type="primary"
-        plain
-        @click="handleRunMeetingInBackground"
-      >
-        <PictureInPicture2 :size="16" />
-        后台运行
-      </el-button>
+      <el-tooltip :content="t('meeting.moreAction')" placement="top">
+        <button
+          type="button"
+          class="meeting-control-button"
+          :aria-label="t('meeting.moreAction')"
+          @click="
+            canInviteParticipants
+              ? openInviteParticipantsDialog()
+              : handleUnavailableFeature(t('meeting.moreAction'))
+          "
+        >
+          <MoreVertical :size="22" />
+          <span>{{ t('meeting.moreShort') }}</span>
+        </button>
+      </el-tooltip>
 
       <el-button
         v-if="!isHost"
+        class="meeting-control-dock__end"
         type="danger"
-        plain
         @click="handleStopMeetingAndBack"
       >
-        {{ t('meeting.leaveMeeting') }}
+        <span class="meeting-control-dock__end-icon" />
+        <span>{{ t('meeting.leaveMeeting') }}</span>
       </el-button>
 
       <el-button
         v-if="canStopMeeting"
+        class="meeting-control-dock__end"
         type="danger"
         @click="handleStopMeetingAndBack"
       >
-        {{ t('meeting.stopMeeting') }}
+        <span class="meeting-control-dock__end-icon" />
+        <span>{{ t('meeting.stopMeeting') }}</span>
       </el-button>
     </section>
   </div>
@@ -1096,223 +817,108 @@ watch(
 <style lang="scss" scoped>
 .meeting-drawer__body {
   width: 100vw;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px;
-  background: var(--color-border-light);
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #f2f3f5;
 }
 
 .meeting-shell-bar {
+  flex: 0 0 50px;
   display: flex;
-  justify-content: space-between;
+  flex-direction: row;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-card);
-  box-shadow: 0 8px 24px rgba(17, 24, 39, 0.06);
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .meeting-shell-bar__status,
 .meeting-shell-bar__meta {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 10px;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .meeting-shell-bar__title {
-  color: var(--color-text-primary);
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.meeting-shell-bar__timer,
-.meeting-shell-bar__id {
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.meeting-shell-bar__network {
-  border-radius: 999px;
-}
-
-.meeting-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(320px, 27vw, 420px);
-  gap: 12px;
-  align-items: stretch;
-  flex: 1;
-  min-height: 0;
-}
-
-.meeting-grid--empty {
-  grid-template-columns: 1fr;
-}
-
-.meeting-grid--empty .meeting-stage {
-  min-height: inherit;
-}
-
-.meeting-ended-banner {
-  padding: 16px 18px;
-  border: 1px solid var(--color-danger-light);
-  border-radius: 20px;
-  background: linear-gradient(
-    180deg,
-    var(--color-danger-bg),
-    var(--color-bg-page)
-  );
-  color: var(--color-danger);
-
-  strong {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 15px;
-  }
-
-  p {
-    margin: 0;
-    line-height: 1.6;
-  }
-}
-
-.meeting-stage,
-.meeting-main {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  min-height: 0;
-}
-
-.meeting-stage {
-  align-self: stretch;
-}
-
-.meeting-main {
-  width: 100%;
-  max-height: calc(100vh - 154px);
-  overflow-y: auto;
-}
-
-.meeting-control-dock {
-  position: sticky;
-  bottom: 12px;
-  z-index: 4;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-bg-card) 90%, transparent);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.1);
-}
-
-.meeting-control-dock__volume {
-  display: flex;
-  align-items: center;
-  padding: 0 6px;
-}
-
-.meeting-control-dock__screen-share {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.meeting-control-dock__quality-button {
-  min-width: 56px;
-  height: 34px;
-  padding: 0 10px;
-}
-
-.meeting-control-dock__volume-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-secondary);
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease;
-}
-
-.meeting-control-dock__volume-trigger:hover {
-  background: var(--color-fill-blank);
-  color: var(--color-primary);
-}
-
-.meeting-control-dock__volume-trigger:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.meeting-control-dock__volume-slider {
-  display: flex;
-  justify-content: center;
-  padding: 8px 0 4px;
-}
-
-.meeting-control-dock__volume-slider :deep(.el-slider) {
-  margin: 0;
-}
-
-:global(.meeting-volume-popover) {
-  min-width: 56px !important;
-  padding: 10px 8px !important;
-}
-
-.meeting-control-dock__interaction {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: min(320px, 100%);
-  flex: 1 1 320px;
-}
-
-.meeting-control-dock__interaction :deep(.el-input) {
-  min-width: 0;
-}
-
-.meeting-control-dock__volume span {
-  color: var(--color-text-secondary);
-  font-size: 13px;
+  max-width: min(42vw, 520px);
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.meeting-card {
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 16px;
-  background: var(--color-bg-card);
-  box-shadow: 0 10px 28px rgba(17, 24, 39, 0.06);
+.meeting-shell-bar__timer {
+  color: #667085;
+  font-size: 13px;
 }
 
-.meeting-card--stage {
+.meeting-grid {
   flex: 1;
   min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 288px;
+  gap: 0;
+  background: #ffffff;
 }
 
-.meeting-card--stage :deep(.meeting-participant-grid) {
-  align-content: start;
+.meeting-grid--empty {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.meeting-ended-banner {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  border-bottom: 1px solid #fecdd3;
+  background: #fff1f2;
+  color: #e11d48;
+
+  strong {
+    display: block;
+    font-size: 14px;
+  }
+
+  p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
+
+.meeting-stage {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-self: stretch;
+  gap: 0;
+  background: #111318;
+}
+
+.meeting-card {
+  width: min(560px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  margin: auto;
+  padding: 18px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .meeting-card--empty {
-  min-height: inherit;
+  min-height: 320px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1326,434 +932,379 @@ watch(
   margin-bottom: 14px;
 }
 
-.meeting-card__header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-align: right;
-}
-
 .meeting-card__header h2 {
   margin: 0;
+  color: #111827;
   font-size: 18px;
-  color: var(--color-text-primary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  font-weight: 700;
 }
 
-.meeting-card__header--stacked {
-  align-items: flex-start;
-}
-
-.meeting-card__caption {
-  margin: 6px 0 0;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.meeting-pending-list,
-.meeting-participant-list,
-.meeting-transcript-list,
-.meeting-summary-list {
+.meeting-pending-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.meeting-live-summary__meta strong {
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.meeting-live-summary {
-  min-height: 190px;
-  max-height: 360px;
-  overflow-y: auto;
-  padding: 16px;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-card);
-}
-
-.meeting-live-summary--streaming {
-  box-shadow: inset 0 0 0 1px var(--color-warning-bg);
-}
-
-.meeting-live-summary__meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.meeting-live-summary__meta small {
-  color: var(--color-text-placeholder);
-  font-size: 12px;
-}
-
-.meeting-live-summary__text {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.9;
-  color: var(--color-text-primary);
-  font-size: 12px;
-}
-
-.meeting-summary-fade-enter-active,
-.meeting-summary-fade-leave-active {
-  transition:
-    opacity 0.22s ease,
-    transform 0.22s ease;
-}
-
-.meeting-summary-fade-enter-from,
-.meeting-summary-fade-leave-to {
-  opacity: 0;
-  transform: translateY(4px);
+  gap: 10px;
 }
 
 .meeting-pending-item {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 14px 16px;
-  border: 1px solid var(--color-warning-light);
-  border-radius: 18px;
-  background: var(--color-warning-bg);
-  text-align: left;
-  cursor: pointer;
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8f9fb;
+  color: #111827;
 }
 
-.meeting-pending-item:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 30px var(--color-warning-bg);
+.meeting-pending-item span,
+.meeting-pending-item small {
+  color: #667085;
+  font-size: 12px;
 }
 
 .meeting-pending-item__actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin-top: 4px;
 }
 
-.meeting-participant-item,
-.meeting-transcript-item,
-.meeting-summary-item {
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: var(--color-bg-hover);
-  border: 1px solid var(--color-border);
-}
-
-.meeting-participant-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    border-color 0.2s ease,
-    background 0.2s ease;
-}
-
-.meeting-participant-item--active {
-  border-color: var(--color-primary-light-5);
-  background:
-    linear-gradient(
-      135deg,
-      var(--color-primary-light-9),
-      var(--color-bg-hover)
-    ),
-    var(--color-bg-hover);
-  box-shadow: 0 14px 28px var(--color-primary-bg);
-  transform: translateY(-1px);
-}
-
-.meeting-participant-item--speaking {
-  border-color: var(--color-success-light);
-  background:
-    linear-gradient(135deg, var(--color-success-bg), var(--color-bg-hover)),
-    var(--color-bg-hover);
-  box-shadow: 0 14px 28px var(--color-success-bg);
-}
-
-.meeting-participant-item--joined {
-  border-color: var(--color-success);
-  box-shadow: 0 14px 28px var(--color-success-bg);
-}
-
-.meeting-participant-item--waiting {
-  background:
-    linear-gradient(135deg, var(--color-warning-bg), var(--color-bg-hover)),
-    var(--color-bg-hover);
-}
-
-.meeting-participant-item--absent {
-  border-color: var(--color-danger-light);
-  background:
-    linear-gradient(135deg, var(--color-danger-bg), var(--color-bg-page)),
-    var(--color-bg-page);
-  box-shadow: 0 12px 24px var(--color-danger-bg);
-}
-
-.meeting-participant-item--declined {
-  border-color: var(--color-danger-light);
-  background:
-    linear-gradient(135deg, var(--color-danger-bg), var(--color-bg-hover)),
-    var(--color-bg-hover);
-  box-shadow: 0 12px 24px var(--color-danger-bg);
-}
-
-.meeting-participant-item__main {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-.meeting-participant-avatar {
+.meeting-stage__canvas {
   position: relative;
-}
-
-.meeting-participant-avatar__loading {
-  position: absolute;
-  inset: -6px;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.68);
-  color: var(--color-warning);
+  padding: clamp(24px, 5vw, 64px) clamp(32px, 5vw, 72px);
+  overflow: hidden;
+  background: #111318;
 }
 
-.meeting-participant-avatar__rtc {
+.meeting-stage__canvas :deep(.meeting-participant-grid) {
+  align-content: center;
+}
+
+.meeting-stage__canvas--share {
+  padding: 0;
+}
+
+.meeting-stage__hint {
   position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
+  top: 22px;
+  left: 50%;
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  transform: translateX(-50%);
+}
+
+.meeting-main {
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  max-height: none;
+  display: grid;
+  grid-template-rows: 240px 132px minmax(178px, 1fr);
+  gap: 0;
+  overflow: hidden;
+  border-left: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.meeting-mobile-tabs {
+  display: none;
+}
+
+.meeting-side-section {
+  min-height: 0;
+  border-bottom: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.meeting-side-section--chat {
+  border-bottom: 0;
+}
+
+.meeting-control-dock {
+  position: relative;
+  bottom: auto;
+  z-index: 4;
+  flex: 0 0 60px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-text-placeholder);
-  color: white;
-  border: 2px solid white;
-
-  &.is-speaking {
-    background: var(--color-success);
-    animation: pulse 1.5s infinite;
-  }
-
-  &.is-muted {
-    background: var(--color-danger);
-  }
+  flex-wrap: nowrap;
+  gap: 22px;
+  padding: 4px 96px;
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 var(--color-success-bg);
-  }
-  70% {
-    box-shadow: 0 0 0 8px transparent;
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
-}
-
-.meeting-participant-item strong,
-.meeting-transcript-item strong,
-.meeting-summary-item strong {
-  display: block;
-  color: var(--color-text-primary);
-}
-
-.meeting-participant-item small,
-.meeting-transcript-item small,
-.meeting-summary-item small {
-  color: var(--color-text-secondary);
-}
-
-.meeting-participant-item__meta,
-.meeting-transcript-item__meta,
-.meeting-summary-item__meta {
-  display: flex;
+.meeting-control-button {
+  width: 48px;
+  min-width: 48px;
+  height: 50px;
+  display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: #111827;
+  font-size: 10px;
+  line-height: 1.2;
+  background: transparent;
+  cursor: pointer;
 }
 
-.meeting-presence {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
+.meeting-control-button:focus-visible {
+  outline: 2px solid #5046e5;
+  outline-offset: 2px;
 }
 
-.meeting-presence.is-online {
-  background: var(--color-success);
-  box-shadow: 0 0 0 4px var(--color-success-bg);
+.meeting-control-button span {
+  white-space: nowrap;
 }
 
-.meeting-presence.is-offline {
-  background: var(--color-text-placeholder);
+.meeting-control-button:hover,
+.meeting-control-button.is-active {
+  color: #4f46e5;
+  background: #f5f4ff;
 }
 
-.meeting-transcript-item p,
-.meeting-summary-item pre,
-.meeting-final-summary {
-  margin: 10px 0 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: inherit;
-  line-height: 1.7;
-  color: var(--color-text-primary);
+.meeting-control-button:disabled {
+  color: #98a2b3;
+  cursor: not-allowed;
 }
 
-.meeting-final-summary {
-  min-height: 180px;
-  padding: 18px;
-  border-radius: 20px;
-  background: linear-gradient(
-    180deg,
-    var(--color-primary-light-9),
-    var(--color-bg-page)
-  );
-  border: 1px solid var(--color-primary-light-7);
-}
-
-/* 流式 ASR 进行中的转写 */
-.meeting-transcript-item--pending {
-  opacity: 0.9;
-  border-left: 3px solid var(--color-primary);
-  background: linear-gradient(
-    135deg,
-    var(--color-primary-light-9),
-    var(--color-bg-hover)
-  );
-}
-
-.meeting-transcript-pending-label {
+.meeting-control-dock__screen-share {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  color: var(--color-primary);
-  font-size: 12px;
 }
 
-.meeting-emoji-picker {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+.meeting-control-dock__end {
+  position: absolute;
+  right: 18px;
+  bottom: 8px;
+  height: 44px;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 8px;
+  border: 0;
+  color: #ff1f3d;
+  font-size: 11px;
+  background: transparent;
 }
 
-.meeting-emoji-picker__item {
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  background: var(--color-bg-page);
-  font-size: 24px;
-  line-height: 1;
-  padding: 12px 0;
-  cursor: pointer;
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease;
+.meeting-control-dock__end:hover,
+.meeting-control-dock__end:focus {
+  color: #ff1f3d;
+  background: transparent;
 }
 
-.meeting-emoji-picker__item:hover {
-  transform: translateY(-1px);
-  border-color: var(--color-primary-light-7);
-  box-shadow: var(--shadow-sm);
-}
-
-/* 打字机光标闪烁 */
-.typing-cursor {
+.meeting-control-dock__end-icon {
+  width: 16px;
+  height: 12px;
   display: inline-block;
-  width: 2px;
-  height: 1em;
-  margin-left: 2px;
-  background: var(--color-primary);
-  vertical-align: text-bottom;
-  animation: cursor-blink 0.8s step-end infinite;
-}
-
-@keyframes cursor-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-
-.meeting-error {
-  margin: 0;
-  color: var(--color-warning);
+  border-left: 3px solid currentColor;
+  border-radius: 2px;
+  transform: skewY(-20deg);
 }
 
 .meeting-empty {
   strong {
     display: block;
     margin-bottom: 8px;
-    color: var(--color-text-primary);
+    color: #111827;
   }
 
   p {
     margin: 0;
-    color: var(--color-text-secondary);
-  }
-}
-
-.meeting-invite-option {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-
-  strong {
-    color: var(--color-text-primary);
-    font-size: 14px;
-    font-weight: 600;
-  }
-
-  small {
-    color: var(--color-text-secondary);
-    font-size: 12px;
+    color: #667085;
   }
 }
 
 .meeting-invite-empty-tip {
   margin-top: 12px;
-  color: var(--color-text-secondary);
+  color: #667085;
   font-size: 13px;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 900px) {
   .meeting-shell-bar {
-    flex-direction: column;
-    align-items: flex-start;
+    flex: 0 0 53px;
   }
 
   .meeting-grid {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .meeting-stage {
+    flex: 1 1 auto;
+  }
+
+  .meeting-stage__canvas {
+    padding: 40px 18px 18px;
+  }
+
+  .meeting-stage__canvas--share {
+    padding: 0;
   }
 
   .meeting-main {
-    max-height: none;
+    flex: 0 0 254px;
+    display: flex;
+    flex-direction: column;
+    border-left: 0;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .meeting-mobile-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 4px 8px 0;
+    background: #ffffff;
+  }
+
+  .meeting-mobile-tabs button {
+    height: 36px;
+    border: 0;
+    border-radius: 8px;
+    color: #475467;
+    font-size: 14px;
+    font-weight: 500;
+    background: transparent;
+  }
+
+  .meeting-mobile-tabs button.is-active {
+    color: #111827;
+    font-weight: 700;
+    background: #f4f5f7;
+  }
+
+  .meeting-side-section {
+    flex: 1;
+    display: none;
+    border-bottom: 0;
+  }
+
+  .meeting-side-section.is-mobile-active {
+    display: block;
   }
 
   .meeting-control-dock {
-    bottom: 0;
-    border-radius: 8px;
+    flex: 0 0 66px;
+    justify-content: space-between;
+    gap: 0;
+    padding: 6px 10px;
+  }
+
+  .meeting-control-button {
+    width: 52px;
+    min-width: 48px;
+    height: 58px;
+  }
+
+  .meeting-control-dock__end {
+    position: static;
+    width: 42px;
+    height: 52px;
+    padding: 0 6px;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  .meeting-grid {
+    grid-template-columns: minmax(0, 1fr) 272px;
+  }
+
+  .meeting-stage__canvas {
+    padding: 22px 24px;
+  }
+
+  .meeting-control-dock {
+    gap: 16px;
+    padding: 4px 74px;
+  }
+}
+
+@media (max-width: 640px) {
+  .meeting-shell-bar {
+    padding: 0 12px;
+  }
+
+  .meeting-shell-bar__title {
+    max-width: 52vw;
+    font-size: 15px;
+  }
+
+  .meeting-shell-bar__timer {
+    font-size: 14px;
+  }
+
+  .meeting-main {
+    flex-basis: 252px;
+  }
+
+  .meeting-control-dock {
+    flex: 0 0 72px;
+    padding: 6px 8px;
+  }
+
+  .meeting-control-button {
+    width: 48px;
+    min-width: 44px;
+    height: 58px;
+    font-size: 11px;
+  }
+}
+
+@media (max-height: 520px) {
+  .meeting-shell-bar {
+    flex-basis: 42px;
+  }
+
+  .meeting-grid {
+    min-height: 0;
+  }
+
+  .meeting-main {
+    flex-basis: 150px;
+  }
+
+  .meeting-stage__canvas {
+    align-items: flex-start;
+    padding: 10px 12px;
+    overflow-y: auto;
+  }
+
+  .meeting-stage__canvas--share {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .meeting-mobile-tabs button {
+    height: 30px;
+    font-size: 12px;
+  }
+
+  .meeting-control-dock {
+    flex-basis: 52px;
+    padding: 2px 8px;
+  }
+
+  .meeting-control-button {
+    height: 48px;
+    font-size: 10px;
   }
 }
 </style>
