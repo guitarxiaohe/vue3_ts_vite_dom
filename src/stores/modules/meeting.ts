@@ -293,6 +293,8 @@ export const useMeetingStore = defineStore(
     /** 流式 ASR 进行中的转写，按 participantIdentity 索引 */
     const pendingTranscripts = ref<Record<string, PendingTranscript>>({});
     const liveSummaryDraft = ref<MeetingLiveSummaryDraft | null>(null);
+    /** 互动聊天历史，按当前会议生命周期保留 */
+    const interactionMessages = ref<CmsMeetingInteraction[]>([]);
     const interactionBubbles = ref<Record<string, CmsMeetingInteraction>>({});
     const screenShareState = ref<MeetingScreenShareState | null>(null);
     const interactionBubbleTimers = new Map<
@@ -832,6 +834,7 @@ export const useMeetingStore = defineStore(
       interactionBubbleTimers.forEach((timer) => clearTimeout(timer));
       interactionBubbleTimers.clear();
       interactionBubbles.value = {};
+      interactionMessages.value = [];
     }
 
     function upsertInteraction(interaction: CmsMeetingInteraction) {
@@ -846,6 +849,7 @@ export const useMeetingStore = defineStore(
       if (!userId) {
         return;
       }
+      interactionMessages.value = [...interactionMessages.value, interaction];
       interactionBubbles.value = {
         ...interactionBubbles.value,
         [userId]: interaction,
@@ -1106,6 +1110,7 @@ export const useMeetingStore = defineStore(
       lastJoinedUserId,
       pendingMeetings,
       pendingTranscripts,
+      interactionMessages,
       interactionBubbles,
       screenShareState,
       selectableUsers,

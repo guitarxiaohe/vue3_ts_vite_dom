@@ -26,6 +26,7 @@ interface MeetingParticipantGridItem {
   isAbsent: boolean;
   isInRtc: boolean;
   isMicMuted: boolean;
+  avatarColor: string;
   interactionText: string;
   interactionType: string;
 }
@@ -40,22 +41,22 @@ const gridColumns = computed(() =>
   Math.min(Math.max(participantCount.value, 1), 4)
 );
 const sizeMode = computed<'avatar' | 'compact' | 'card'>(() => {
-  if (participantCount.value > 28) {
+  if (participantCount.value > 12) {
     return 'avatar';
   }
-  if (participantCount.value > 12) {
+  if (participantCount.value > 6) {
     return 'compact';
   }
   return 'card';
 });
 const avatarSize = computed(() => {
   if (sizeMode.value === 'avatar') {
-    return 21;
+    return 34;
   }
   if (sizeMode.value === 'compact') {
-    return 26;
+    return 36;
   }
-  return 34;
+  return 44;
 });
 </script>
 
@@ -81,6 +82,7 @@ const avatarSize = computed(() => {
         'meeting-participant-tile--compact': sizeMode === 'compact',
         'meeting-participant-tile--card': sizeMode === 'card',
       }"
+      :style="{ '--meeting-participant-color': item.avatarColor }"
     >
       <div class="meeting-participant-avatar">
         <UserAvatarInfo
@@ -93,6 +95,7 @@ const avatarSize = computed(() => {
           :subtitle="''"
           :size="avatarSize"
           :enable-drawer="true"
+          :avatar="{ style: { backgroundColor: item.avatarColor } }"
         />
         <div v-if="item.isHost" class="meeting-participant-tile__host-chip">
           {{ hostLabel }}
@@ -125,7 +128,7 @@ const avatarSize = computed(() => {
       </div>
 
       <div
-        v-if="sizeMode !== 'avatar'"
+        v-if="sizeMode !== 'avatar' && item.statusType !== 'success'"
         class="meeting-participant-tile__status-chip"
         :class="`is-${item.statusType}`"
       >
@@ -138,9 +141,10 @@ const avatarSize = computed(() => {
 <style scoped lang="scss">
 .meeting-participant-grid {
   display: grid;
+  width: min(100%, 864px);
   gap: 12px;
-  justify-items: center;
-  align-items: start;
+  justify-items: stretch;
+  align-items: stretch;
 }
 
 .meeting-participant-grid--cols-1 {
@@ -159,23 +163,24 @@ const avatarSize = computed(() => {
   max-width: min(320px, 100%);
 }
 
-.meeting-participant-grid--cols-3 {
+.meeting-participant-grid--cols-3,
+.meeting-participant-grid--cols-4 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.meeting-participant-grid--cols-4 {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.meeting-participant-grid--cols-4 .meeting-participant-tile {
+  max-width: none;
 }
 
 .meeting-participant-tile {
   position: relative;
   width: 100%;
-  max-width: 220px;
+  max-width: none;
   min-width: 0;
   overflow: hidden;
   border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-border-light);
+  border: 0;
+  background: color-mix(in srgb, var(--meeting-participant-color) 22%, #111318);
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease,
@@ -184,11 +189,12 @@ const avatarSize = computed(() => {
 }
 
 .meeting-participant-tile--card {
-  aspect-ratio: 1;
+  aspect-ratio: 1.96;
+  min-height: 112px;
 }
 
 .meeting-participant-tile--compact {
-  height: clamp(96px, 10vw, 132px);
+  height: clamp(96px, 11vw, 144px);
 }
 
 .meeting-participant-tile--avatar {
@@ -228,6 +234,9 @@ const avatarSize = computed(() => {
 
 .meeting-participant-avatar {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
   min-height: inherit;
@@ -263,7 +272,6 @@ const avatarSize = computed(() => {
 }
 
 .meeting-participant-tile__host-chip,
-.meeting-participant-tile__name-chip,
 .meeting-participant-tile__status-chip,
 .meeting-participant-tile__bubble {
   position: absolute;
@@ -291,10 +299,19 @@ const avatarSize = computed(() => {
 }
 
 .meeting-participant-tile__name-chip {
-  left: 10px;
-  bottom: 10px;
-  font-size: 12px;
-  font-weight: 700;
+  position: absolute;
+  left: 50%;
+  bottom: calc(50% - 38px);
+  z-index: 2;
+  max-width: calc(100% - 24px);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: translateX(-50%);
 }
 
 .meeting-participant-tile__status-chip {
@@ -357,11 +374,20 @@ const avatarSize = computed(() => {
 }
 
 .meeting-participant-grid--avatar {
+  width: min(100%, 720px);
+  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
   gap: 12px;
+  place-items: center;
 }
 
 .meeting-participant-grid--avatar .meeting-participant-tile {
-  min-height: 112px;
+  width: 58px;
+  height: 72px;
+  min-height: 72px;
+  max-height: 72px;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
 }
 
 .meeting-participant-grid--avatar
@@ -390,28 +416,49 @@ const avatarSize = computed(() => {
   width: 100%;
   height: 100%;
   justify-content: center;
+  align-items: center;
 }
 
 .meeting-participant-tile:deep(.user-avatar-info__avatar-wrap) {
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
 }
 
 .meeting-participant-tile:deep(.user-avatar-info__avatar) {
-  width: 100% !important;
-  height: 100% !important;
-  border-radius: inherit !important;
-  font-size: 40px;
-  background: linear-gradient(135deg, #c7d2fe, #bfdbfe) !important;
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+  background: var(--meeting-participant-color) !important;
 }
 
 .meeting-participant-tile--compact:deep(.user-avatar-info__avatar) {
-  font-size: 32px;
+  width: 38px !important;
+  height: 38px !important;
+  font-size: 16px;
 }
 
 .meeting-participant-tile--avatar:deep(.user-avatar-info__avatar) {
-  border-radius: 8px !important;
-  font-size: 24px;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  font-size: 16px;
+}
+
+.meeting-participant-tile--avatar .meeting-participant-tile__name-chip {
+  bottom: 0;
+  max-width: 58px;
+  color: #ffffff;
+  font-size: 11px;
+}
+
+.meeting-participant-tile--avatar .meeting-participant-tile__host-chip,
+.meeting-participant-tile--avatar .meeting-participant-tile__status-chip,
+.meeting-participant-tile--avatar .meeting-participant-avatar__mute,
+.meeting-participant-tile--avatar .meeting-participant-avatar__loading {
+  display: none;
 }
 
 .meeting-participant-tile:deep(.user-avatar-info__meta),
@@ -423,6 +470,114 @@ const avatarSize = computed(() => {
 @media (max-width: 1440px) {
   .meeting-participant-grid--cols-4 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .meeting-participant-grid {
+    width: 100%;
+    gap: 10px;
+  }
+
+  .meeting-participant-grid--cols-3,
+  .meeting-participant-grid--cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .meeting-participant-tile--card,
+  .meeting-participant-tile--compact {
+    aspect-ratio: 1.58;
+    min-height: 68px;
+  }
+
+  .meeting-participant-tile--compact {
+    height: clamp(64px, 16vw, 82px);
+  }
+
+  .meeting-participant-tile:deep(.user-avatar-info__avatar) {
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 17px;
+  }
+
+  .meeting-participant-tile--compact .meeting-participant-tile__name-chip {
+    bottom: calc(50% - 31px);
+    font-size: 12px;
+  }
+
+  .meeting-participant-tile--compact .meeting-participant-tile__status-chip {
+    right: 6px;
+    bottom: 6px;
+    padding: 3px 7px;
+    font-size: 10px;
+  }
+
+  .meeting-participant-tile--avatar:deep(.user-avatar-info__avatar) {
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 14px;
+  }
+
+  .meeting-participant-grid--avatar {
+    grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
+    gap: 10px;
+  }
+
+  .meeting-participant-grid--avatar .meeting-participant-tile {
+    width: 48px;
+    height: 62px;
+    min-height: 62px;
+    max-height: 62px;
+  }
+
+  .meeting-participant-tile--avatar .meeting-participant-tile__name-chip {
+    max-width: 48px;
+    font-size: 10px;
+  }
+}
+
+@media (max-height: 520px) {
+  .meeting-participant-grid {
+    width: min(100%, 620px);
+    gap: 8px;
+  }
+
+  .meeting-participant-tile--card,
+  .meeting-participant-tile--compact {
+    min-height: 58px;
+    height: clamp(54px, 18vh, 72px);
+  }
+
+  .meeting-participant-tile:deep(.user-avatar-info__avatar) {
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 13px;
+  }
+
+  .meeting-participant-tile__host-chip {
+    left: 6px;
+    top: 6px;
+    padding: 2px 7px;
+    font-size: 10px;
+  }
+
+  .meeting-participant-tile__name-chip {
+    bottom: calc(50% - 27px);
+    font-size: 11px;
+  }
+
+  .meeting-participant-tile__status-chip {
+    right: 6px;
+    bottom: 6px;
+    padding: 2px 7px;
+    font-size: 10px;
+  }
+
+  .meeting-participant-avatar__mute {
+    right: 6px;
+    top: 6px;
+    width: 20px;
+    height: 20px;
   }
 }
 

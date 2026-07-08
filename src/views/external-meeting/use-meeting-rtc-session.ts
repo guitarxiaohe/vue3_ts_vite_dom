@@ -119,7 +119,7 @@ export function useMeetingRtcSession(options: UseMeetingRtcSessionOptions) {
     if (meetingDetail.value.session.status !== 'ACTIVE') {
       return false;
     }
-    console.log('当前用户可以加入');
+
     // 找到当前用户 id 数据证明加入了会议资格，并查看当前状态 是不是已经接受邀请
     return meetingDetail.value.participants.some(
       (item) =>

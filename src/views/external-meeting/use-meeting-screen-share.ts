@@ -11,7 +11,7 @@ import {
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ConnectionState, LocalVideoTrack, Room } from 'livekit-client';
 import { useI18n } from 'vue-i18n';
-import { startScreenShareApi, stopScreenShareApi } from '@/api/modules/meeting';
+import { startScreenShareApi, stopScreenShareApi, notifyScreenShareStop } from '@/api/modules/meeting';
 import { useMeetingStore, useUserStore } from '@/stores';
 import type {
   RemoteScreenShareInfo,
@@ -117,9 +117,15 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
 
   /**
    * 是否展示共享舞台（远端有人共享 且 不是当前用户自己在共享）
+   *
+   * 双重判断兜底 WebSocket 推送不可靠的场景：
+   * - screenShareState.shareActive：WebSocket 推送（正常路径）
+   * - remoteScreenShare.track：LiveKit 实际订阅到的远端屏幕视频轨（兜底）
    */
   const shouldShowShareStage = computed(
-    () => isSomeoneSharing.value && !isCurrentUserSharing.value
+    () =>
+      (isSomeoneSharing.value || !!remoteScreenShare.value?.track) &&
+      !isCurrentUserSharing.value
   );
 
   /**
@@ -491,13 +497,28 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
     }
   );
 
+  /**
+   * 页面关闭/刷新时通知服务端停止屏幕共享
+   * 使用 notifyScreenShareStop (fetch + keepalive) 确保请求可靠发送
+   */
+  function handleScreenSharePageHide() {
+    const meetingId = currentMeetingId.value;
+    if (meetingId && (isCurrentUserSharing.value || !!localScreenTrack.value)) {
+      notifyScreenShareStop(meetingId);
+    }
+  }
+
   /** 组件卸载时清理共享舞台 DOM */
   onMounted(() => {
     document.addEventListener('visibilitychange', syncPageVisibility);
+    window.addEventListener('pagehide', handleScreenSharePageHide);
+    window.addEventListener('beforeunload', handleScreenSharePageHide);
   });
 
   onBeforeUnmount(() => {
     document.removeEventListener('visibilitychange', syncPageVisibility);
+    window.removeEventListener('pagehide', handleScreenSharePageHide);
+    window.removeEventListener('beforeunload', handleScreenSharePageHide);
     clearScreenShareTrack();
   });
 

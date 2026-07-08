@@ -34,39 +34,42 @@ watch(
     class="meeting-live-feed meeting-live-feed--scrollable"
   >
     <div class="meeting-live-feed__meta">
-      <strong>AI 实时字幕及转写</strong>
+      <strong>{{ t('meeting.liveTranscriptPanelTitle') }}</strong>
+      <small>{{ t('meeting.transcribingStatus') }}</small>
     </div>
 
-    <div
-      v-for="item in lines"
-      :key="item.id"
-      :class="[
-        'meeting-live-line',
-        item.pending ? 'meeting-live-block--pending' : '',
-      ]"
-    >
-      <p class="meeting-live-line__text">
-        <strong class="meeting-live-line__label">
-          {{ item.displayLabel }}说：
-        </strong>
-        {{ item.text }}
-        <small
-          v-if="item.pending"
-          class="meeting-transcript-pending-label meeting-live-line__pending"
-        >
-          <el-icon class="is-loading" :size="12">
-            <LoaderCircle />
-          </el-icon>
-          {{ t('meeting.liveDigestPolishing') }}
-        </small>
-        <span v-if="item.pending" class="typing-cursor" />
-      </p>
-    </div>
+    <div class="meeting-live-feed__content">
+      <div
+        v-for="item in lines"
+        :key="item.id"
+        :class="[
+          'meeting-live-line',
+          item.pending ? 'meeting-live-block--pending' : '',
+        ]"
+      >
+        <p class="meeting-live-line__text">
+          <strong class="meeting-live-line__label">
+            {{ t('meeting.speakerSays', { name: item.displayLabel }) }}
+          </strong>
+          {{ item.text }}
+          <small
+            v-if="item.pending"
+            class="meeting-transcript-pending-label meeting-live-line__pending"
+          >
+            <el-icon class="is-loading" :size="12">
+              <LoaderCircle />
+            </el-icon>
+            {{ t('meeting.liveDigestPolishing') }}
+          </small>
+          <span v-if="item.pending" class="typing-cursor" />
+        </p>
+      </div>
 
-    <el-empty
-      v-if="blockCount === 0"
-      :description="t('meeting.rawTranscriptEmpty')"
-    />
+      <!-- <el-empty
+        v-if="blockCount === 0"
+        :description="t('meeting.rawTranscriptEmpty')"
+      /> -->
+    </div>
   </div>
 </template>
 
@@ -74,31 +77,65 @@ watch(
 .meeting-live-feed {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-height: 320px;
-  padding: 16px;
-  border-radius: 8px;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+  padding: 12px;
+  border-radius: 0;
   overflow: hidden;
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
+  background: #ffffff;
+  border: 0;
 }
 
 .meeting-live-feed__meta {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 2px;
 }
 
 .meeting-live-feed__meta strong {
-  color: var(--color-text-secondary);
-  font-size: 12px;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.meeting-live-feed__meta small {
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  background: #00a870;
+}
+
+.meeting-live-feed__meta small::before {
+  width: 5px;
+  height: 5px;
+  content: '';
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.meeting-live-feed__content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-y: auto;
+  background: #f7f8fa;
 }
 
 .meeting-live-feed--scrollable {
-  max-height: calc(100vh - 392px);
-  overflow-y: auto;
+  max-height: none;
+  overflow: hidden;
 }
 
 .meeting-live-line {
@@ -106,9 +143,9 @@ watch(
 }
 
 .meeting-live-line__label {
-  color: var(--color-text-primary);
-  font-size: 13px;
-  line-height: 1.75;
+  color: #4f46e5;
+  font-size: 12px;
+  line-height: 1.65;
   font-weight: 700;
 }
 
@@ -116,9 +153,9 @@ watch(
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.75;
-  color: var(--color-text-primary);
-  font-size: 13px;
+  line-height: 1.65;
+  color: #111827;
+  font-size: 12px;
 }
 
 .meeting-live-line__pending {

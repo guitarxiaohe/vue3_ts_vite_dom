@@ -45,40 +45,59 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .meeting-share-stage {
+  position: relative;
   flex: 1;
-  min-height: min(680px, calc(100vh - 154px));
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-bg-card);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
   overflow: hidden;
-  box-shadow: 0 10px 28px rgba(17, 24, 39, 0.06);
+  background: #111318;
 
   &__header {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    height: 48px;
-    padding: 0 16px;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-bg-card);
-    color: var(--color-text-primary);
-    font-size: 14px;
-    font-weight: 600;
-  }
-
-  &__content {
+    position: absolute;
+    top: 32px;
+    left: 50%;
+    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: calc(100% - 48px);
-    min-height: min(632px, calc(100vh - 202px));
-    padding: 16px;
-    color: rgba(255, 255, 255, 0.72);
-    background: #111827;
+    height: auto;
+    padding: 0;
+    border-bottom: 0;
+    background: transparent;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    transform: translateX(-50%);
+  }
+
+  &__content {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+    color: #667085;
+    border-radius: 0;
+    background: #111318;
+    overflow: hidden;
 
     p {
+      position: absolute;
+      left: 50%;
+      top: 50%;
       margin: 0;
-      font-size: 14px;
+      font-size: 13px;
+      transform: translate(-50%, -50%);
     }
   }
 
@@ -86,19 +105,19 @@ onBeforeUnmount(() => {
     position: relative;
     width: 100%;
     height: 100%;
-    min-height: min(600px, calc(100vh - 234px));
+    min-height: 0;
     display: flex;
     align-items: stretch;
     justify-content: stretch;
     overflow: hidden;
-    border-radius: 8px;
-    background: #050816;
+    border-radius: 0;
+    background: #111318;
 
     :deep(video) {
       width: 100%;
       height: 100%;
       object-fit: contain;
-      background: #050816;
+      background: #111318;
     }
 
     @supports (-webkit-appearance: none) and (object-fit: contain) {
@@ -111,15 +130,24 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1024px) {
   .meeting-share-stage {
-    min-height: min(620px, calc(100vh - 160px));
-
     &__content {
-      min-height: min(572px, calc(100vh - 208px));
-      padding: 12px;
+      width: 100%;
+      min-height: 0;
     }
 
     &__video {
-      min-height: min(548px, calc(100vh - 232px));
+      min-height: 0;
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .meeting-share-stage {
+    &__content {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      border-radius: 0;
     }
   }
 }

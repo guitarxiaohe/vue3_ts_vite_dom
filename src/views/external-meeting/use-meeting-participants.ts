@@ -266,6 +266,14 @@ export function useMeetingParticipants(options: UseMeetingParticipantsOptions) {
         isMicMuted:
           isParticipantInRtc(participant.userId) &&
           isParticipantMicMuted(participant.userId),
+        avatarColor: [
+          '#4f46e5',
+          '#10b981',
+          '#f59e0b',
+          '#0f766e',
+          '#a855f7',
+          '#1d4ed8',
+        ][Math.abs(Number(participant.userId) || 0) % 6],
         interactionText:
           meetingStore.interactionBubbles[participant.userId]?.content ?? '',
         interactionType:

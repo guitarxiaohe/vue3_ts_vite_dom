@@ -34,6 +34,7 @@ import { useMeetingScreenShare } from './use-meeting-screen-share';
 import { useMeetingRtcSession } from './use-meeting-rtc-session';
 import MeetingLiveTranscript from './components/meeting-live-transcript.vue';
 import MeetingScreenShareStage from './components/meeting-screen-share-stage.vue';
+import MeetingAiSummary from './components/meeting-ai-summary.vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   enterTheRoomByCodeApi,
@@ -42,6 +43,7 @@ import {
 import { useUserStore } from '@/stores';
 import { useWebSocket } from '@/composables/use-websocket';
 import { MEETING_CLIENT_ID_KEY } from '@/utils/meeting-cross-window';
+import meetingTag from './components/meeting-tag.vue';
 // import { getRtcTokenApi } from '@/api/modules/meeting-rtc.ts';
 
 const userStore = useUserStore();
@@ -647,36 +649,11 @@ watch(
       </div>
 
       <div class="meeting-shell-bar__meta" v-if="meetingDetail">
-        <el-tag
-          size="small"
-          :type="
-            meetingStore.isActiveStatus(meetingDetail.session.status)
-              ? 'success'
-              : meetingStore.isTerminalStatus(meetingDetail.session.status)
-                ? 'info'
-                : 'warning'
-          "
-        >
-          {{
-            meetingStore.isActiveStatus(meetingDetail.session.status)
-              ? t('meeting.statusActive')
-              : meetingDetail.session.status === 'CLOSING'
-                ? '关闭中'
-                : t('meeting.statusEnded')
-          }}
-        </el-tag>
-        <el-tag v-if="waitingMicPermission" size="small" type="warning">
-          {{ t('meeting.waitingMicPermission') }}
-        </el-tag>
-        <el-tag
-          v-if="
-            meetingDetail.session.status === 'ACTIVE' && isRtcOwnedByOtherTab
-          "
-          size="small"
-          type="info"
-        >
-          {{ t('meeting.audioInOtherWindow') }}
-        </el-tag>
+        <meetingTag
+          :meeting-detail="meetingDetail"
+          :waiting-mic-permission="waitingMicPermission"
+          :is-rtc-owned-by-other-tab="isRtcOwnedByOtherTab"
+        />
       </div>
     </section>
 
@@ -810,46 +787,11 @@ watch(
         </article>
 
         <article class="meeting-card" v-if="meetingDetail">
-          <div
-            :class="[
-              'meeting-live-summary',
-              liveSummaryStatus === 'streaming'
-                ? 'meeting-live-summary--streaming'
-                : '',
-            ]"
-          >
-            <div class="meeting-live-summary__meta">
-              <strong>{{ t('meeting.aiSummaryTitle') }}</strong>
-              <small
-                v-if="liveSummaryStatus === 'streaming'"
-                class="meeting-transcript-pending-label"
-              >
-                <el-icon class="is-loading" :size="12">
-                  <LoaderCircle />
-                </el-icon>
-                {{ t('meeting.aiSummaryPolishing') }}
-              </small>
-            </div>
-
-            <transition name="meeting-summary-fade" mode="out-in">
-              <p
-                v-if="liveSummaryText"
-                :key="liveSummaryRenderKey"
-                class="meeting-live-summary__text"
-              >
-                {{ liveSummaryText }}
-                <span
-                  v-if="liveSummaryStatus === 'streaming'"
-                  class="typing-cursor"
-                />
-              </p>
-              <el-empty
-                v-else
-                key="empty"
-                :description="t('meeting.aiSummaryEmpty')"
-              />
-            </transition>
-          </div>
+          <MeetingAiSummary
+            :text="liveSummaryText"
+            :status="liveSummaryStatus"
+            :render-key="liveSummaryRenderKey"
+          />
         </article>
       </aside>
     </div>

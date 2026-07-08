@@ -163,6 +163,33 @@ export function notifyMeetingDisconnect(meetingId: string) {
   }).catch(() => undefined);
 }
 
+/**
+ * 通知服务端停止屏幕共享（用于页面关闭/刷新/切后台时的清理）
+ * 使用 fetch + keepalive 确保在页面卸载时可靠发送，
+ * 解决共享者直接关闭页面导致 shareActive 残留的问题
+ */
+export function notifyScreenShareStop(meetingId: string) {
+  const token = localStorage.getItem('token') || '';
+  const locale = localStorage.getItem('app_locale') || 'zh-CN';
+  const baseURL = import.meta.env.VITE_APP_BASE_API || '/dev-api';
+  const requestUrl = new URL(
+    `${baseURL}/cms/meeting/session/${meetingId}/share/stop`,
+    window.location.origin
+  ).toString();
+
+  fetch(requestUrl, {
+    method: 'POST',
+    body: '{}',
+    keepalive: true,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: token ? `Bearer ${token}` : '',
+      'Accept-Language': locale,
+    },
+  }).catch(() => undefined);
+}
+
 /** 获取可邀请加入会议的用户列表 */
 export function listMeetingSelectableUsersApi() {
   return httpClient.get('/system/user/userList') as unknown as Promise<

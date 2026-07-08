@@ -33,7 +33,7 @@
     <div v-if="showPagination" class="table-entlty__pagination">
       <el-pagination
         :current-page="props.currentPage ?? 1"
-        :page-size="pageSizes[0]"
+        :page-size="pagination.pageSize"
         :total="props.total != null ? props.total : pagination.total"
         layout="total, sizes, prev, pager, next, jumper"
         background
