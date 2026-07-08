@@ -34,11 +34,7 @@ const props = withDefaults(
     </div>
 
     <transition name="meeting-summary-fade" mode="out-in">
-      <p
-        v-if="text"
-        :key="renderKey"
-        class="meeting-live-summary__text"
-      >
+      <p v-if="text" :key="renderKey" class="meeting-live-summary__text">
         {{ text }}
         <span
           v-if="status === 'streaming'"

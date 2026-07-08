@@ -51,8 +51,8 @@ function avatarChar(item: CmsMeetingInteraction): string {
   return name.charAt(0);
 }
 
-const resolvedPlaceholder = computed(() =>
-  props.placeholder || t('meeting.interactionTextPlaceholder')
+const resolvedPlaceholder = computed(
+  () => props.placeholder || t('meeting.interactionTextPlaceholder')
 );
 </script>
 

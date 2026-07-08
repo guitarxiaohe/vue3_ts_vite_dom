@@ -11,7 +11,11 @@ import {
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ConnectionState, LocalVideoTrack, Room } from 'livekit-client';
 import { useI18n } from 'vue-i18n';
-import { startScreenShareApi, stopScreenShareApi, notifyScreenShareStop } from '@/api/modules/meeting';
+import {
+  startScreenShareApi,
+  stopScreenShareApi,
+  notifyScreenShareStop,
+} from '@/api/modules/meeting';
 import { useMeetingStore, useUserStore } from '@/stores';
 import type {
   RemoteScreenShareInfo,
