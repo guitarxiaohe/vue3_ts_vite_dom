@@ -1,5 +1,44 @@
 <template>
   <div class="login-container">
+    <!-- 左侧背景区 -->
+    <div class="login-left">
+      <div class="login-left__bg">
+        <div class="login-left__grid" />
+        <div class="login-left__blur login-left__blur--one" />
+        <div class="login-left__blur login-left__blur--two" />
+        <div class="login-left__blur login-left__blur--three" />
+      </div>
+      <div class="login-left__content">
+        <div class="login-left__brand">
+          <div class="login-left__logo">
+            <Sparkles :size="28" />
+          </div>
+          <h2 class="login-left__title">嘻嘻嘻</h2>
+        </div>
+        <p class="login-left__desc">
+          {{ t('login.slogan') }}
+        </p>
+        <div class="login-left__features">
+          <div class="login-left__feature">
+            <div class="feature-dot" />
+            <span>{{ t('login.feature1') }}</span>
+          </div>
+          <div class="login-left__feature">
+            <div class="feature-dot" />
+            <span>{{ t('login.feature2') }}</span>
+          </div>
+          <div class="login-left__feature">
+            <div class="feature-dot" />
+            <span>{{ t('login.feature3') }}</span>
+          </div>
+          <div class="login-left__feature">
+            <div class="feature-dot" />
+            <span>{{ t('login.feature4') }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 右侧登录区 -->
     <div class="login-right">
       <div class="login-form-wrapper">
@@ -323,6 +362,135 @@ const handleSubmit = async () => {
 
   @media (max-width: 1024px) {
     grid-template-columns: 1fr;
+  }
+}
+
+// 左侧背景区样式
+.login-left {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, #6c3ff5 0%, #5b2ee3 40%, #3b1fa8 100%);
+
+  @media (max-width: 1024px) {
+    display: none;
+  }
+
+  &__bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  &__grid {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px
+    );
+    background-size: 24px 24px;
+  }
+
+  &__blur {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+
+    &--one {
+      top: -10%;
+      right: -15%;
+      width: 28rem;
+      height: 28rem;
+      background: rgba(255, 255, 255, 0.08);
+      filter: blur(80px);
+    }
+
+    &--two {
+      bottom: -5%;
+      left: -10%;
+      width: 22rem;
+      height: 22rem;
+      background: rgba(168, 139, 255, 0.3);
+      filter: blur(100px);
+    }
+
+    &--three {
+      top: 40%;
+      right: 20%;
+      width: 16rem;
+      height: 16rem;
+      background: rgba(123, 97, 255, 0.25);
+      filter: blur(72px);
+    }
+  }
+
+  &__content {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 3rem;
+    max-width: 480px;
+  }
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  &__logo {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+  }
+
+  &__title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.02em;
+  }
+
+  &__desc {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.75);
+    margin-bottom: 2.5rem;
+  }
+
+  &__features {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    text-align: left;
+    padding: 0 2rem;
+  }
+
+  &__feature {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9375rem;
+
+    .feature-dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.5);
+      flex-shrink: 0;
+    }
   }
 }
 
