@@ -137,6 +137,46 @@ export function stopScreenShareApi(meetingId: string) {
   ) as unknown as Promise<MeetingApiResponse<null>>;
 }
 
+/** 开启摄像头 */
+export function startCameraApi(meetingId: string) {
+  return httpClient.post(
+    `/cms/meeting/session/${meetingId}/camera/start`
+  ) as unknown as Promise<MeetingApiResponse<null>>;
+}
+
+/** 停止摄像头 */
+export function stopCameraApi(meetingId: string) {
+  return httpClient.post(
+    `/cms/meeting/session/${meetingId}/camera/stop`
+  ) as unknown as Promise<MeetingApiResponse<null>>;
+}
+
+/**
+ * 通知服务端停止摄像头（用于页面关闭/刷新/切后台时的清理）
+ * 使用 fetch + keepalive 确保在页面卸载时可靠发送
+ */
+export function notifyCameraStop(meetingId: string) {
+  const token = localStorage.getItem('token') || '';
+  const locale = localStorage.getItem('app_locale') || 'zh-CN';
+  const baseURL = import.meta.env.VITE_APP_BASE_API || '/dev-api';
+  const requestUrl = new URL(
+    `${baseURL}/cms/meeting/session/${meetingId}/camera/stop`,
+    window.location.origin
+  ).toString();
+
+  fetch(requestUrl, {
+    method: 'POST',
+    body: '{}',
+    keepalive: true,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: token ? `Bearer ${token}` : '',
+      'Accept-Language': locale,
+    },
+  }).catch(() => undefined);
+}
+
 /**
  * 通知服务端当前客户端断连（用于页面关闭/刷新时的清理）
  * 使用 fetch + keepalive 确保在页面卸载时可靠发送

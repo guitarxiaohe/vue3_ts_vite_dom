@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { LoaderCircle, MicOff } from 'lucide-vue-next';
 import UserAvatarInfo from '@/components/user-avatar-info/index.vue';
 
@@ -58,6 +58,26 @@ const avatarSize = computed(() => {
   }
   return 44;
 });
+
+const emit = defineEmits<{
+  videoReady: [refs: Record<string, HTMLDivElement | null>];
+}>();
+
+// 摄像头视频容器引用
+const videoRefs = ref<Record<string, HTMLDivElement | null>>({});
+
+// 拿到所有 dom
+function setVideoRef(userId: string, el: HTMLDivElement | null) {
+  videoRefs.value[userId] = el;
+}
+
+onMounted(() => {
+  emit('videoReady', videoRefs.value);
+});
+
+onBeforeUnmount(() => {
+  emit('videoReady', {});
+});
 </script>
 
 <template>
@@ -84,7 +104,10 @@ const avatarSize = computed(() => {
       }"
       :style="{ '--meeting-participant-color': item.avatarColor }"
     >
-      <div class="meeting-participant-avatar">
+      <div
+        class="meeting-participant-avatar"
+        :ref="(el) => setVideoRef(item.userId, el as HTMLDivElement | null)"
+      >
         <UserAvatarInfo
           :user-id="item.userId"
           :nick-name="item.name"
@@ -97,6 +120,7 @@ const avatarSize = computed(() => {
           :enable-drawer="true"
           :avatar="{ style: { backgroundColor: item.avatarColor } }"
         />
+
         <div v-if="item.isHost" class="meeting-participant-tile__host-chip">
           {{ hostLabel }}
         </div>

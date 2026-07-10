@@ -245,6 +245,13 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
       typeof document === 'undefined' || document.visibilityState === 'visible';
   }
 
+  /**
+   * 等待视频元素就绪（首帧渲染完成）
+   *
+   * - 如果视频已有当前数据(HAVE_CURRENT_DATA)，直接等下一帧
+   * - 否则同时监听 loadedmetadata / canplay / playing 三个事件，加上 1.8s 兜底超时，确保不会永久阻塞
+   * - 用于全屏确认弹窗前的等待，避免弹窗时视频还是黑屏
+   */
   async function waitForVideoReady(element: HTMLVideoElement) {
     if (element.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
       await waitForNextVideoFrame(element);

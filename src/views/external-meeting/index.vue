@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import {
   Camera,
+  CameraOff,
   Captions,
   Mic,
   MicOff,
@@ -19,6 +20,7 @@ import {
 } from '@/composables/use-livekit-room';
 import { buildSpeakerTranscriptLines } from '@/utils/meeting-transcript';
 import { AsyncSelect } from '@/components/async-select';
+import { useMeetingCamera } from './use-meeting-camera';
 import { useMeetingParticipants } from './use-meeting-participants';
 import { useMeetingScreenShare } from './use-meeting-screen-share';
 import { useMeetingRtcSession } from './use-meeting-rtc-session';
@@ -80,6 +82,10 @@ const {
   startScreenShare,
   stopScreenShare,
   prepareForPageUnload,
+  isCameraEnabled,
+  toggleCamera: toggleLiveKitCamera,
+  localVideoTrack,
+  remoteCameraTracks,
 } = useLivekitRoom();
 
 /***************************** 响应式状态 *****************************/
@@ -105,7 +111,17 @@ const interactionText = ref('');
 const mobileActivePanel = ref<'transcript' | 'summary' | 'chat'>('transcript');
 // 当前屏幕共享清晰度档位
 const screenShareQuality = ref<ScreenShareQuality>('clear');
-
+// 摄像头
+const { handleToggleCamera, isTogglingCamera, cameraVideoRef } =
+  useMeetingCamera({
+    room,
+    connectionState,
+    isCameraEnabled,
+    toggleCamera: toggleLiveKitCamera,
+    localVideoTrack,
+    remoteCameraTracks,
+  });
+// handleToggleCamera('stop');
 /***************************** 定时器 / 权限状态 *****************************/
 let activeSpeakerTimer: ReturnType<typeof setTimeout> | null = null;
 let joinedHighlightTimer: ReturnType<typeof setTimeout> | null = null;
@@ -482,6 +498,12 @@ function handleScreenShareVideoReady(element: HTMLDivElement | null) {
   screenShareVideoRef.value = element;
 }
 
+function handleCameraVideoReady(
+  elements: Record<string, HTMLDivElement | null>
+) {
+  cameraVideoRef.value = elements;
+}
+
 watch(
   () => userStore.isLoggedIn,
   (isLoggedIn) => {
@@ -593,6 +615,7 @@ watch(
           <MeetingParticipantGrid
             :items="participantDisplayItems"
             :host-label="t('meeting.roleHost')"
+            @video-ready="handleCameraVideoReady"
           />
         </article>
 
@@ -699,16 +722,29 @@ watch(
           }}</span>
         </button>
       </el-tooltip>
-
-      <el-tooltip :content="t('meeting.cameraAction')" placement="top">
+      <!-- 摄像头 -->
+      <el-tooltip
+        :content="
+          isCameraEnabled ? t('meeting.cameraOff') : t('meeting.cameraOn')
+        "
+        placement="top"
+      >
         <button
           type="button"
           class="meeting-control-button"
-          :aria-label="t('meeting.cameraAction')"
-          @click="handleUnavailableFeature(t('meeting.cameraAction'))"
+          :disabled="isTogglingCamera"
+          :aria-label="
+            isCameraEnabled ? t('meeting.cameraOff') : t('meeting.cameraOn')
+          "
+          @click="handleToggleCamera"
         >
-          <Camera :size="22" />
-          <span>{{ t('meeting.cameraShort') }}</span>
+          <Camera v-if="isCameraEnabled" :size="22" />
+          <CameraOff v-else :size="22" />
+          <span>{{
+            isCameraEnabled
+              ? t('meeting.cameraShort')
+              : t('meeting.cameraOffShort')
+          }}</span>
         </button>
       </el-tooltip>
 

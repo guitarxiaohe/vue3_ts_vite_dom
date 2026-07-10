@@ -8,6 +8,7 @@ import type {
   CmsMeetingSummary,
   CmsMeetingTranscript,
   CreateMeetingRequest,
+  MeetingScreenCameraState,
   MeetingScreenShareState,
   MeetingSelectableUser,
   PendingTranscript,
@@ -297,6 +298,7 @@ export const useMeetingStore = defineStore(
     const interactionMessages = ref<CmsMeetingInteraction[]>([]);
     const interactionBubbles = ref<Record<string, CmsMeetingInteraction>>({});
     const screenShareState = ref<MeetingScreenShareState | null>(null);
+    const screenCameraState = ref<MeetingScreenCameraState | null>(null);
     const interactionBubbleTimers = new Map<
       string,
       ReturnType<typeof setTimeout>
@@ -970,6 +972,11 @@ export const useMeetingStore = defineStore(
         screenShareState.value = message.data as MeetingScreenShareState;
         return;
       }
+      // 屏幕摄像头状态变更
+      if (message.type === 'meeting_screen_camera_state' && message.data) {
+        screenCameraState.value = message.data as MeetingScreenCameraState;
+        return;
+      }
       // 最终摘要生成
       if (message.type === 'meeting_final_summary' && message.data) {
         const detail = normalizeMeetingDetail(
@@ -1113,6 +1120,7 @@ export const useMeetingStore = defineStore(
       interactionMessages,
       interactionBubbles,
       screenShareState,
+      screenCameraState,
       selectableUsers,
       loading,
       // 计算属性

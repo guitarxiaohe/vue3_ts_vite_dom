@@ -171,3 +171,10 @@ export interface MeetingScreenShareState {
   sharerIdentity: string | null;
   shareStartedAt: string | null;
 }
+
+/** 屏幕摄像头状态 */
+export interface MeetingScreenCameraState {
+  meetingId: string;
+  cameraActive: boolean;
+  cameraUserIds: string | null;
+}

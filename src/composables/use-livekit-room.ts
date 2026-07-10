@@ -205,6 +205,10 @@ export function useLivekitRoom() {
   const localScreenPublication = shallowRef<LocalTrackPublication | null>(null);
   /** 当前远端屏幕共享信息 */
   const remoteScreenShare = shallowRef<RemoteScreenShareInfo | null>(null);
+  /** 远端摄像头轨（按参与者 identity 索引） */
+  const remoteCameraTracks = shallowRef<Map<string, RemoteVideoTrack>>(
+    new Map()
+  );
   // ========================= 内部状态 =========================
 
   /** 定时更新参与者列表的定时器 */
@@ -219,6 +223,30 @@ export function useLivekitRoom() {
     { track: Track; element: HTMLMediaElement }
   >();
 
+  const localVideoTrack = shallowRef<LocalVideoTrack | null>(null);
+  const isCameraEnabled = ref(false);
+
+  // ========================= 摄像头 =========================
+
+  // 摄像头开关
+  async function toggleCamera() {
+    if (!room.value) return;
+    const enabled = !isCameraEnabled.value;
+    await room.value.localParticipant.setCameraEnabled(enabled);
+    isCameraEnabled.value = enabled;
+
+    // 开启后从 publication 取出本地摄像头轨，关闭时清空
+    if (enabled) {
+      const pub = room.value.localParticipant.getTrackPublication(
+        Track.Source.Camera
+      );
+      if (pub && pub.track) {
+        localVideoTrack.value = pub.track as LocalVideoTrack;
+      }
+    } else {
+      localVideoTrack.value = null;
+    }
+  }
   // ========================= 跨窗口状态同步 =========================
 
   /**
@@ -563,6 +591,18 @@ export function useLivekitRoom() {
           return;
         }
 
+        // 远端参与者开启摄像头：将其视频轨存入 remoteCameraTracks，供 MeetingParticipantGrid 渲染
+        if (
+          track.kind === Track.Kind.Video &&
+          publication.source === Track.Source.Camera
+        ) {
+          const next = new Map(remoteCameraTracks.value);
+          next.set(participant.identity, track as RemoteVideoTrack);
+          remoteCameraTracks.value = next;
+          updateParticipantsList();
+          return;
+        }
+
         attachRemoteAudioTrack(track, publication);
         updateParticipantsList();
       }
@@ -580,6 +620,18 @@ export function useLivekitRoom() {
           isScreenSharePublication(publication)
         ) {
           clearRemoteScreenShare(publication);
+          updateParticipantsList();
+          return;
+        }
+
+        // 远端参与者关闭摄像头：从 remoteCameraTracks 中移除该参与者的视频轨
+        if (
+          track.kind === Track.Kind.Video &&
+          publication.source === Track.Source.Camera
+        ) {
+          const next = new Map(remoteCameraTracks.value);
+          next.delete(_participant.identity);
+          remoteCameraTracks.value = next;
           updateParticipantsList();
           return;
         }
@@ -663,6 +715,8 @@ export function useLivekitRoom() {
       room.value = null;
       localParticipant.value = null;
       remoteScreenShare.value = null;
+      remoteCameraTracks.value = new Map();
+      isCameraEnabled.value = false;
       participants.value = [];
       activeSpeakers.value = [];
       connectionState.value = ConnectionState.Disconnected;
@@ -703,6 +757,8 @@ export function useLivekitRoom() {
 
     clearAttachedAudioTracks();
     remoteScreenShare.value = null;
+    remoteCameraTracks.value = new Map();
+    isCameraEnabled.value = false;
     localScreenTrack.value = null;
     localScreenPublication.value = null;
     participants.value = [];
@@ -908,8 +964,15 @@ export function useLivekitRoom() {
     localScreenTrack,
     /** 当前远端屏幕共享信息 */
     remoteScreenShare,
-
+    /** 远端摄像头轨 */
+    remoteCameraTracks,
+    /** 本地摄像头是否开启 */
+    isCameraEnabled,
+    /** 本地摄像头视频轨 */
+    localVideoTrack,
     // 方法
+    /** 切换摄像头 */
+    toggleCamera,
     /** 连接房间 */
     joinRoom,
     /** 离开房间 */
