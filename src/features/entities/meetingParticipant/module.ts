@@ -29,14 +29,12 @@ const entityModule = createEntityModule({
         inviteStatus: {
           key: 'inviteStatus',
           label: '邀请状态',
-          component: 'select',
+          component: 'async-select',
           placeholder: '请选择邀请状态',
           order: 3,
-          options: [
-            { label: '待接受', value: 'PENDING' },
-            { label: '已接受', value: 'ACCEPTED' },
-            { label: '已拒绝', value: 'DECLINED' },
-          ],
+          entityConfig: {
+            dictCode: 'cms_meeting_status',
+          },
         },
       },
     },

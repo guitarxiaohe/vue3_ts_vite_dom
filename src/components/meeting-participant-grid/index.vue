@@ -104,10 +104,7 @@ onBeforeUnmount(() => {
       }"
       :style="{ '--meeting-participant-color': item.avatarColor }"
     >
-      <div
-        class="meeting-participant-avatar"
-        :ref="(el) => setVideoRef(item.userId, el as HTMLDivElement | null)"
-      >
+      <div class="meeting-participant-avatar">
         <UserAvatarInfo
           :user-id="item.userId"
           :nick-name="item.name"
@@ -120,7 +117,10 @@ onBeforeUnmount(() => {
           :enable-drawer="true"
           :avatar="{ style: { backgroundColor: item.avatarColor } }"
         />
-
+        <div
+          class="meeting-camera"
+          :ref="(el) => setVideoRef(item.userId, el as HTMLDivElement | null)"
+        ></div>
         <div v-if="item.isHost" class="meeting-participant-tile__host-chip">
           {{ hostLabel }}
         </div>
@@ -264,6 +264,14 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   min-height: inherit;
+  .meeting-camera {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 1;
+  }
 }
 
 .meeting-participant-avatar__loading {
@@ -324,17 +332,13 @@ onBeforeUnmount(() => {
 
 .meeting-participant-tile__name-chip {
   position: absolute;
-  left: 50%;
-  bottom: calc(50% - 38px);
+  left: 30px;
+  bottom: 10px;
   z-index: 2;
-  max-width: calc(100% - 24px);
   color: #ffffff;
   font-size: 13px;
   font-weight: 600;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: left;
   transform: translateX(-50%);
 }
 

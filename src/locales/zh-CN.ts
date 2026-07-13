@@ -288,6 +288,8 @@ export default {
     shareScreenFullscreenMessage: '检测到屏幕共享，是否全屏查看？',
     shareScreenFullscreenConfirm: '全屏查看',
     shareScreenFullscreenCancel: '暂不',
+    enterFullscreen: '全屏',
+    exitFullscreen: '退出全屏',
     shareScreenQuality: '屏幕共享清晰度',
     shareScreenQualitySmooth: '流畅',
     shareScreenQualityBalanced: '均衡',

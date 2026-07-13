@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useFullscreen } from '@vueuse/core';
 
 defineProps<{
   currentSharerName: string;
@@ -14,6 +15,8 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const videoRef = ref<HTMLDivElement | null>(null);
 
+// 全屏
+const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(videoRef);
 onMounted(() => {
   emit('videoReady', videoRef.value);
 });
@@ -35,7 +38,17 @@ onBeforeUnmount(() => {
       </span>
     </div>
     <div class="meeting-share-stage__content">
-      <div ref="videoRef" class="meeting-share-stage__video" />
+      <div ref="videoRef" class="meeting-share-stage__video">
+        <div class="cc">
+          <span class="cc__btn" @click="toggleFullscreen()">
+            {{
+              isFullscreen
+                ? t('meeting.exitFullscreen')
+                : t('meeting.enterFullscreen')
+            }}
+          </span>
+        </div>
+      </div>
       <p v-if="!hasRemoteScreenShare">
         {{ t('meeting.shareScreenPlaceholder') }}
       </p>
@@ -90,6 +103,13 @@ onBeforeUnmount(() => {
     border-radius: 0;
     background: #111318;
     overflow: hidden;
+    .cc {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      opacity: 0;
+      transition: all 0.5s;
+    }
 
     p {
       position: absolute;
@@ -124,6 +144,11 @@ onBeforeUnmount(() => {
       :deep(video) {
         object-fit: contain;
       }
+    }
+  }
+  &__video:hover {
+    .cc {
+      opacity: 1;
     }
   }
 }

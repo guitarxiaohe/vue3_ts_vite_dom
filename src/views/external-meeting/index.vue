@@ -10,6 +10,8 @@ import {
   MicOff,
   MonitorUp,
   MoreVertical,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import MeetingParticipantGrid from '@/components/meeting-participant-grid/index.vue';
@@ -36,6 +38,7 @@ import {
 import { useUserStore } from '@/stores';
 import { useWebSocket } from '@/composables/use-websocket';
 import meetingTag from './components/meeting-tag.vue';
+import { copyText } from '@/utils/copy.ts';
 // import { getRtcTokenApi } from '@/api/modules/meeting-rtc.ts';
 
 const userStore = useUserStore();
@@ -110,7 +113,7 @@ const interactionText = ref('');
 // 移动端信息区当前选中的面板
 const mobileActivePanel = ref<'transcript' | 'summary' | 'chat'>('transcript');
 // 当前屏幕共享清晰度档位
-const screenShareQuality = ref<ScreenShareQuality>('clear');
+const screenShareQuality = ref<ScreenShareQuality>('smooth');
 // 摄像头
 const { handleToggleCamera, isTogglingCamera, cameraVideoRef } =
   useMeetingCamera({
@@ -143,7 +146,7 @@ function stopNotifySocket() {
   notifySocketStarted.value = false;
 }
 
-/***************************** 计算属性 *****************************/
+/***************************** 计算属性(DOTO这里可以优化,以后再说) *****************************/
 
 // 会议详情 / 待处理会议 / 转写 / 摘要
 const meetingDetail = computed(() => meetingStore.meetingDetail);
@@ -315,10 +318,6 @@ async function handleInviteParticipants() {
   }
 }
 
-function handleUnavailableFeature(label: string) {
-  ElMessage.info(t('meeting.featureConnecting', { label }));
-}
-
 async function handleSendInteraction(
   interactionType: 'HAND' | 'EMOJI' | 'TEXT',
   content: string
@@ -347,6 +346,26 @@ async function handleSendInteraction(
     isSendingInteraction.value = false;
   }
 }
+
+// 复制链接
+const copyLink = async () => {
+  if (meetingStore.meetingDetail?.session.link) {
+    try {
+      await copyText(meetingStore.meetingDetail?.session.link);
+      ElMessage.success('复制链接成功');
+    } catch (err) {
+      ElMessage.error(`复制链接失败，可能出现的问题 --> ${err}`);
+    }
+  }
+};
+
+/**
+ * 控制转写拉开收起
+ */
+const isShowTranscript = ref<boolean>(false);
+const transcriptSwitch = (): void => {
+  isShowTranscript.value = !isShowTranscript.value;
+};
 
 // 发送文字
 function handleSendTextInteraction(text?: string) {
@@ -635,7 +654,11 @@ watch(
       </main>
 
       <!-------------------------- 信息区：实时转写 / AI 摘要 / 互动聊天 -------------------------->
-      <aside v-if="meetingDetail" class="meeting-main">
+      <aside
+        v-if="meetingDetail"
+        class="meeting-main"
+        :class="!isShowTranscript ? 'meeting-main-show' : ''"
+      >
         <nav
           class="meeting-mobile-tabs"
           :aria-label="t('meeting.mobilePanelTabs')"
@@ -662,7 +685,13 @@ watch(
             {{ t('meeting.mobileChatTab') }}
           </button>
         </nav>
-
+        <div
+          class="meeting-side-section-transcript-switch"
+          @click="transcriptSwitch"
+        >
+          <ChevronLeft v-show="!isShowTranscript" />
+          <ChevronRight v-show="isShowTranscript" />
+        </div>
         <article
           class="meeting-side-section meeting-side-section--transcript"
           :class="{ 'is-mobile-active': mobileActivePanel === 'transcript' }"
@@ -697,7 +726,7 @@ watch(
         </article>
       </aside>
     </div>
-
+    <!-------------------------- 底部 操作按钮-------------------------->
     <section
       v-if="
         meetingDetail &&
@@ -776,21 +805,25 @@ watch(
         </button>
       </el-tooltip>
 
-      <el-tooltip :content="t('meeting.moreAction')" placement="top">
+      <el-dropdown placement="top-start">
         <button
           type="button"
           class="meeting-control-button"
           :aria-label="t('meeting.moreAction')"
-          @click="
-            canInviteParticipants
-              ? openInviteParticipantsDialog()
-              : handleUnavailableFeature(t('meeting.moreAction'))
-          "
         >
           <MoreVertical :size="22" />
           <span>{{ t('meeting.moreShort') }}</span>
         </button>
-      </el-tooltip>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item @click="openInviteParticipantsDialog"
+              >拉人</el-dropdown-item
+            >
+            <el-dropdown-item @click="copyLink">分享</el-dropdown-item>
+            <el-dropdown-item>后台运行</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
 
       <el-button
         v-if="!isHost"
@@ -901,12 +934,9 @@ watch(
 }
 
 .meeting-grid {
-  flex: 1;
+  flex: 2;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 288px;
-  gap: 0;
-  background: #ffffff;
+  display: flex;
 }
 
 .meeting-grid--empty {
@@ -933,6 +963,7 @@ watch(
 }
 
 .meeting-stage {
+  flex: 4;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -1036,18 +1067,28 @@ watch(
 }
 
 .meeting-main {
-  width: auto;
+  width: 400px;
   min-width: 0;
   min-height: 0;
   max-height: none;
   display: grid;
   grid-template-rows: 240px 132px minmax(178px, 1fr);
   gap: 0;
-  overflow: hidden;
   border-left: 1px solid #e5e7eb;
   background: #ffffff;
+  transition: all 0.5s;
+  position: relative;
+  .meeting-side-section-transcript-switch {
+    position: absolute;
+    top: 40%;
+    left: -20px;
+    cursor: pointer;
+    color: #ffffff;
+  }
 }
-
+.meeting-main-show {
+  width: 0px;
+}
 .meeting-mobile-tabs {
   display: none;
 }
@@ -1197,6 +1238,7 @@ watch(
   }
 
   .meeting-main {
+    width: 100%;
     flex: 0 0 254px;
     display: flex;
     flex-direction: column;

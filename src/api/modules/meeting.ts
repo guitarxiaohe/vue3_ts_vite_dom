@@ -211,12 +211,12 @@ export function notifyMeetingDisconnect(meetingId: string) {
 export function notifyScreenShareStop(meetingId: string) {
   const token = localStorage.getItem('token') || '';
   const locale = localStorage.getItem('app_locale') || 'zh-CN';
-  const baseURL = import.meta.env.VITE_APP_BASE_API || '/dev-api';
+  const VITE_BASE_URL = import.meta.env.VITE_BASE_URL;
   const requestUrl = new URL(
-    `${baseURL}/cms/meeting/session/${meetingId}/share/stop`,
-    window.location.origin
+    `/cms/meeting/session/${meetingId}/share/stop`,
+    VITE_BASE_URL
   ).toString();
-
+  console.log('requestUrl ==>', requestUrl);
   fetch(requestUrl, {
     method: 'POST',
     body: '{}',

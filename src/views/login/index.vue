@@ -298,7 +298,7 @@ const handleRegister = async () => {
     captchaState.value.captchaOnOff &&
     (!formData.value.code.trim() || !formData.value.uuid)
   ) {
-    error.value = t('login.captchaPlaceholder');
+    // error.value = t('login.captchaPlaceholder');
     return false;
   }
   const username = formData.value.username.trim();

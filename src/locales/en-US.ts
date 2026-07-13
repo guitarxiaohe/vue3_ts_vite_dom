@@ -300,6 +300,8 @@ export default {
       'Screen sharing detected. View it in fullscreen?',
     shareScreenFullscreenConfirm: 'Fullscreen',
     shareScreenFullscreenCancel: 'Not now',
+    enterFullscreen: 'Fullscreen',
+    exitFullscreen: 'Exit Fullscreen',
     shareScreenQuality: 'Screen share quality',
     shareScreenQualitySmooth: 'Smooth',
     shareScreenQualityBalanced: 'Balanced',

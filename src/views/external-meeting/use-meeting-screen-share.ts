@@ -362,7 +362,7 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
    * 使用 isStoppingScreenShare 标记防止重复调用
    */
   async function stopCurrentScreenShare() {
-    const meetingId = currentMeetingId.value;
+    const meetingId = meetingDetail.value?.session.id;
     if (!meetingId || isStoppingScreenShare.value) {
       return;
     }
@@ -438,7 +438,7 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
         throw error;
       }
     } catch (error: any) {
-      ElMessage.error(error?.message ?? t('meeting.shareScreenFailed'));
+      // ElMessage.error(error?.message ?? t('meeting.shareScreenFailed'));
     }
   }
 
@@ -514,7 +514,8 @@ export function useMeetingScreenShare(options: UseMeetingScreenShareOptions) {
    */
   function handleScreenSharePageHide() {
     const meetingId = currentMeetingId.value;
-    if (meetingId && (isCurrentUserSharing.value || !!localScreenTrack.value)) {
+    // 直接用 localScreenTrack 判断——页面卸载时 WebSocket 已断，isCurrentUserSharing 不可靠
+    if (meetingId) {
       notifyScreenShareStop(meetingId);
     }
   }

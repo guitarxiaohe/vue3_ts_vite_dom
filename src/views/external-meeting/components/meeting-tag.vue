@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useMeetingStore } from '@/stores';
 import type { CmsMeetingDetail } from '@/api/modules/meeting.type';
+import { useAllDictDataQuery } from '@/composables/use-dict-data';
 
 const { t } = useI18n();
 const meetingStore = useMeetingStore();
@@ -37,14 +38,26 @@ const isSmartMode = computed(() => !!props.meetingDetail);
 
 const sessionStatus = computed(() => props.meetingDetail?.session.status);
 
+/** 字典数据（vue-query，共享缓存，响应式） */
+const { data: allDictRows } = useAllDictDataQuery();
+
+/** cms_meeting_status 字典：dictValue → dictLabel */
+const meetingStatusMap = computed(() => {
+  const rows = allDictRows.value ?? [];
+  const map: Record<string, string> = {};
+  rows
+    .filter((item) => item.dictType === 'cms_meeting_status')
+    .forEach((item) => {
+      const key = String(item.dictValue ?? '');
+      if (key) map[key] = item.dictLabel ?? key;
+    });
+  return map;
+});
+
+/** 智能模式：会议状态文案 */
 const smartMainText = computed(() => {
-  if (meetingStore.isActiveStatus(sessionStatus.value)) {
-    return t('meeting.statusActive');
-  }
-  if (sessionStatus.value === 'CLOSING') {
-    return t('meeting.statusClosing');
-  }
-  return t('meeting.statusEnded');
+  const status = sessionStatus.value ?? '';
+  return meetingStatusMap.value[status] || status || t('meeting.statusEnded');
 });
 
 const smartMainStatus = computed<'success' | 'info' | 'warning' | 'error'>(
